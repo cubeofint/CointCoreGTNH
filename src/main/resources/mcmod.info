@@ -3,18 +3,18 @@
 	"modList": [{
 		"modid": "${modId}",
 		"name": "${modName}",
-		"description": "An example mod for Minecraft 1.7.10 with Forge focused on a stable setup.",
+		"description": "COINT core mod for GTNH",
 		"version": "${modVersion}",
 		"mcversion": "${minecraftVersion}",
-		"url": "https://github.com/SinTh0r4s/MyMod",
+		"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=3s",
 		"updateUrl": "",
-		"authorList": ["SinTho0r4s"],
+		"authorList": ["EternalQ"],
 		"credits": "",
 		"logoFile": "",
 		"screenshots": [],
 		"parent": "",
-		"requiredMods": [],
-		"dependencies": [],
+		"requiredMods": ["betterquesting", "serverutilities"],
+		"dependencies": ["betterquesting", "serverutilities"],
 		"dependants": [],
 		"useDependencyInformation": false
 	}]

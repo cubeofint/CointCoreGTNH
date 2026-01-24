@@ -1,4 +1,4 @@
-package com.myname.mymodid;
+package coint;
 
 import java.io.File;
 

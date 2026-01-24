@@ -1,7 +1,9 @@
-package com.myname.mymodid;
+package coint;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.myname.mymodid.Tags;
 
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
@@ -10,11 +12,14 @@ import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 
-@Mod(modid = MyMod.MODID, version = Tags.VERSION, name = "MyMod", acceptedMinecraftVersions = "[1.7.10]")
-public class MyMod {
+@Mod(modid = CointCore.MOD_ID, version = CointCore.VERSION, name = CointCore.MOD_NAME, acceptedMinecraftVersions = "[1.7.10]")
+public class CointCore {
 
-    public static final String MODID = "mymodid";
-    public static final Logger LOG = LogManager.getLogger(MODID);
+    public static final String MOD_ID = "cointcore";
+    public static final String VERSION = Tags.VERSION;
+    public static final String MOD_NAME = "Coint Core GTNH";
+    
+    public static final Logger LOG = LogManager.getLogger(MOD_ID);
 
     @SidedProxy(clientSide = "com.myname.mymodid.ClientProxy", serverSide = "com.myname.mymodid.CommonProxy")
     public static CommonProxy proxy;
