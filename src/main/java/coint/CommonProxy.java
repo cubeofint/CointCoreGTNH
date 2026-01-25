@@ -2,6 +2,7 @@ package coint;
 
 import net.minecraftforge.common.MinecraftForge;
 
+import coint.epochsync.BQEventListener;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
@@ -16,6 +17,7 @@ public class CommonProxy {
 
         CointCore.LOG.info(Config.greeting);
         CointCore.LOG.info("I am MyMod at version " + Tags.VERSION);
+
     }
 
     // load "Do your mod setup. Build whatever data structures you care about. Register recipes." (Remove if not needed)
