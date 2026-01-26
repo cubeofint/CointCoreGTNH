@@ -5,9 +5,11 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
+
 import serverutils.lib.data.ForgePlayer;
 
 public class CommandSync extends CommandBase {
+
     @Override
     public String getCommandName() {
         return "coint_sync";
@@ -15,7 +17,8 @@ public class CommandSync extends CommandBase {
 
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
-        if (sender.getCommandSenderName().equals("Rcon")) return true;
+        if (sender.getCommandSenderName()
+            .equals("Rcon")) return true;
 
         ForgePlayer p = SURanksManager.INST.ranksInst.universe.getPlayer(sender);
         return p.isOP() || p.hasPermission("command.betterquesting.bq_admin");

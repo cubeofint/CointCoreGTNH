@@ -1,14 +1,15 @@
 package coint.epochsync;
 
-import betterquesting.api.events.QuestEvent;
-import betterquesting.api.utils.UuidConverter;
-import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import betterquesting.api.events.QuestEvent;
+import betterquesting.api.utils.UuidConverter;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 public class BQEventListener {
 
@@ -39,13 +40,14 @@ public class BQEventListener {
     public void onQuestApproval(QuestEvent event) {
         if (event.getType() == QuestEvent.Type.COMPLETED) {
             for (UUID questID : event.getQuestIDs()) {
-                if (epochMap.containsKey(questID) ) {
+                if (epochMap.containsKey(questID)) {
                     String epoch = epochMap.get(questID);
 
                     UUID player = event.getPlayerID();
                     System.out.println(
                         event.getQuestIDs()
-                            .toString() + " is " + epoch);
+                            .toString() + " is "
+                            + epoch);
 
                     try {
                         SURanksManager.INST.setRank(player, epoch);

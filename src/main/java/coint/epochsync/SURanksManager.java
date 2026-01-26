@@ -1,6 +1,5 @@
 package coint.epochsync;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -10,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.ranks.PlayerRank;
 import serverutils.ranks.Rank;
@@ -17,6 +17,7 @@ import serverutils.ranks.Rank.Entry;
 import serverutils.ranks.Ranks;
 
 public class SURanksManager {
+
     public static SURanksManager INST;
 
     public static final String RANK_START = "bravebro";
@@ -42,7 +43,7 @@ public class SURanksManager {
     public Ranks ranksInst;
     public static final Map<String, List<Entry>> epochPermissions = new HashMap<>();
 
-    //    TODO: Fill for all epochs
+    // TODO: Fill for all epochs
     static {
         epochPermissions.put(RANK_START, getEpochPerms(1, 25, 10, 1));
         epochPermissions.put(RANK_STONE, getEpochPerms(2, 35, 15, 2));
@@ -58,8 +59,7 @@ public class SURanksManager {
 
     private static boolean isEpoch(String rank) {
         return switch (rank) {
-            case "bravebro", "stone", "steam", "lv", "mv", "hv", "ev", "iv", "luv", "zpm", "uv", "uhv", "uev", "uiv",
-                 "umv", "uxv", "stargateowner" -> true;
+            case "bravebro", "stone", "steam", "lv", "mv", "hv", "ev", "iv", "luv", "zpm", "uv", "uhv", "uev", "uiv", "umv", "uxv", "stargateowner" -> true;
             default -> false;
         };
     }
@@ -87,26 +87,28 @@ public class SURanksManager {
             .POST(HttpRequest.BodyPublishers.ofString(jsonData))
             .build();
 
-//        asnyc
-        CompletableFuture<HttpResponse<String>> futureResponse = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        // asnyc
+        CompletableFuture<HttpResponse<String>> futureResponse = client
+            .sendAsync(request, HttpResponse.BodyHandlers.ofString());
 
         futureResponse.thenAccept(response -> {
             System.out.println("Status Code: " + response.statusCode());
             System.out.println("Response Body: " + response.body());
-        }).exceptionally(e -> {
-            System.err.println("http error: " + e.getMessage());
-            return null;
-        });
+        })
+            .exceptionally(e -> {
+                System.err.println("http error: " + e.getMessage());
+                return null;
+            });
 
-//        sync
-/*
-        try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            System.out.println("Status Code: " + response.statusCode());//
-        } catch (IOException | InterruptedException e) {
-            System.err.println("http error: " + e.toString());
-        }
-*/
+        // sync
+        /*
+         * try {
+         * HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+         * System.out.println("Status Code: " + response.statusCode());//
+         * } catch (IOException | InterruptedException e) {
+         * System.err.println("http error: " + e.toString());
+         * }
+         */
     }
 
     public Map<String, Rank> getRanks() {
