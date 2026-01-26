@@ -1,5 +1,6 @@
 package coint;
 
+import coint.epochsync.SURanksManager;
 import net.minecraftforge.common.MinecraftForge;
 
 import coint.epochsync.BQEventListener;
@@ -26,6 +27,7 @@ public class CommonProxy {
     // postInit "Handle interaction with other mods, complete your setup based on this." (Remove if not needed)
     public void postInit(FMLPostInitializationEvent event) {
         MinecraftForge.EVENT_BUS.register(new BQEventListener());
+        SURanksManager.onSUInit();
     }
 
     // register server commands in this event handler (Remove if not needed)
