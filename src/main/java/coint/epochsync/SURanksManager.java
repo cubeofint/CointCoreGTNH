@@ -132,41 +132,41 @@ public class SURanksManager {
         r.addParent(p);
         r.ranks.save();
 
-        JsonObject jo = new JsonObject();
-        jo.addProperty("player_id", player.toString());
-        jo.addProperty("rank", rank);
+        JsonObject data = new JsonObject();
+        data.addProperty("player_id", player.toString());
+        data.addProperty("rank", rank);
 
-        apiPost("/api/coint-connector/roles/gtnh", jo.getAsString());
+        apiPost("/api/coint-connector/roles/gtnh", data.getAsString());
     }
 
     public void syncRanks(boolean onlyRoles) {
         JsonObject data = new JsonObject();
 
-        JsonArray roles = new JsonArray();
+        JsonArray ranks = new JsonArray();
         for (Rank r : ranksInst.ranks.values()) {
-            JsonObject role = new JsonObject();
-            role.addProperty("name", r.getId());
-            role.addProperty("power", r.getPriority());
-            roles.add(role);
+            JsonObject rank = new JsonObject();
+            rank.addProperty("name", r.getId());
+            rank.addProperty("power", r.getPriority());
+            ranks.add(rank);
         }
-        data.add("roles", roles);
+        data.add("ranks", ranks);
 
         if (!onlyRoles) {
             JsonArray players = new JsonArray();
             for (PlayerRank p : ranksInst.playerRanks.values()) {
-                JsonObject user = new JsonObject();
-                user.addProperty("player_id", p.uuid.toString());
+                JsonObject player = new JsonObject();
+                player.addProperty("player_id", p.uuid.toString());
 
                 boolean hasEpoch = false;
                 for (Rank par : p.getActualParents()) {
                     if (isEpoch(par.getId())) {
-                        user.addProperty("role", par.getId());
+                        player.addProperty("rank", par.getId());
                         hasEpoch = true;
                     }
                 }
                 if (!hasEpoch) continue;
 
-                players.add(user);
+                players.add(player);
             }
             data.add("players", players);
         }
