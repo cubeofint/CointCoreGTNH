@@ -1,0 +1,6 @@
+// Addon gradle configuration
+
+// Handle duplicate mixin config files
+tasks.withType(Jar).configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

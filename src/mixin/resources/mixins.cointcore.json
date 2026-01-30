@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "coint.mixin",
+  "refmap": "mixins.cointcore.refmap.json",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "betterquesting.MixinPartyInstance"
+  ],
+  "client": [],
+  "server": []
+}

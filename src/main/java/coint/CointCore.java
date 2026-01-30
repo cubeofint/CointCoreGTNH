@@ -3,8 +3,8 @@ package coint;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import coint.core.CommonProxy;
 import cpw.mods.fml.common.Mod;
-import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
@@ -14,7 +14,9 @@ import cpw.mods.fml.common.event.FMLServerStartingEvent;
     modid = CointCore.MOD_ID,
     version = CointCore.VERSION,
     name = CointCore.MOD_NAME,
-    acceptedMinecraftVersions = "[1.7.10]")
+    acceptedMinecraftVersions = "[1.7.10]",
+    acceptableRemoteVersions = "*", // Server-side only: client doesn't need this mod
+    dependencies = "after:betterquesting;after:serverutilities")
 public class CointCore {
 
     public static final String MOD_ID = "cointcore";
@@ -23,31 +25,33 @@ public class CointCore {
 
     public static final Logger LOG = LogManager.getLogger(MOD_ID);
 
-    @SidedProxy(clientSide = "coint.ClientProxy", serverSide = "coint.CommonProxy")
-    public static CommonProxy proxy;
+    // Server-side only - no client proxy needed
+    public static final CommonProxy proxy = new CommonProxy();
 
     @Mod.EventHandler
-    // preInit "Run before anything else. Read your config, create blocks, items, etc, and register them with the
-    // GameRegistry." (Remove if not needed)
     public void preInit(FMLPreInitializationEvent event) {
         proxy.preInit(event);
     }
 
     @Mod.EventHandler
-    // load "Do your mod setup. Build whatever data structures you care about. Register recipes." (Remove if not needed)
     public void init(FMLInitializationEvent event) {
         proxy.init(event);
     }
 
     @Mod.EventHandler
-    // postInit "Handle interaction with other mods, complete your setup based on this." (Remove if not needed)
     public void postInit(FMLPostInitializationEvent event) {
         proxy.postInit(event);
     }
 
     @Mod.EventHandler
-    // register server commands in this event handler (Remove if not needed)
     public void serverStarting(FMLServerStartingEvent event) {
         proxy.serverStarting(event);
+    }
+
+    /**
+     * Get the proxy instance
+     */
+    public static CommonProxy getProxy() {
+        return proxy;
     }
 }
