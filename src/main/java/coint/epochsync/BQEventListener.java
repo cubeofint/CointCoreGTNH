@@ -44,10 +44,7 @@ public class BQEventListener {
                     String epoch = epochMap.get(questID);
 
                     UUID player = event.getPlayerID();
-                    System.out.println(
-                        event.getQuestIDs()
-                            .toString() + " is "
-                            + epoch);
+                    log.debug("Quest {} completed, setting epoch: {}", questID, epoch);
 
                     try {
                         SURanksManager.INST.setRank(player, epoch);
@@ -57,10 +54,5 @@ public class BQEventListener {
                 }
             }
         }
-
-        // Minecraft.getMinecraft().thePlayer.addChatComponentMessage(
-        // new ChatComponentText(
-        // event.getQuestIDs()
-        // .toString()));
     }
 }

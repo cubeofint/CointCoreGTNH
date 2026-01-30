@@ -35,6 +35,7 @@ public class CommandSync extends CommandBase {
             ChatComponentText msg = new ChatComponentText("Wrong argument. true/false only");
             msg.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.RED));
             sender.addChatMessage(msg);
+            return;
         }
         boolean onlyRoles = parseBoolean(sender, args[0]);
         SURanksManager.INST.syncRanks(onlyRoles);

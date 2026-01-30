@@ -17,7 +17,7 @@ public class CommonProxy {
         Config.synchronizeConfiguration(event.getSuggestedConfigurationFile());
 
         CointCore.LOG.info(Config.greeting);
-        CointCore.LOG.info("I am MyMod at version " + Tags.VERSION);
+        CointCore.LOG.info("CointCore GTNH version " + Tags.VERSION + " initialized");
 
     }
 

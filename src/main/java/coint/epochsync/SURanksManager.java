@@ -1,11 +1,22 @@
 package coint.epochsync;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.util.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -17,6 +28,8 @@ import serverutils.ranks.Rank.Entry;
 import serverutils.ranks.Ranks;
 
 public class SURanksManager {
+
+    private static final Logger log = LogManager.getLogger(SURanksManager.class);
 
     public static SURanksManager INST;
 
@@ -38,6 +51,27 @@ public class SURanksManager {
     public static final String RANK_UXV = "uxv";
     public static final String RANK_STARGATEOWNER = "stargateowner";
 
+    private static final Set<String> EPOCH_RANKS = Collections.unmodifiableSet(
+        new HashSet<>(
+            Arrays.asList(
+                RANK_START,
+                RANK_STONE,
+                RANK_STEAM,
+                RANK_LV,
+                RANK_MV,
+                RANK_HV,
+                RANK_EV,
+                RANK_IV,
+                RANK_LUV,
+                RANK_ZPM,
+                RANK_UV,
+                RANK_UHV,
+                RANK_UEV,
+                RANK_UIV,
+                RANK_UMV,
+                RANK_UXV,
+                RANK_STARGATEOWNER)));
+
     public static final String API_URL = System.getenv("API_URL");
 
     public Ranks ranksInst;
@@ -58,10 +92,7 @@ public class SURanksManager {
     }
 
     private static boolean isEpoch(String rank) {
-        return switch (rank) {
-            case "bravebro", "stone", "steam", "lv", "mv", "hv", "ev", "iv", "luv", "zpm", "uv", "uhv", "uev", "uiv", "umv", "uxv", "stargateowner" -> true;
-            default -> false;
-        };
+        return EPOCH_RANKS.contains(rank);
     }
 
     private static List<Entry> getEpochPerms(int priority, int chunks, int forcedChunks, int homes) {
@@ -74,45 +105,47 @@ public class SURanksManager {
         Entry h = new Entry(ServerUtilitiesPermissions.HOMES_MAX);
         h.value = String.valueOf(homes);
 
-        return List.of(p, c, f, h);
+        return Arrays.asList(p, c, f, h);
     }
 
     public static void apiPost(String endpoint, String jsonData) {
-        String url = API_URL + endpoint;
+        if (API_URL == null || API_URL.isEmpty()) {
+            log.warn("API_URL environment variable is not set, skipping API call to {}", endpoint);
+            return;
+        }
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(jsonData))
-            .build();
+        String urlString = API_URL + endpoint;
 
-        // asnyc
-        CompletableFuture<HttpResponse<String>> futureResponse = client
-            .sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        // async HTTP request using CompletableFuture
+        CompletableFuture.runAsync(() -> {
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(urlString);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                connection.setDoOutput(true);
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(10000);
 
-        futureResponse.thenAccept(response -> {
-            System.out.println("Status Code: " + response.statusCode());
-            System.out.println("Response Body: " + response.body());
-        })
-            .exceptionally(e -> {
-                System.err.println("http error: " + e.getMessage());
-                return null;
-            });
+                try (OutputStream os = connection.getOutputStream()) {
+                    byte[] input = jsonData.getBytes(StandardCharsets.UTF_8);
+                    os.write(input, 0, input.length);
+                }
 
-        // sync
-        /*
-         * try {
-         * HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-         * System.out.println("Status Code: " + response.statusCode());//
-         * } catch (IOException | InterruptedException e) {
-         * System.err.println("http error: " + e.toString());
-         * }
-         */
+                int responseCode = connection.getResponseCode();
+                log.debug("API response - Status Code: {}", responseCode);
+            } catch (IOException e) {
+                log.error("HTTP error: {}", e.getMessage());
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        });
     }
 
     public Map<String, Rank> getRanks() {
-        // Map<String, Rank> ranks = ranksInst.ranks;
         return ranksInst.ranks;
     }
 
@@ -136,7 +169,7 @@ public class SURanksManager {
         data.addProperty("player_id", player.toString());
         data.addProperty("rank", rank);
 
-        apiPost("/api/coint-connector/roles/gtnh", data.getAsString());
+        apiPost("/api/coint-connector/roles/gtnh", data.toString());
     }
 
     public void syncRanks(boolean onlyRoles) {
@@ -171,6 +204,6 @@ public class SURanksManager {
             data.add("players", players);
         }
 
-        apiPost("/api/coint-connector/roles/sync", data.getAsString());
+        apiPost("/api/coint-connector/roles/sync", data.toString());
     }
 }
