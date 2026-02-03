@@ -30,7 +30,8 @@ public class BQEventListener {
 
     @SubscribeEvent
     public void onQuestComplete(QuestEvent event) {
-        if (event.getType() != QuestEvent.Type.COMPLETED || event.getQuestIDs().isEmpty()) {
+        if (event.getType() != QuestEvent.Type.COMPLETED || event.getQuestIDs()
+            .isEmpty()) {
             return;
         }
 
