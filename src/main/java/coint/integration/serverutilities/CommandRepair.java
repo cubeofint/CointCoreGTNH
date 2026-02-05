@@ -5,8 +5,6 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.ChatStyle;
-import net.minecraft.util.EnumChatFormatting;
 
 import coint.util.ItemUtil;
 import serverutils.ranks.Ranks;
@@ -26,7 +24,7 @@ public class CommandRepair extends CommandBase {
             if (v == null) return false;
             return v.equals("1") | v.equals("2");
         } else {
-            sender.addChatMessage(new ChatComponentText("Console doesnt have an invantory"));
+            sender.addChatMessage(new ChatComponentText("Console doesn't have an inventory"));
             return false;
         }
     }
