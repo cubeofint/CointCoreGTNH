@@ -3,6 +3,7 @@ package coint.core;
 import coint.CointCore;
 import coint.Tags;
 import coint.config.CointConfig;
+import coint.integration.serverutilities.CommandRepair;
 import coint.integration.serverutilities.CommandSync;
 import coint.module.epochsync.EpochSyncModule;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
@@ -57,6 +58,7 @@ public class CommonProxy {
 
         // Register commands
         event.registerServerCommand(new CommandSync());
+        event.registerServerCommand(new CommandRepair());
         CointCore.LOG.debug("Registered server commands");
     }
 
