@@ -1,4 +1,4 @@
-package coint.integration.serverutilities;
+package coint.commands;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
