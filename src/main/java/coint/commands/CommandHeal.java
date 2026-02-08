@@ -4,9 +4,11 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
+
 import serverutils.ranks.Ranks;
 
-public class CommandHeal extends CommandBase{
+public class CommandHeal extends CommandBase {
+
     @Override
     public String getCommandName() {
         return "heal";

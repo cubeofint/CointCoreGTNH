@@ -2,10 +2,10 @@ package coint.core;
 
 import coint.CointCore;
 import coint.Tags;
-import coint.config.CointConfig;
 import coint.commands.CommandHeal;
 import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
+import coint.config.CointConfig;
 import coint.module.epochsync.EpochSyncModule;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;

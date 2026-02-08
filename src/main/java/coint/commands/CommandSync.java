@@ -1,12 +1,12 @@
 package coint.commands;
 
-import coint.integration.serverutilities.SURanksManager;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 
+import coint.integration.serverutilities.SURanksManager;
 import serverutils.lib.data.ForgePlayer;
 
 /**
@@ -42,7 +42,7 @@ public class CommandSync extends CommandBase {
             return false;
         }
 
-//        TODO: change permission
+        // TODO: change permission
         return player.isOP() || player.hasPermission("command.betterquesting.bq_admin");
     }
 
