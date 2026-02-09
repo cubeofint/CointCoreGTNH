@@ -6,6 +6,7 @@ import coint.CointCore;
 import coint.Tags;
 import coint.commands.CommandFeed;
 import coint.commands.CommandHeal;
+import coint.commands.CommandKit;
 import coint.commands.CommandNightVision;
 import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
@@ -64,11 +65,14 @@ public class CommonProxy {
     public void serverStarting(FMLServerStartingEvent event) {
         moduleManager.serverStarting();
 
+        CommandKit.registerPermissions(event.getServer());
+
         // Register commands
         event.registerServerCommand(new CommandSync());
         event.registerServerCommand(new CommandRepair());
         event.registerServerCommand(new CommandHeal());
         event.registerServerCommand(new CommandFeed());
+        event.registerServerCommand(new CommandKit());
         event.registerServerCommand(new CommandNightVision());
         CointCore.LOG.debug("Registered server commands");
     }
