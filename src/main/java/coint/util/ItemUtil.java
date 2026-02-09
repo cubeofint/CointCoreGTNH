@@ -21,32 +21,21 @@ public final class ItemUtil {
         if (itemStack == null) return;
         // repairing for tools with nbt
         if (itemStack.hasTagCompound()) {
-            if (itemStack.getTagCompound()
-                .hasKey("GT.ToolStats")) {
-                NBTTagCompound nbt = itemStack.getTagCompound()
-                    .getCompoundTag("GT.ToolStats");
+            NBTTagCompound root = itemStack.getTagCompound();
+            if (root.hasKey("GT.ToolStats")) {
+                NBTTagCompound nbt = root.getCompoundTag("GT.ToolStats");
                 nbt.setLong("Damage", 0);
-                long charge = nbt.getLong("MaxCharge");
-                itemStack.getTagCompound()
-                    .setLong("GT.ItemCharge", charge);
                 LOG.debug("repaired gt tool");
             }
 
-            if (itemStack.getTagCompound()
-                .hasKey("InfiTool")) {
-                NBTTagCompound nbt = itemStack.getTagCompound()
-                    .getCompoundTag("InfiTool");
+            if (root.hasKey("InfiTool")) {
+                NBTTagCompound nbt = root.getCompoundTag("InfiTool");
                 nbt.setLong("Damage", 0);
                 LOG.debug("repaired tc tool");
             }
 
-            if (itemStack.getTagCompound()
-                .hasKey("enderio.darksteel.upgrade.energyUpgrade")) {
+            if (root.hasKey("enderio.darksteel.upgrade.energyUpgrade")) {
                 itemStack.setItemDamage(0);
-                NBTTagCompound nbt = itemStack.getTagCompound()
-                    .getCompoundTag("enderio.darksteel.upgrade.energyUpgrade");
-                long charge = nbt.getLong("capacity");
-                nbt.setLong("energy", charge);
                 LOG.debug("repaired enderIO pickaxe");
             }
 
@@ -66,4 +55,5 @@ public final class ItemUtil {
         }
         LOG.debug("repaired null");
     }
+
 }

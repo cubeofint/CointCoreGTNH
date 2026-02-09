@@ -57,13 +57,16 @@ public class BQEventListener {
         // First, try explicit mapping from EpochRegistry
         String epoch = EpochRegistry.getEpochForQuest(questID);
 
-        // If no explicit mapping, try to parse from quest rewards
-        if (epoch == null) {
+        // If no explicit mapping, optionally parse from quest rewards
+        if (epoch == null && CointConfig.autoParseRewardCommands) {
             epoch = parseRankFromQuestRewards(questID);
         }
 
         if (epoch == null) {
-            LOG.debug("Quest {} is not an epoch quest (no mapping and no rank command found)", questID);
+            LOG.debug(
+                "Quest {} is not an epoch quest (no mapping{} )",
+                questID,
+                CointConfig.autoParseRewardCommands ? " and no rank command found" : "");
             return;
         }
 
