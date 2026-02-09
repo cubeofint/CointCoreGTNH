@@ -19,6 +19,8 @@ import coint.integration.serverutilities.SURanksManager;
 import coint.module.epochsync.EpochRegistry;
 import coint.util.CommandParser;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * Event listener for BetterQuesting quest completion events.
@@ -28,6 +30,7 @@ public class BQEventListener {
 
     private static final Logger LOG = LogManager.getLogger(BQEventListener.class);
 
+    @SideOnly(Side.SERVER)
     @SubscribeEvent
     public void onQuestComplete(QuestEvent event) {
         if (event.getType() != QuestEvent.Type.COMPLETED || event.getQuestIDs()
