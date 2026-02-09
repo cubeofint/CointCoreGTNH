@@ -4,7 +4,9 @@ import net.minecraftforge.common.MinecraftForge;
 
 import coint.CointCore;
 import coint.Tags;
+import coint.commands.CommandFeed;
 import coint.commands.CommandHeal;
+import coint.commands.CommandNightVision;
 import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
 import coint.config.CointConfig;
@@ -66,6 +68,8 @@ public class CommonProxy {
         event.registerServerCommand(new CommandSync());
         event.registerServerCommand(new CommandRepair());
         event.registerServerCommand(new CommandHeal());
+        event.registerServerCommand(new CommandFeed());
+        event.registerServerCommand(new CommandNightVision());
         CointCore.LOG.debug("Registered server commands");
     }
 

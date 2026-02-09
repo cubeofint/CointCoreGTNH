@@ -6,6 +6,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.EnumChatFormatting;
 
 import serverutils.ranks.Ranks;
 
@@ -39,8 +40,17 @@ public class CommandNightVision extends CommandBase {
         EntityPlayer player = (EntityPlayer) sender;
         if (player.isPotionActive(Potion.nightVision)) {
             player.removePotionEffect(Potion.nightVision.id);
+            sendSuccess(sender, "Ночное видение выключено");
         } else {
             player.addPotionEffect(new PotionEffect(Potion.nightVision.id, INFINITE_DURATION, 0, true));
+            sendSuccess(sender, "Ночное видение включено");
         }
+    }
+
+    private void sendSuccess(ICommandSender sender, String message) {
+        ChatComponentText msg = new ChatComponentText(message);
+        msg.getChatStyle()
+            .setColor(EnumChatFormatting.GREEN);
+        sender.addChatMessage(msg);
     }
 }
