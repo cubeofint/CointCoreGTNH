@@ -1,11 +1,14 @@
 package coint.core;
 
+import net.minecraftforge.common.MinecraftForge;
+
 import coint.CointCore;
 import coint.Tags;
 import coint.commands.CommandHeal;
 import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
 import coint.config.CointConfig;
+import coint.integration.serverutilities.CointRankConfigs;
 import coint.module.epochsync.EpochSyncModule;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
@@ -25,6 +28,8 @@ public class CommonProxy {
     public void preInit(FMLPreInitializationEvent event) {
         // Initialize configuration
         CointConfig.init(event.getSuggestedConfigurationFile());
+
+        MinecraftForge.EVENT_BUS.register(new CointRankConfigs());
 
         CointCore.LOG.info(CointConfig.greeting);
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);
