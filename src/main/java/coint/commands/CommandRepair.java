@@ -17,6 +17,7 @@ import coint.util.ItemUtil;
 import serverutils.lib.config.RankConfigAPI;
 import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
+import serverutils.ranks.Ranks;
 
 public class CommandRepair extends CommandBase {
 
@@ -36,7 +37,12 @@ public class CommandRepair extends CommandBase {
 
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
-        return sender instanceof EntityPlayer;
+        if (sender instanceof EntityPlayer player) {
+            return Ranks.INSTANCE.getPermission(player.getGameProfile(), "command.cointcore.repair", false)
+                .getBoolean();
+        }
+
+        return false;
     }
 
     @Override
