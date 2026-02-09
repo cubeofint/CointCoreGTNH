@@ -6,6 +6,9 @@ import net.minecraft.nbt.NBTTagCompound;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import thaumcraft.api.aspects.Aspect;
+import thaumcraft.common.items.wands.ItemWandCasting;
+
 /*
  * item utils
  */
@@ -16,7 +19,7 @@ public final class ItemUtil {
     // In: itemstack to repair
     public static void Repair(ItemStack itemStack) {
         if (itemStack == null) return;
-        // repairing for GT tools
+        // repairing for tools with nbt
         if (itemStack.hasTagCompound()) {
             NBTTagCompound root = itemStack.getTagCompound();
             if (root.hasKey("GT.ToolStats")) {
@@ -36,6 +39,15 @@ public final class ItemUtil {
                 LOG.debug("repaired enderIO pickaxe");
             }
 
+            if (itemStack.getItem() instanceof ItemWandCasting wand) {
+                NBTTagCompound nbt = itemStack.getTagCompound();
+                int maxVis = wand.getMaxVis(itemStack);
+                var aspects = Aspect.getPrimalAspects();
+                for (Aspect aspect : aspects) {
+                    nbt.setInteger(aspect.getTag(), maxVis);
+                }
+                LOG.debug("wand vis restored");
+            }
         } else if (itemStack.isItemDamaged()) {
             // repairing for simple tools
             LOG.debug("repaired simple tool");

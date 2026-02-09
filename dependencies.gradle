@@ -38,4 +38,7 @@ dependencies {
 
     implementation("com.github.GTNewHorizons:BetterQuesting:3.8.22-GTNH:dev")
     implementation("com.github.GTNewHorizons:ServerUtilities:2.2.13:dev")
+
+    api("thaumcraft:Thaumcraft:1.7.10-4.2.3.5:dev")
+    runtimeOnly("com.github.GTNewHorizons:Baubles:1.0.4:dev")
 }

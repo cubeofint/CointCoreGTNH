@@ -16,7 +16,7 @@ import cpw.mods.fml.common.event.FMLServerStartingEvent;
     name = CointCore.MOD_NAME,
     acceptedMinecraftVersions = "[1.7.10]",
     acceptableRemoteVersions = "*", // Server-side only: client doesn't need this mod
-    dependencies = "after:betterquesting;after:serverutilities")
+    dependencies = "after:betterquesting;after:serverutilities;after:thaumcraft")
 public class CointCore {
 
     public static final String MOD_ID = "cointcore";
