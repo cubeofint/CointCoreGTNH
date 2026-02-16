@@ -13,8 +13,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import coint.config.CointConfig;
-import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochEntry;
+import coint.module.epochsync.EpochRegistry;
 import coint.util.HttpUtil;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.ranks.PlayerRank;
@@ -75,23 +75,10 @@ public class SURanksManager {
      * Initialize epoch permissions mapping
      */
     private void initEpochPermissions() {
-        epochPermissions.put(EpochRegistry.RANK_START, createEpochPerms(1, 25, 10, 1));
-        epochPermissions.put(EpochRegistry.RANK_STONE, createEpochPerms(2, 35, 15, 2));
-        epochPermissions.put(EpochRegistry.RANK_STEAM, createEpochPerms(3, 45, 20, 3));
-        epochPermissions.put(EpochRegistry.RANK_LV, createEpochPerms(4, 55, 25, 4));
-        epochPermissions.put(EpochRegistry.RANK_MV, createEpochPerms(5, 65, 30, 5));
-        epochPermissions.put(EpochRegistry.RANK_HV, createEpochPerms(6, 75, 35, 6));
-        epochPermissions.put(EpochRegistry.RANK_EV, createEpochPerms(7, 85, 40, 7));
-        epochPermissions.put(EpochRegistry.RANK_IV, createEpochPerms(8, 95, 45, 8));
-        epochPermissions.put(EpochRegistry.RANK_LUV, createEpochPerms(9, 105, 50, 9));
-        epochPermissions.put(EpochRegistry.RANK_ZPM, createEpochPerms(10, 115, 55, 10));
-        epochPermissions.put(EpochRegistry.RANK_UV, createEpochPerms(11, 125, 60, 11));
-        epochPermissions.put(EpochRegistry.RANK_UHV, createEpochPerms(12, 135, 65, 12));
-        epochPermissions.put(EpochRegistry.RANK_UEV, createEpochPerms(13, 145, 70, 13));
-        epochPermissions.put(EpochRegistry.RANK_UIV, createEpochPerms(14, 155, 75, 14));
-        epochPermissions.put(EpochRegistry.RANK_UMV, createEpochPerms(15, 165, 80, 15));
-        epochPermissions.put(EpochRegistry.RANK_UXV, createEpochPerms(16, 175, 85, 16));
-        epochPermissions.put(EpochRegistry.RANK_STARGATEOWNER, createEpochPerms(17, 200, 100, 20));
+        for (EpochEntry entry : EpochRegistry.INST.epochs.values()) {
+            epochPermissions
+                .put(entry.rankName, createEpochPerms(entry.priority, entry.chunks, entry.forcedChunks, entry.homes));
+        }
     }
 
     private static List<Entry> createEpochPerms(int priority, int chunks, int forcedChunks, int homes) {
@@ -140,7 +127,7 @@ public class SURanksManager {
         // Collect epoch ranks to remove first (avoid ConcurrentModificationException)
         java.util.List<Rank> epochsToRemove = new java.util.ArrayList<>();
         for (Rank parent : playerRank.getParents()) {
-            if (EpochRegistry.isEpoch(parent.getId())) {
+            if (EpochRegistry.INST.getEpoch(parent.getId()) != null) {
                 epochsToRemove.add(parent);
             }
         }
@@ -224,8 +211,9 @@ public class SURanksManager {
 
                 boolean hasEpoch = false;
                 for (Rank par : p.getActualParents()) {
-                    if (EpochRegistry.isEpoch(par.getId())) {
-                        playerObj.addProperty("rank", par.getId());
+                    EpochEntry epoch = EpochRegistry.INST.getEpoch(par.getId());
+                    if (epoch != null) {
+                        playerObj.addProperty("rank", epoch.rankName);
                         hasEpoch = true;
                         break;
                     }
@@ -311,11 +299,11 @@ public class SURanksManager {
      * @param epoch    The epoch to check
      * @return true if player has this epoch or a higher one
      */
-    public boolean hasEpochOrHigher(UUID playerId, String epoch) {
-        String playerEpoch = getPlayerEpoch(playerId);
+    public boolean hasEpochOrHigher(UUID playerId, EpochEntry epoch) {
+        EpochEntry playerEpoch = getPlayerEpoch(playerId);
         if (playerEpoch == null) {
             return false;
         }
-        return EpochRegistry.getEpochPriority(playerEpoch) >= EpochRegistry.getEpochPriority(epoch);
+        return playerEpoch.priority >= epoch.priority;
     }
 }
