@@ -40,5 +40,5 @@ dependencies {
     implementation("com.github.GTNewHorizons:ServerUtilities:2.2.13:dev")
 
     api("thaumcraft:Thaumcraft:1.7.10-4.2.3.5:dev")
-    runtimeOnly("com.github.GTNewHorizons:Baubles:1.0.4:dev")
+    runtimeOnly("com.github.GTNewHorizons:Baubles-Expanded:2.1.19-GTNH:dev")
 }
