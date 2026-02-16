@@ -12,11 +12,9 @@ import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.CointRankConfigs;
+import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
-import cpw.mods.fml.common.event.FMLInitializationEvent;
-import cpw.mods.fml.common.event.FMLPostInitializationEvent;
-import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import cpw.mods.fml.common.event.*;
 
 /**
  * Common proxy for both client and server.
@@ -57,6 +55,10 @@ public class CommonProxy {
     public void postInit(FMLPostInitializationEvent event) {
         moduleManager.postInit();
         CointCore.LOG.info("CointCore GTNH initialized successfully");
+    }
+
+    public void serverAboutToStart(FMLServerAboutToStartEvent event) {
+        EpochRegistry.init(event);
     }
 
     /**

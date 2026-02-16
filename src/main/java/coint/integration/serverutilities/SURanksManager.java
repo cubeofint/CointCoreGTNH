@@ -14,6 +14,7 @@ import com.google.gson.JsonObject;
 
 import coint.config.CointConfig;
 import coint.module.epochsync.EpochRegistry;
+import coint.module.epochsync.EpochEntry;
 import coint.util.HttpUtil;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.ranks.PlayerRank;
@@ -273,7 +274,7 @@ public class SURanksManager {
      * @param playerId The player's UUID
      * @return The epoch rank name, or null if player has no epoch rank
      */
-    public String getPlayerEpoch(UUID playerId) {
+    public EpochEntry getPlayerEpoch(UUID playerId) {
         Ranks ranks = getRanksInstance();
         if (ranks == null) {
             LOG.debug("Cannot get player epoch: Ranks not initialized");
@@ -287,16 +288,15 @@ public class SURanksManager {
         }
 
         // Find the highest priority epoch rank among player's parents
-        String highestEpoch = null;
+        EpochEntry highestEpoch = null;
         int highestPriority = -1;
 
         for (Rank parent : playerRank.getActualParents()) {
-            String rankId = parent.getId();
-            if (EpochRegistry.isEpoch(rankId)) {
-                int priority = EpochRegistry.getEpochPriority(rankId);
-                if (priority > highestPriority) {
-                    highestPriority = priority;
-                    highestEpoch = rankId;
+            EpochEntry epoch = EpochRegistry.INST.getEpoch(parent.getId());
+            if (epoch != null) {
+                if (epoch.priority > highestPriority) {
+                    highestPriority = epoch.priority;
+                    highestEpoch = epoch;
                 }
             }
         }

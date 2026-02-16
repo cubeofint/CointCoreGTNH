@@ -13,7 +13,7 @@ import betterquesting.api2.storage.DBEntry;
 import betterquesting.questing.party.PartyManager;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.SURanksManager;
-import coint.module.epochsync.EpochRegistry;
+import coint.module.epochsync.EpochEntry;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
 
@@ -75,19 +75,22 @@ public class PartyEventListener {
             return;
         }
 
-        String partyEpoch = getHighestPartyEpoch(party);
+        EpochEntry partyEpoch = getHighestPartyEpoch(party);
         if (partyEpoch == null) {
             LOG.debug("Party has no epoch rank, nothing to sync for player {}", playerId);
             return;
         }
 
-        String playerEpoch = getPlayerCurrentEpoch(playerId);
+        EpochEntry playerEpoch = getPlayerCurrentEpoch(playerId);
 
         // Only upgrade, never downgrade
-        if (playerEpoch == null
-            || EpochRegistry.getEpochPriority(partyEpoch) > EpochRegistry.getEpochPriority(playerEpoch)) {
-            LOG.info("Syncing player {} to party epoch: {} (was: {})", playerId, partyEpoch, playerEpoch);
-            assignRankToPlayer(playerId, partyEpoch);
+        if (playerEpoch == null || partyEpoch.priority > playerEpoch.priority) {
+            LOG.info(
+                "Syncing player {} to party epoch: {} (was: {})",
+                playerId,
+                partyEpoch.rankName,
+                playerEpoch == null ? "non" : playerEpoch.rankName);
+            assignRankToPlayer(playerId, partyEpoch.rankName);
         } else {
             LOG.debug("Player {} already has equal or higher epoch: {}", playerId, playerEpoch);
         }
@@ -113,19 +116,18 @@ public class PartyEventListener {
      * Internal method to sync a player to a specific party.
      */
     private void syncPlayerToPartyInternal(UUID playerId, IParty party) {
-        String partyEpoch = getHighestPartyEpoch(party);
+        EpochEntry partyEpoch = getHighestPartyEpoch(party);
         if (partyEpoch == null) {
             LOG.debug("Party has no epoch rank, nothing to sync for new member {}", playerId);
             return;
         }
 
-        String playerEpoch = getPlayerCurrentEpoch(playerId);
+        EpochEntry playerEpoch = getPlayerCurrentEpoch(playerId);
 
         // Only upgrade, never downgrade
-        if (playerEpoch == null
-            || EpochRegistry.getEpochPriority(partyEpoch) > EpochRegistry.getEpochPriority(playerEpoch)) {
-            LOG.info("Syncing new party member {} to epoch: {}", playerId, partyEpoch);
-            assignRankToPlayer(playerId, partyEpoch);
+        if (playerEpoch == null || partyEpoch.priority > playerEpoch.priority) {
+            LOG.info("Syncing new party member {} to epoch: {}", playerId, partyEpoch.rankName);
+            assignRankToPlayer(playerId, partyEpoch.rankName);
         }
     }
 
@@ -145,20 +147,19 @@ public class PartyEventListener {
     /**
      * Get the highest epoch rank from a party.
      */
-    private String getHighestPartyEpoch(IParty party) {
+    private EpochEntry getHighestPartyEpoch(IParty party) {
         if (party == null) {
             return null;
         }
 
-        String highestEpoch = null;
+        EpochEntry highestEpoch = null;
         int highestPriority = -1;
 
         for (UUID memberUUID : party.getMembers()) {
-            String memberEpoch = getPlayerCurrentEpoch(memberUUID);
+            EpochEntry memberEpoch = getPlayerCurrentEpoch(memberUUID);
             if (memberEpoch != null) {
-                int priority = EpochRegistry.getEpochPriority(memberEpoch);
-                if (priority > highestPriority) {
-                    highestPriority = priority;
+                if (memberEpoch.priority > highestPriority) {
+                    highestPriority = memberEpoch.priority;
                     highestEpoch = memberEpoch;
                 }
             }
@@ -170,7 +171,7 @@ public class PartyEventListener {
     /**
      * Get the current epoch rank of a player.
      */
-    private String getPlayerCurrentEpoch(UUID playerId) {
+    private EpochEntry getPlayerCurrentEpoch(UUID playerId) {
         SURanksManager ranksManager = SURanksManager.getInstance();
         if (ranksManager == null || !ranksManager.isReady()) {
             return null;

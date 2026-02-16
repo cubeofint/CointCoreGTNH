@@ -7,17 +7,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import betterquesting.api.events.QuestEvent;
-import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.party.IParty;
-import betterquesting.api.questing.rewards.IReward;
 import betterquesting.api2.storage.DBEntry;
-import betterquesting.questing.QuestDatabase;
 import betterquesting.questing.party.PartyManager;
-import bq_standard.rewards.RewardCommand;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.SURanksManager;
 import coint.module.epochsync.EpochRegistry;
-import coint.util.CommandParser;
+import coint.module.epochsync.EpochEntry;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -57,13 +53,7 @@ public class BQEventListener {
     private void processQuestCompletion(UUID playerId, UUID questID) {
         LOG.debug("Processing quest completion: {}", questID);
 
-        // First, try explicit mapping from EpochRegistry
-        String epoch = EpochRegistry.getEpochForQuest(questID);
-
-        // If no explicit mapping, optionally parse from quest rewards
-        if (epoch == null && CointConfig.autoParseRewardCommands) {
-            epoch = parseRankFromQuestRewards(questID);
-        }
+        EpochEntry epoch = EpochRegistry.INST.getEpoch(questID);
 
         if (epoch == null) {
             LOG.debug(
@@ -73,54 +63,14 @@ public class BQEventListener {
             return;
         }
 
-        LOG.info("Quest {} triggers rank: {}", questID, epoch);
+        LOG.info("Quest {} triggers rank: {}", questID, epoch.rankName);
         assignRankToPlayerAndParty(playerId, epoch);
-    }
-
-    /**
-     * Parse rank from quest reward commands.
-     * Looks for RewardCommand with /ranks add pattern.
-     */
-    private String parseRankFromQuestRewards(UUID questID) {
-        try {
-            IQuest quest = QuestDatabase.INSTANCE.get(questID);
-            if (quest == null) {
-                LOG.debug("Quest {} not found in database", questID);
-                return null;
-            }
-
-            for (DBEntry<IReward> rewardEntry : quest.getRewards()
-                .getEntries()) {
-                IReward reward = rewardEntry.getValue();
-
-                if (reward instanceof RewardCommand) {
-                    RewardCommand cmdReward = (RewardCommand) reward;
-                    String command = cmdReward.command;
-
-                    if (CommandParser.isRanksAddCommand(command)) {
-                        String rank = CommandParser.parseRankFromCommand(command);
-
-                        // Validate that it's a known epoch rank
-                        if (rank != null && EpochRegistry.isEpoch(rank)) {
-                            LOG.debug("Found epoch rank '{}' in quest reward command: {}", rank, command);
-                            return rank;
-                        } else if (rank != null) {
-                            LOG.debug("Rank '{}' from command is not a registered epoch, skipping", rank);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            LOG.error("Error parsing quest rewards for {}: {}", questID, e.getMessage(), e);
-        }
-
-        return null;
     }
 
     /**
      * Assign rank to a player and all their party members.
      */
-    private void assignRankToPlayerAndParty(UUID playerId, String rank) {
+    private void assignRankToPlayerAndParty(UUID playerId, EpochEntry epoch) {
         SURanksManager ranksManager = SURanksManager.getInstance();
         if (ranksManager == null) {
             LOG.warn("SURanksManager not initialized, cannot set rank");
@@ -133,26 +83,26 @@ public class BQEventListener {
         if (party != null && CointConfig.partySyncEnabled) {
             // Assign rank to all party members
             List<UUID> members = party.getMembers();
-            LOG.info("Assigning rank {} to {} party members", rank, members.size());
+            LOG.info("Assigning rank {} to {} party members", epoch, members.size());
 
             for (UUID memberUUID : members) {
-                assignRankToPlayer(ranksManager, memberUUID, rank);
+                assignRankToPlayer(ranksManager, memberUUID, epoch);
             }
         } else {
             // No party or party sync disabled - assign only to the player
-            assignRankToPlayer(ranksManager, playerId, rank);
+            assignRankToPlayer(ranksManager, playerId, epoch);
         }
     }
 
     /**
      * Assign rank to a single player.
      */
-    private void assignRankToPlayer(SURanksManager ranksManager, UUID playerId, String rank) {
+    private void assignRankToPlayer(SURanksManager ranksManager, UUID playerId, EpochEntry epoch) {
         try {
-            ranksManager.setRank(playerId, rank);
-            LOG.info("Successfully set rank {} for player {}", rank, playerId);
+            ranksManager.setRank(playerId, epoch.rankName);
+            LOG.info("Successfully set rank {} for player {}", epoch.rankName, playerId);
         } catch (Exception e) {
-            LOG.error("Error setting rank {} for player {}: {}", rank, playerId, e.getMessage(), e);
+            LOG.error("Error setting rank {} for player {}: {}", epoch.rankName, playerId, e.getMessage(), e);
         }
     }
 
@@ -178,12 +128,12 @@ public class BQEventListener {
      * @param party The party to check
      * @return The highest epoch rank, or null if none found
      */
-    public String getHighestPartyEpoch(IParty party) {
+    public EpochEntry getHighestPartyEpoch(IParty party) {
         if (party == null) {
             return null;
         }
 
-        String highestEpoch = null;
+        EpochEntry highestEpoch = null;
         int highestPriority = -1;
 
         SURanksManager ranksManager = SURanksManager.getInstance();
@@ -192,11 +142,10 @@ public class BQEventListener {
         }
 
         for (UUID memberUUID : party.getMembers()) {
-            String memberEpoch = getPlayerCurrentEpoch(memberUUID);
+            EpochEntry memberEpoch = getPlayerCurrentEpoch(memberUUID);
             if (memberEpoch != null) {
-                int priority = EpochRegistry.getEpochPriority(memberEpoch);
-                if (priority > highestPriority) {
-                    highestPriority = priority;
+                if (memberEpoch.priority > highestPriority) {
+                    highestPriority = memberEpoch.priority;
                     highestEpoch = memberEpoch;
                 }
             }
@@ -208,7 +157,7 @@ public class BQEventListener {
     /**
      * Get the current epoch rank of a player.
      */
-    private String getPlayerCurrentEpoch(UUID playerId) {
+    private EpochEntry getPlayerCurrentEpoch(UUID playerId) {
         SURanksManager ranksManager = SURanksManager.getInstance();
         if (ranksManager == null) {
             return null;
@@ -233,17 +182,16 @@ public class BQEventListener {
             return;
         }
 
-        String partyEpoch = getHighestPartyEpoch(party);
+        EpochEntry partyEpoch = getHighestPartyEpoch(party);
         if (partyEpoch == null) {
             LOG.debug("Party has no epoch rank, nothing to sync for player {}", playerId);
             return;
         }
 
-        String playerEpoch = getPlayerCurrentEpoch(playerId);
+        EpochEntry playerEpoch = getPlayerCurrentEpoch(playerId);
 
         // Only upgrade, never downgrade
-        if (playerEpoch == null
-            || EpochRegistry.getEpochPriority(partyEpoch) > EpochRegistry.getEpochPriority(playerEpoch)) {
+        if (playerEpoch == null || partyEpoch.priority > playerEpoch.priority) {
             LOG.info("Syncing player {} to party epoch: {}", playerId, partyEpoch);
             assignRankToPlayer(SURanksManager.getInstance(), playerId, partyEpoch);
         } else {
