@@ -3,6 +3,8 @@ package coint.integration.betterquesting;
 import java.util.List;
 import java.util.UUID;
 
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ChatComponentText;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -100,6 +102,13 @@ public class BQEventListener {
     private void assignRankToPlayer(SURanksManager ranksManager, UUID playerId, EpochEntry epoch) {
         try {
             ranksManager.setRank(playerId, epoch.rankName);
+
+            String name = ranksManager.getUniverse().getPlayer(playerId).getName();
+            String msg = epoch.epochUpMessage.replace("@p", name);
+            MinecraftServer.getServer().addChatMessage(
+                new ChatComponentText(msg)
+            );
+
             LOG.info("Successfully set rank {} for player {}", epoch.rankName, playerId);
         } catch (Exception e) {
             LOG.error("Error setting rank {} for player {}: {}", epoch.rankName, playerId, e.getMessage(), e);

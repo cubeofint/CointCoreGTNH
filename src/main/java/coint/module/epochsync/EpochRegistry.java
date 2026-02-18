@@ -51,6 +51,7 @@ public class EpochRegistry {
 
         try {
             if (!epochsFile.exists() && !epochsFile.createNewFile()) {
+                CointCore.LOG.info("empty epochs config created");
                 return;
             }
 

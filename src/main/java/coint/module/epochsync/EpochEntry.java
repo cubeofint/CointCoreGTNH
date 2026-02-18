@@ -12,6 +12,9 @@ public class EpochEntry {
 
     public List<String> commands;
 
+    @SerializedName("epoch_up_message")
+    public String epochUpMessage;
+
     @SerializedName("rank_name")
     public String rankName;
 
