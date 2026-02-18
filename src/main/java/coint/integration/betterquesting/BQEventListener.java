@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -103,11 +104,12 @@ public class BQEventListener {
         try {
             ranksManager.setRank(playerId, epoch.rankName);
 
-            String name = ranksManager.getUniverse().getPlayer(playerId).getName();
+            String name = ranksManager.getUniverse()
+                .getPlayer(playerId)
+                .getName();
             String msg = epoch.epochUpMessage.replace("@p", name);
-            MinecraftServer.getServer().addChatMessage(
-                new ChatComponentText(msg)
-            );
+            MinecraftServer.getServer()
+                .addChatMessage(new ChatComponentText(msg));
 
             LOG.info("Successfully set rank {} for player {}", epoch.rankName, playerId);
         } catch (Exception e) {

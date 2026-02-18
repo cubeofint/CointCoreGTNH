@@ -28,8 +28,6 @@ public class CommandFeed extends CommandBase {
             return Ranks.INSTANCE.getPermission(player.getGameProfile(), "command.cointcore.feed", false)
                 .getBoolean();
         }
-
-        sender.addChatMessage(new ChatComponentText("Console cannot be fed"));
         return false;
     }
 

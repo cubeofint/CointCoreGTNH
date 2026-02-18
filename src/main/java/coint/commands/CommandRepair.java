@@ -41,7 +41,6 @@ public class CommandRepair extends CommandBase {
             return Ranks.INSTANCE.getPermission(player.getGameProfile(), "command.cointcore.repair", false)
                 .getBoolean();
         }
-
         return false;
     }
 

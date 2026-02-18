@@ -32,10 +32,8 @@ public class CommandHeal extends CommandBase {
         if (sender instanceof EntityPlayer player) {
             return Ranks.INSTANCE.getPermission(player.getGameProfile(), "command.cointcore.heal", false)
                 .getBoolean();
-        } else {
-            sender.addChatMessage(new ChatComponentText("Console cannot be healed"));
-            return false;
         }
+        return false;
     }
 
     @Override

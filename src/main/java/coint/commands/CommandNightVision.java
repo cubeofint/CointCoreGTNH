@@ -25,8 +25,6 @@ public class CommandNightVision extends CommandBase {
             return Ranks.INSTANCE.getPermission(player.getGameProfile(), "command.cointcore.nv", false)
                 .getBoolean();
         }
-
-        sender.addChatMessage(new ChatComponentText("Console cannot use night vision"));
         return false;
     }
 
