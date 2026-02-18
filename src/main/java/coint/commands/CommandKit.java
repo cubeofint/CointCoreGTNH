@@ -36,11 +36,11 @@ public class CommandKit extends CommandBase {
     private static final Pattern KIT_NAME = Pattern.compile("^[a-z0-9_-]{1,32}$");
     private static final String TAG_KIT_COOLDOWNS = "cointcore_kit_cooldowns";
 
-    public static void registerPermissions(MinecraftServer server) {
-        PermissionAPI.registerNode("command.cointcore.kit.create", DefaultPermissionLevel.NONE, "CointCore kit create");
-        PermissionAPI.registerNode("command.cointcore.kit.claim", DefaultPermissionLevel.NONE, "CointCore kit claim");
-        PermissionAPI.registerNode("command.cointcore.kit.list", DefaultPermissionLevel.NONE, "CointCore kit list");
-        PermissionAPI.registerNode("command.cointcore.kit.delete", DefaultPermissionLevel.NONE, "CointCore kit delete");
+    public CommandKit(MinecraftServer server) {
+        PermissionAPI.registerNode("cointcore.command.kit.create", DefaultPermissionLevel.NONE, "CointCore kit create");
+        PermissionAPI.registerNode("cointcore.command.kit.claim", DefaultPermissionLevel.NONE, "CointCore kit claim");
+        PermissionAPI.registerNode("cointcore.command.kit.list", DefaultPermissionLevel.NONE, "CointCore kit list");
+        PermissionAPI.registerNode("cointcore.command.kit.delete", DefaultPermissionLevel.NONE, "CointCore kit delete");
 
         if (server != null) {
             for (String name : KitManager.getKitNames(server)) {
@@ -100,7 +100,7 @@ public class CommandKit extends CommandBase {
         }
 
         if ("create".equals(sub)) {
-            if (!hasPermission(player, "command.cointcore.kit.create")) {
+            if (!hasPermission(player, "cointcore.command.kit.create")) {
                 throw new CommandException("commands.generic.permission");
             }
             long cooldownTicks = parseCooldown(sender, args);
@@ -128,7 +128,7 @@ public class CommandKit extends CommandBase {
                 return;
             }
 
-            if (!hasPermission(player, "command.cointcore.kit.claim")
+            if (!hasPermission(player, "cointcore.command.kit.claim")
                 || !hasPermission(player, "cointcore.kit." + name)) {
                 throw new CommandException("commands.generic.permission");
             }
@@ -150,7 +150,7 @@ public class CommandKit extends CommandBase {
         }
 
         if ("list".equals(sub)) {
-            if (!hasPermission(player, "command.cointcore.kit.list")) {
+            if (!hasPermission(player, "cointcore.command.kit.list")) {
                 throw new CommandException("commands.generic.permission");
             }
             Collection<String> names = KitManager.getKitNames(MinecraftServer.getServer());
@@ -163,7 +163,7 @@ public class CommandKit extends CommandBase {
         }
 
         if ("delete".equals(sub)) {
-            if (!hasPermission(player, "command.cointcore.kit.delete")) {
+            if (!hasPermission(player, "cointcore.command.kit.delete")) {
                 throw new CommandException("commands.generic.permission");
             }
             KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), name);

@@ -10,6 +10,7 @@ import coint.commands.CommandKit;
 import coint.commands.CommandNightVision;
 import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
+import coint.commands.warn.WarnsRegister;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.CointRankConfigs;
 import coint.module.epochsync.EpochRegistry;
@@ -35,6 +36,7 @@ public class CommonProxy {
         CointConfig.init(event.getSuggestedConfigurationFile());
 
         MinecraftForge.EVENT_BUS.register(new CointRankConfigs());
+        MinecraftForge.EVENT_BUS.register(new WarnsRegister());
 
         CointCore.LOG.info(CointConfig.greeting);
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);
@@ -71,14 +73,12 @@ public class CommonProxy {
     public void serverStarting(FMLServerStartingEvent event) {
         moduleManager.serverStarting();
 
-        CommandKit.registerPermissions(event.getServer());
-
         // Register commands
         event.registerServerCommand(new CommandSync());
         event.registerServerCommand(new CommandRepair());
         event.registerServerCommand(new CommandHeal());
         event.registerServerCommand(new CommandFeed());
-        event.registerServerCommand(new CommandKit());
+        event.registerServerCommand(new CommandKit(event.getServer()));
         event.registerServerCommand(new CommandNightVision());
         CointCore.LOG.debug("Registered server commands");
     }
