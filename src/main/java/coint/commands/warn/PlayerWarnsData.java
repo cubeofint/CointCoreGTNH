@@ -25,6 +25,10 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
 
     List<Warn> warns;
 
+    public PlayerWarnsData() {
+        warns = new ArrayList<>();
+    }
+
     @Override
     public void saveNBTData(NBTTagCompound compound) {
         NBTTagCompound props = new NBTTagCompound();
@@ -135,6 +139,29 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
         }
     }
 
+    public static void clearOffline(UUID player) {
+        File playerDataFile = new File("World/playerdata/" + player + ".dat");
+        if (playerDataFile.exists()) {
+            try (FileInputStream fileInputStream = new FileInputStream(playerDataFile)) {
+                NBTTagCompound compound = CompressedStreamTools.readCompressed(fileInputStream);
+
+                NBTTagCompound props = compound.getCompoundTag(EXT_PROP);
+                if (props != null) {
+                    NBTTagList clearList = new NBTTagList();
+
+                    props.setTag("warns", clearList);
+                    compound.setTag(EXT_PROP, props);
+
+                    FileOutputStream fileOutputStream = new FileOutputStream(playerDataFile);
+                    CompressedStreamTools.writeCompressed(compound, fileOutputStream);
+                    fileOutputStream.close();
+                }
+            } catch (Exception e) {
+                CointCore.LOG.error(e.getMessage());
+            }
+        }
+    }
+
     public static PlayerWarnsData get(EntityPlayer player) {
         return (PlayerWarnsData) player.getExtendedProperties(EXT_PROP);
     }
@@ -145,5 +172,9 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
 
     public List<Warn> get() {
         return warns;
+    }
+
+    public void clear() {
+        warns.clear();
     }
 }
