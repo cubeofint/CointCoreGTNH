@@ -1,15 +1,10 @@
 package coint.core;
 
+import coint.commands.*;
 import net.minecraftforge.common.MinecraftForge;
 
 import coint.CointCore;
 import coint.Tags;
-import coint.commands.CommandFeed;
-import coint.commands.CommandHeal;
-import coint.commands.CommandKit;
-import coint.commands.CommandNightVision;
-import coint.commands.CommandRepair;
-import coint.commands.CommandSync;
 import coint.commands.warn.WarnsRegister;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.CointRankConfigs;
@@ -80,6 +75,7 @@ public class CommonProxy {
         event.registerServerCommand(new CommandFeed());
         event.registerServerCommand(new CommandKit(event.getServer()));
         event.registerServerCommand(new CommandNightVision());
+        event.registerServerCommand(new CommandWarn());
         CointCore.LOG.debug("Registered server commands");
     }
 

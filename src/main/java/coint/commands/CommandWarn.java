@@ -24,7 +24,7 @@ import serverutils.ranks.Ranks;
 public class CommandWarn extends CommandBase {
 
     public CommandWarn() {
-        PermissionAPI.registerNode("cointcore.command.warn", DefaultPermissionLevel.NONE, "CointCore warn permission");
+        PermissionAPI.registerNode("cointcore.command.warn", DefaultPermissionLevel.OP, "CointCore warn permission");
     }
 
     @Override
