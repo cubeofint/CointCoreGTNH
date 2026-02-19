@@ -1,6 +1,12 @@
 package coint.core;
 
-import coint.commands.*;
+import coint.commands.CommandFeed;
+import coint.commands.CommandHeal;
+import coint.commands.CommandKit;
+import coint.commands.CommandNightVision;
+import coint.commands.CommandRepair;
+import coint.commands.CommandSync;
+import coint.commands.CommandWarn;
 import net.minecraftforge.common.MinecraftForge;
 
 import coint.CointCore;
