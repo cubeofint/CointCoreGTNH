@@ -117,7 +117,12 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
 
                 NBTTagCompound props = compound.getCompoundTag(EXT_PROP);
                 if (props != null) {
-                    NBTTagList list = props.getTagList("warns", Constants.NBT.TAG_LIST);
+                    NBTTagList list;
+                    if (props.hasKey("warns", Constants.NBT.TAG_LIST)) {
+                        list = props.getTagList("warns", Constants.NBT.TAG_COMPOUND);
+                    } else {
+                        list = new NBTTagList();
+                    }
 
                     NBTTagCompound warnCompound = new NBTTagCompound();
                     warnCompound.setString("warner", warn.warner);
@@ -129,9 +134,9 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
                     props.setTag("warns", list);
                     compound.setTag(EXT_PROP, props);
 
-                    FileOutputStream fileOutputStream = new FileOutputStream(playerDataFile);
-                    CompressedStreamTools.writeCompressed(compound, fileOutputStream);
-                    fileOutputStream.close();
+                    try (FileOutputStream fileOutputStream = new FileOutputStream(playerDataFile)) {
+                        CompressedStreamTools.writeCompressed(compound, fileOutputStream);
+                    }
                 }
             } catch (Exception e) {
                 CointCore.LOG.error(e.getMessage());
