@@ -98,19 +98,37 @@ public class CommandWarn extends CommandBase {
 
                 sender.addChatMessage(new ChatComponentText(playerName + ": " + warns.size() + " warn(s)"));
 
+                int i = 0;
                 for (Warn warn : warns) {
                     Instant when = Instant.parse(warn.timestamp);
                     ZonedDateTime zdt = when.atZone(ZoneId.of("Europe/Moscow"));
                     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
                     sender.addChatMessage(
                         new ChatComponentText(
-                            warn.warner + EnumChatFormatting.GREEN
+                            i + ". "
+                                + warn.warner
+                                + EnumChatFormatting.GREEN
                                 + ":"
                                 + EnumChatFormatting.RESET
                                 + zdt.format(formatter)
                                 + " - "
                                 + EnumChatFormatting.YELLOW
                                 + warn.reason));
+                    i++;
+                }
+                break;
+            }
+            case "remove": {
+                if (args.length < 3) {
+                    throw new WrongUsageException(getCommandUsage(sender));
+                }
+                int i = parseInt(sender, args[2]);
+
+                if (player.isOnline()) {
+                    PlayerWarnsData warnsData = PlayerWarnsData.get(player.getPlayer());
+                    warnsData.remove(i);
+                } else {
+                    PlayerWarnsData.removeOffline(player.getId(), i);
                 }
                 break;
             }

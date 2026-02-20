@@ -3,7 +3,6 @@ package coint.commands.warn;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
@@ -22,11 +21,12 @@ import coint.CointCore;
 public class PlayerWarnsData implements IExtendedEntityProperties {
 
     public static String EXT_PROP = CointCore.MOD_ID;
+    public static String NBT_TAG_WARNS = "warns";
 
     List<Warn> warns;
 
     public PlayerWarnsData() {
-        warns = new ArrayList<>();
+        warns = new LinkedList<>();
     }
 
     @Override
@@ -43,7 +43,7 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
             list.appendTag(warnCompound);
         }
 
-        props.setTag("warns", list);
+        props.setTag(NBT_TAG_WARNS, list);
         compound.setTag(EXT_PROP, props);
     }
 
@@ -52,8 +52,8 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
         NBTTagCompound props = (NBTTagCompound) compound.getTag(EXT_PROP);
 
         if (props != null) {
-            if (props.hasKey("warns", Constants.NBT.TAG_LIST)) {
-                NBTTagList warnsList = props.getTagList("warns", Constants.NBT.TAG_COMPOUND);
+            if (props.hasKey(NBT_TAG_WARNS, Constants.NBT.TAG_LIST)) {
+                NBTTagList warnsList = props.getTagList(NBT_TAG_WARNS, Constants.NBT.TAG_COMPOUND);
 
                 this.warns.clear();
 
@@ -73,7 +73,7 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
 
     @Override
     public void init(Entity entity, World world) {
-        warns = new ArrayList<>();
+        warns = new LinkedList<>();
     }
 
     public static List<Warn> getOffline(UUID player) {
@@ -83,8 +83,8 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
                 NBTTagCompound fullPlayerData = CompressedStreamTools.readCompressed(fileInputStream);
 
                 NBTTagCompound props = fullPlayerData.getCompoundTag(EXT_PROP);
-                if (props != null && props.hasKey("warns", Constants.NBT.TAG_LIST)) {
-                    NBTTagList warnsList = props.getTagList("warns", Constants.NBT.TAG_COMPOUND);
+                if (props != null && props.hasKey(NBT_TAG_WARNS, Constants.NBT.TAG_LIST)) {
+                    NBTTagList warnsList = props.getTagList(NBT_TAG_WARNS, Constants.NBT.TAG_COMPOUND);
 
                     List<Warn> warns = new LinkedList<>();
 
@@ -118,8 +118,8 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
                 NBTTagCompound props = compound.getCompoundTag(EXT_PROP);
                 if (props != null) {
                     NBTTagList list;
-                    if (props.hasKey("warns", Constants.NBT.TAG_LIST)) {
-                        list = props.getTagList("warns", Constants.NBT.TAG_COMPOUND);
+                    if (props.hasKey(NBT_TAG_WARNS, Constants.NBT.TAG_LIST)) {
+                        list = props.getTagList(NBT_TAG_WARNS, Constants.NBT.TAG_COMPOUND);
                     } else {
                         list = new NBTTagList();
                     }
@@ -131,7 +131,7 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
 
                     list.appendTag(warnCompound);
 
-                    props.setTag("warns", list);
+                    props.setTag(NBT_TAG_WARNS, list);
                     compound.setTag(EXT_PROP, props);
 
                     try (FileOutputStream fileOutputStream = new FileOutputStream(playerDataFile)) {
@@ -154,12 +154,37 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
                 if (props != null) {
                     NBTTagList clearList = new NBTTagList();
 
-                    props.setTag("warns", clearList);
+                    props.setTag(NBT_TAG_WARNS, clearList);
                     compound.setTag(EXT_PROP, props);
 
-                    FileOutputStream fileOutputStream = new FileOutputStream(playerDataFile);
-                    CompressedStreamTools.writeCompressed(compound, fileOutputStream);
-                    fileOutputStream.close();
+                    try (FileOutputStream fileOutputStream = new FileOutputStream(playerDataFile)) {
+                        CompressedStreamTools.writeCompressed(compound, fileOutputStream);
+                    }
+                }
+            } catch (Exception e) {
+                CointCore.LOG.error(e.getMessage());
+            }
+        }
+    }
+
+    public static void removeOffline(UUID player, int i) {
+        File playerDataFile = new File("World/playerdata/" + player + ".dat");
+        if (playerDataFile.exists()) {
+            try (FileInputStream fileInputStream = new FileInputStream(playerDataFile)) {
+                NBTTagCompound compound = CompressedStreamTools.readCompressed(fileInputStream);
+
+                NBTTagCompound props = compound.getCompoundTag(EXT_PROP);
+                if (props != null) {
+                    NBTTagList list = props.getTagList(NBT_TAG_WARNS, Constants.NBT.TAG_COMPOUND);
+
+                    list.removeTag(i);
+
+                    props.setTag(NBT_TAG_WARNS, list);
+                    compound.setTag(EXT_PROP, props);
+
+                    try (FileOutputStream fileOutputStream = new FileOutputStream(playerDataFile)) {
+                        CompressedStreamTools.writeCompressed(compound, fileOutputStream);
+                    }
                 }
             } catch (Exception e) {
                 CointCore.LOG.error(e.getMessage());
@@ -181,5 +206,9 @@ public class PlayerWarnsData implements IExtendedEntityProperties {
 
     public void clear() {
         warns.clear();
+    }
+
+    public void remove(int i) {
+        warns.remove(i);
     }
 }
