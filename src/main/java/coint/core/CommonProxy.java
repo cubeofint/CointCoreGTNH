@@ -7,10 +7,15 @@ import coint.Tags;
 import coint.commands.CommandFeed;
 import coint.commands.CommandHeal;
 import coint.commands.CommandKit;
+import coint.commands.CommandMute;
 import coint.commands.CommandNightVision;
 import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
+import coint.commands.CommandUnmute;
 import coint.commands.CommandWarn;
+import coint.commands.mute.MuteChatHandler;
+import coint.commands.mute.MuteRegister;
+import coint.commands.mute.MuteTickHandler;
 import coint.commands.warn.WarnsRegister;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.CointRankConfigs;
@@ -38,6 +43,9 @@ public class CommonProxy {
 
         MinecraftForge.EVENT_BUS.register(new CointRankConfigs());
         MinecraftForge.EVENT_BUS.register(new WarnsRegister());
+        MinecraftForge.EVENT_BUS.register(new MuteRegister());
+        MinecraftForge.EVENT_BUS.register(new MuteTickHandler());
+        MinecraftForge.EVENT_BUS.register(new MuteChatHandler());
 
         CointCore.LOG.info(CointConfig.greeting);
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);
@@ -52,6 +60,7 @@ public class CommonProxy {
     /**
      * Called during FML init phase
      */
+    @SuppressWarnings("unused")
     public void init(FMLInitializationEvent event) {
         moduleManager.init();
     }
@@ -59,6 +68,7 @@ public class CommonProxy {
     /**
      * Called during FML postInit phase
      */
+    @SuppressWarnings("unused")
     public void postInit(FMLPostInitializationEvent event) {
         moduleManager.postInit();
         CointCore.LOG.info("CointCore GTNH initialized successfully");
@@ -82,6 +92,8 @@ public class CommonProxy {
         event.registerServerCommand(new CommandKit(event.getServer()));
         event.registerServerCommand(new CommandNightVision());
         event.registerServerCommand(new CommandWarn());
+        event.registerServerCommand(new CommandMute());
+        event.registerServerCommand(new CommandUnmute());
         CointCore.LOG.debug("Registered server commands");
     }
 
@@ -95,6 +107,7 @@ public class CommonProxy {
     /**
      * Get the module manager
      */
+    @SuppressWarnings("unused")
     public ModuleManager getModuleManager() {
         return moduleManager;
     }

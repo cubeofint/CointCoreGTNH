@@ -12,6 +12,7 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
@@ -72,15 +73,46 @@ public class CommandWarn extends CommandBase {
                 }
 
                 String reason = Joiner.on(" ")
-                    .join(Arrays.copyOfRange(args, 2, args.length));;
+                    .join(Arrays.copyOfRange(args, 2, args.length));
                 reason = reason.replaceAll("^['\"]|['\"]$", "");
                 Warn warn = new Warn(sender, reason);
 
                 if (player.isOnline()) {
-                    PlayerWarnsData warnsData = PlayerWarnsData.get(player.getPlayer());
+                    EntityPlayer entityPlayer = player.getPlayer();
+                    PlayerWarnsData warnsData = PlayerWarnsData.get(entityPlayer);
                     warnsData.add(warn);
+
+                    entityPlayer.addChatMessage(
+                        new ChatComponentText(
+                            EnumChatFormatting.RED + "Вам выдано предупреждение от "
+                                + EnumChatFormatting.GOLD
+                                + sender.getCommandSenderName()
+                                + EnumChatFormatting.RED
+                                + " по причине: "
+                                + EnumChatFormatting.YELLOW
+                                + reason));
                 } else {
                     PlayerWarnsData.addOffline(player.getId(), warn);
+                }
+
+                // Broadcast to all players
+                MinecraftServer server = MinecraftServer.getServer();
+                ChatComponentText message = new ChatComponentText(
+                    EnumChatFormatting.GOLD + sender.getCommandSenderName()
+                        + EnumChatFormatting.RESET
+                        + " выдал варн "
+                        + EnumChatFormatting.GOLD
+                        + playerName
+                        + EnumChatFormatting.RESET
+                        + " по причине: "
+                        + EnumChatFormatting.YELLOW
+                        + reason);
+
+                @SuppressWarnings("unchecked")
+                java.util.List<EntityPlayer> players = (java.util.List<EntityPlayer>) (java.util.List<?>) server
+                    .getConfigurationManager().playerEntityList;
+                for (EntityPlayer p : players) {
+                    p.addChatMessage(message);
                 }
 
                 sender.addChatMessage(new ChatComponentText("Add warn for " + playerName));
@@ -96,9 +128,13 @@ public class CommandWarn extends CommandBase {
                     warns = PlayerWarnsData.getOffline(player.getId());
                 }
 
+                if (warns == null) {
+                    warns = new java.util.ArrayList<>();
+                }
+
                 sender.addChatMessage(new ChatComponentText(playerName + ": " + warns.size() + " warn(s)"));
 
-                int i = 0;
+                int i = 1;
                 for (Warn warn : warns) {
                     Instant when = Instant.parse(warn.timestamp);
                     ZonedDateTime zdt = when.atZone(ZoneId.of("Europe/Moscow"));
@@ -122,7 +158,7 @@ public class CommandWarn extends CommandBase {
                 if (args.length < 3) {
                     throw new WrongUsageException(getCommandUsage(sender));
                 }
-                int i = parseInt(sender, args[2]);
+                int i = parseInt(sender, args[2]) - 1;
 
                 if (player.isOnline()) {
                     PlayerWarnsData warnsData = PlayerWarnsData.get(player.getPlayer());
@@ -130,6 +166,8 @@ public class CommandWarn extends CommandBase {
                 } else {
                     PlayerWarnsData.removeOffline(player.getId(), i);
                 }
+
+                sender.addChatMessage(new ChatComponentText("Варн №" + (i + 1) + " снят с игрока " + playerName));
                 break;
             }
             case "clear": {
