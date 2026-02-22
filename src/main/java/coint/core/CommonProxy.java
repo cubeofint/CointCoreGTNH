@@ -11,11 +11,15 @@ import coint.commands.CommandMute;
 import coint.commands.CommandNightVision;
 import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
+import coint.commands.CommandTBan;
 import coint.commands.CommandUnmute;
 import coint.commands.CommandWarn;
 import coint.commands.mute.MuteChatHandler;
 import coint.commands.mute.MuteRegister;
 import coint.commands.mute.MuteTickHandler;
+import coint.commands.tban.TBanLoginHandler;
+import coint.commands.tban.TBanRegister;
+import coint.commands.tban.TBanTickHandler;
 import coint.commands.warn.WarnsRegister;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.CointRankConfigs;
@@ -46,6 +50,9 @@ public class CommonProxy {
         MinecraftForge.EVENT_BUS.register(new MuteRegister());
         MinecraftForge.EVENT_BUS.register(new MuteTickHandler());
         MinecraftForge.EVENT_BUS.register(new MuteChatHandler());
+        MinecraftForge.EVENT_BUS.register(new TBanRegister());
+        MinecraftForge.EVENT_BUS.register(new TBanTickHandler());
+        MinecraftForge.EVENT_BUS.register(new TBanLoginHandler());
 
         CointCore.LOG.info(CointConfig.greeting);
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);
@@ -94,6 +101,7 @@ public class CommonProxy {
         event.registerServerCommand(new CommandWarn());
         event.registerServerCommand(new CommandMute());
         event.registerServerCommand(new CommandUnmute());
+        event.registerServerCommand(new CommandTBan());
         CointCore.LOG.debug("Registered server commands");
     }
 

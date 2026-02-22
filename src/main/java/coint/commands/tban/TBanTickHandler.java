@@ -1,4 +1,4 @@
-package coint.commands.mute;
+package coint.commands.tban;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
@@ -8,7 +8,7 @@ import net.minecraft.util.EnumChatFormatting;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 
-public class MuteTickHandler {
+public class TBanTickHandler {
 
     @SubscribeEvent
     public void serverTick(TickEvent.ServerTickEvent event) {
@@ -26,20 +26,14 @@ public class MuteTickHandler {
             .getConfigurationManager().playerEntityList;
 
         for (EntityPlayer player : players) {
-            PlayerMuteData muteData = PlayerMuteData.get(player);
-            if (muteData == null) {
-                continue;
-            }
-
-            Mute mute = muteData.get();
-            if (mute == null) {
-                continue;
-            }
-
-            if (mute.isExpired()) {
-                muteData.clear();
-                player
-                    .addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "Ваш мут был автоматически снят"));
+            PlayerTBanData tbanData = PlayerTBanData.get(player);
+            if (tbanData != null && tbanData.isBanned()) {
+                TBan tban = tbanData.get();
+                if (tban.isExpired()) {
+                    tbanData.clear();
+                    player.addChatMessage(
+                        new ChatComponentText(EnumChatFormatting.GREEN + "Ваш бан был автоматически снят"));
+                }
             }
         }
     }

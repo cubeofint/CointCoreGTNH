@@ -7,35 +7,36 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
 import com.google.common.base.Joiner;
 
-import coint.commands.mute.Mute;
-import coint.commands.mute.PlayerMuteData;
+import coint.commands.tban.PlayerTBanData;
+import coint.commands.tban.TBan;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 import serverutils.ranks.Ranks;
 
-public class CommandMute extends CommandBase {
+public class CommandTBan extends CommandBase {
 
-    public CommandMute() {
-        PermissionAPI.registerNode("cointcore.command.mute", DefaultPermissionLevel.OP, "CointCore mute permission");
+    public CommandTBan() {
+        PermissionAPI.registerNode("cointcore.command.tban", DefaultPermissionLevel.OP, "CointCore tban permission");
     }
 
     @Override
     public String getCommandName() {
-        return "mute";
+        return "tban";
     }
 
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
         if (sender instanceof EntityPlayer player) {
-            return Ranks.INSTANCE.getPermission(player.getGameProfile(), "cointcore.command.mute", false)
+            return Ranks.INSTANCE.getPermission(player.getGameProfile(), "cointcore.command.tban", false)
                 .getBoolean();
         }
         return false;
@@ -43,7 +44,7 @@ public class CommandMute extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/mute <player> <time> 'reason'";
+        return "/tban <player> <time> 'reason'";
     }
 
     @Override
@@ -65,41 +66,43 @@ public class CommandMute extends CommandBase {
             .join(Arrays.copyOfRange(args, 2, args.length));
         reason = reason.replaceAll("^['\"]|['\"]$", "");
 
-        mute(sender, player, durationMs, reason);
+        tban(sender, player, durationMs, reason);
     }
 
-    private void mute(ICommandSender sender, ForgePlayer player, long durationMs, String reason) {
-        Mute mute = new Mute(sender, reason, durationMs);
+    private void tban(ICommandSender sender, ForgePlayer player, long durationMs, String reason) {
+        TBan tban = new TBan(sender, reason, durationMs);
 
         if (player.isOnline()) {
             EntityPlayer entityPlayer = player.getPlayer();
-            PlayerMuteData muteData = PlayerMuteData.get(entityPlayer);
-            muteData.set(mute);
+            PlayerTBanData tbanData = PlayerTBanData.get(entityPlayer);
+            tbanData.set(tban);
 
-            entityPlayer.addChatMessage(
-                new ChatComponentText(
-                    EnumChatFormatting.RED + "Вам выдан мут от "
-                        + EnumChatFormatting.GOLD
-                        + sender.getCommandSenderName()
-                        + EnumChatFormatting.RED
-                        + " на "
-                        + formatDuration(durationMs)
-                        + EnumChatFormatting.RED
-                        + " по причине: "
-                        + EnumChatFormatting.YELLOW
-                        + reason));
+            if (entityPlayer instanceof EntityPlayerMP) {
+                EntityPlayerMP playerMP = (EntityPlayerMP) entityPlayer;
+                String banMessage = EnumChatFormatting.RED + "Вы забанены на "
+                    + formatDuration(durationMs)
+                    + EnumChatFormatting.RED
+                    + " по причине: "
+                    + EnumChatFormatting.YELLOW
+                    + reason;
+                playerMP.playerNetServerHandler.kickPlayerFromServer(banMessage);
+            }
         }
 
         MinecraftServer server = MinecraftServer.getServer();
         ChatComponentText message = new ChatComponentText(
             EnumChatFormatting.GOLD + sender.getCommandSenderName()
                 + EnumChatFormatting.RESET
-                + " выдал мут "
+                + " забанил "
                 + EnumChatFormatting.GOLD
                 + player.getName()
                 + EnumChatFormatting.RESET
                 + " на "
-                + formatDuration(durationMs));
+                + formatDuration(durationMs)
+                + EnumChatFormatting.RESET
+                + ": "
+                + EnumChatFormatting.YELLOW
+                + reason);
 
         @SuppressWarnings("unchecked")
         java.util.List<EntityPlayer> players = (java.util.List<EntityPlayer>) (java.util.List<?>) server
