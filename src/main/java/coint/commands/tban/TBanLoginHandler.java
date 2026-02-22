@@ -18,7 +18,9 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 public class TBanLoginHandler {
 
     private static final Logger LOG = LogManager.getLogger(TBanLoginHandler.class);
-    private static final Set<UUID> CHECKED_PLAYERS = new HashSet<>();
+
+    // Non-static: reset per instance (created fresh at server start via CommonProxy)
+    private final Set<UUID> CHECKED_PLAYERS = new HashSet<>();
 
     @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
@@ -52,40 +54,59 @@ public class TBanLoginHandler {
 
         for (EntityPlayer player : players) {
             UUID uuid = player.getUniqueID();
-            if (CHECKED_PLAYERS.contains(uuid)) {
-                CHECKED_PLAYERS.remove(uuid);
+            if (!CHECKED_PLAYERS.contains(uuid)) {
+                continue;
+            }
+            CHECKED_PLAYERS.remove(uuid);
 
-                PlayerTBanData tbanData = PlayerTBanData.get(player);
+            PlayerTBanData tbanData = PlayerTBanData.get(player);
 
-                if (tbanData != null && tbanData.isBanned()) {
-                    TBan tban = tbanData.get();
-                    long remainingMs = tban.expiresAt - System.currentTimeMillis();
-
-                    if (remainingMs > 0) {
-                        String banMessage = EnumChatFormatting.RED + "Вы забанены на "
-                            + formatDuration(remainingMs)
-                            + EnumChatFormatting.RED
-                            + " по причине: "
-                            + EnumChatFormatting.YELLOW
-                            + tban.reason;
-                        LOG.info(
-                            "Player {} is banned, kicking",
-                            player.getGameProfile()
-                                .getName());
-                        ((EntityPlayerMP) player).playerNetServerHandler.kickPlayerFromServer(banMessage);
-                    } else {
-                        LOG.debug(
-                            "Ban for player {} has expired, clearing",
-                            player.getGameProfile()
-                                .getName());
-                        tbanData.clear();
+            // If EEP has no active ban, check persistent storage (covers offline-ban case)
+            if ((tbanData == null || !tbanData.isBanned()) && TBanStorage.isBanned(uuid)) {
+                TBan storedTban = TBanStorage.get(uuid);
+                if (storedTban != null) {
+                    if (tbanData != null) {
+                        tbanData.set(storedTban);
                     }
-                } else {
-                    LOG.debug(
-                        "Player {} is not banned",
+                    LOG.info(
+                        "Loaded ban from storage for player {}",
                         player.getGameProfile()
                             .getName());
                 }
+            }
+
+            // Re-fetch in case we just loaded from storage
+            tbanData = PlayerTBanData.get(player);
+
+            if (tbanData != null && tbanData.isBanned()) {
+                TBan tban = tbanData.get();
+                long remainingMs = tban.expiresAt - System.currentTimeMillis();
+
+                if (remainingMs > 0) {
+                    String banMessage = EnumChatFormatting.RED + "Вы забанены ещё "
+                        + formatDuration(remainingMs)
+                        + EnumChatFormatting.RED
+                        + " по причине: "
+                        + EnumChatFormatting.YELLOW
+                        + tban.reason;
+                    LOG.info(
+                        "Player {} is banned, kicking",
+                        player.getGameProfile()
+                            .getName());
+                    ((EntityPlayerMP) player).playerNetServerHandler.kickPlayerFromServer(banMessage);
+                } else {
+                    LOG.debug(
+                        "Ban for player {} has expired, clearing",
+                        player.getGameProfile()
+                            .getName());
+                    tbanData.clear();
+                    TBanStorage.clearBan(uuid);
+                }
+            } else {
+                LOG.debug(
+                    "Player {} is not banned",
+                    player.getGameProfile()
+                        .getName());
             }
         }
     }

@@ -16,6 +16,7 @@ import com.google.common.base.Joiner;
 
 import coint.commands.tban.PlayerTBanData;
 import coint.commands.tban.TBan;
+import coint.commands.tban.TBanStorage;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -39,7 +40,8 @@ public class CommandTBan extends CommandBase {
             return Ranks.INSTANCE.getPermission(player.getGameProfile(), "cointcore.command.tban", false)
                 .getBoolean();
         }
-        return false;
+        // Console and other non-player senders always have access
+        return true;
     }
 
     @Override
@@ -72,13 +74,20 @@ public class CommandTBan extends CommandBase {
     private void tban(ICommandSender sender, ForgePlayer player, long durationMs, String reason) {
         TBan tban = new TBan(sender, reason, durationMs);
 
+        // Always persist the ban so it survives for offline players and relogs
+        TBanStorage.store(
+            player.getProfile()
+                .getId(),
+            tban);
+
         if (player.isOnline()) {
             EntityPlayer entityPlayer = player.getPlayer();
             PlayerTBanData tbanData = PlayerTBanData.get(entityPlayer);
-            tbanData.set(tban);
+            if (tbanData != null) {
+                tbanData.set(tban);
+            }
 
-            if (entityPlayer instanceof EntityPlayerMP) {
-                EntityPlayerMP playerMP = (EntityPlayerMP) entityPlayer;
+            if (entityPlayer instanceof EntityPlayerMP playerMP) {
                 String banMessage = EnumChatFormatting.RED + "Вы забанены на "
                     + formatDuration(durationMs)
                     + EnumChatFormatting.RED

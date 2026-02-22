@@ -31,6 +31,7 @@ public class TBanTickHandler {
                 TBan tban = tbanData.get();
                 if (tban.isExpired()) {
                     tbanData.clear();
+                    TBanStorage.clearBan(player.getUniqueID());
                     player.addChatMessage(
                         new ChatComponentText(EnumChatFormatting.GREEN + "Ваш бан был автоматически снят"));
                 }
