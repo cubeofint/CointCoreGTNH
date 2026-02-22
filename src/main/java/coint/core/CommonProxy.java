@@ -25,11 +25,16 @@ import coint.config.CointConfig;
 import coint.integration.serverutilities.CointRankConfigs;
 import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
+import coint.tasks.CleanupTask;
+import coint.tasks.DropHandler;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
+import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import serverutils.ServerUtilitiesConfig;
+import serverutils.lib.data.Universe;
 
 /**
  * Common proxy for both client and server.
@@ -47,6 +52,7 @@ public class CommonProxy {
 
         MinecraftForge.EVENT_BUS.register(new CointRankConfigs());
         MinecraftForge.EVENT_BUS.register(new WarnsRegister());
+        MinecraftForge.EVENT_BUS.register(new DropHandler());
         MinecraftForge.EVENT_BUS.register(new MuteRegister());
         MinecraftForge.EVENT_BUS.register(new MuteTickHandler());
         MinecraftForge.EVENT_BUS.register(new MuteChatHandler());
@@ -103,6 +109,13 @@ public class CommonProxy {
         event.registerServerCommand(new CommandUnmute());
         event.registerServerCommand(new CommandTBan());
         CointCore.LOG.debug("Registered server commands");
+    }
+
+    public void serverStarted(FMLServerStartedEvent event) {
+        Universe universe = Universe.get();
+        if (!ServerUtilitiesConfig.tasks.cleanup.enabled) {
+            universe.scheduleTask(new CleanupTask(), CointConfig.cleanupEnabled);
+        }
     }
 
     /**

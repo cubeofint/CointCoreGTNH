@@ -48,7 +48,7 @@ public class CommandWarn extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/warn add <player> 'reason' | /warn get <player> | /warn clear <player>";
+        return "/warn add <player> 'reason' | /warn get <player> | /warn clear <player> | /warn remove <player>";
     }
 
     @Override

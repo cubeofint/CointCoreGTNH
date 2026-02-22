@@ -1,11 +1,13 @@
 package coint.util;
 
+import net.minecraft.entity.item.EntityItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import coint.config.CointConfig;
 import thaumcraft.api.aspects.Aspect;
 import thaumcraft.common.items.wands.ItemWandCasting;
 
@@ -15,6 +17,38 @@ import thaumcraft.common.items.wands.ItemWandCasting;
 public final class ItemUtil {
 
     private static final Logger LOG = LogManager.getLogger(ItemUtil.class);
+
+    private static final String NBT_TAG_TTL = "dropTime";
+
+    public static void setDropTime(EntityItem item) {
+        ItemStack stack = item.getEntityItem();
+
+        if (item.delayBeforeCanPickup > 0) {
+            if (!stack.hasTagCompound()) {
+                stack.setTagCompound(new NBTTagCompound());
+            }
+            NBTTagCompound nbt = stack.getTagCompound();
+            nbt.setLong(NBT_TAG_TTL, System.currentTimeMillis());
+            stack.setTagCompound(nbt);
+        }
+    }
+
+    // True if item will be removed
+    public static boolean checkDropTime(EntityItem item) {
+        ItemStack stack = item.getEntityItem();
+
+        if (stack.hasTagCompound() && stack.getTagCompound()
+            .hasKey(NBT_TAG_TTL)) {
+            long dropTime = stack.getTagCompound()
+                .getLong(NBT_TAG_TTL);
+            long currentTime = System.currentTimeMillis();
+            long secondsOnGround = (currentTime - dropTime) / 1000;
+
+            return secondsOnGround > CointConfig.droppedItemTTL;
+        }
+
+        return true;
+    }
 
     // In: itemstack to repair
     public static void Repair(ItemStack itemStack) {

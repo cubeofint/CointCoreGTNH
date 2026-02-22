@@ -1,4 +1,4 @@
-package coint.kit;
+package coint.commands.kit;
 
 import java.util.ArrayList;
 import java.util.Collections;
