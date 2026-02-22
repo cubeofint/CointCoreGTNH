@@ -16,6 +16,7 @@ public class CointConfig {
     public static final String CATEGORY_EPOCHSYNC = "epochsync";
     public static final String CATEGORY_API = "api";
     public static final String CATEGORY_DEBUG = "debug";
+    public static final String CATEGORY_TASKS = "tasks";
 
     private static Configuration config;
 
@@ -36,6 +37,10 @@ public class CointConfig {
     // Debug settings
     public static boolean debugMode = false;
     public static boolean verboseLogging = false;
+
+    // Cleanup task settings
+    public static boolean cleanupEnabled = true;
+    public static int droppedItemTTL = 180;
 
     /**
      * Initialize and load configuration
@@ -98,6 +103,21 @@ public class CointConfig {
             debugMode = config.getBoolean("debugMode", CATEGORY_DEBUG, debugMode, "Enable debug mode");
             verboseLogging = config
                 .getBoolean("verboseLogging", CATEGORY_DEBUG, verboseLogging, "Enable verbose logging");
+
+            // Tasks
+            config.addCustomCategoryComment(CATEGORY_TASKS, "tasks settings");
+            cleanupEnabled = config.getBoolean(
+                "cleanupEnabled",
+                CATEGORY_TASKS,
+                cleanupEnabled,
+                "Enable cleanup task (server utilities config)");
+            droppedItemTTL = config.getInt(
+                "droppedItemTTL",
+                CATEGORY_TASKS,
+                droppedItemTTL,
+                0,
+                600,
+                "Time that dropped item will not be cleaned");
 
         } catch (Exception e) {
             CointCore.LOG.error("Error loading config: {}", e.getMessage());

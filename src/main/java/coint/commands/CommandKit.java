@@ -23,8 +23,8 @@ import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
 
-import coint.kit.KitDefinition;
-import coint.kit.KitManager;
+import coint.commands.kit.KitDefinition;
+import coint.commands.kit.KitManager;
 import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
 import serverutils.lib.util.permission.DefaultPermissionLevel;

@@ -1,4 +1,4 @@
-package coint.kit;
+package coint.commands.kit;
 
 import java.io.File;
 import java.io.IOException;
