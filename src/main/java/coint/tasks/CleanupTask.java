@@ -73,15 +73,15 @@ public class CleanupTask extends Task {
             builder.append(StatCollector.translateToLocal("serverutilities.task.cleanup_hostiles"));
         }
         if (config.passives) {
-            if (!builder.isEmpty()) builder.append(", ");
+            if (builder.length() > 0) builder.append(", ");
             builder.append(StatCollector.translateToLocal("serverutilities.task.cleanup_passives"));
         }
         if (config.items) {
-            if (!builder.isEmpty()) builder.append(", ");
+            if (builder.length() > 0) builder.append(", ");
             builder.append(StatCollector.translateToLocal("serverutilities.task.cleanup_items"));
         }
         if (config.experience) {
-            if (!builder.isEmpty()) builder.append(", ");
+            if (builder.length() > 0) builder.append(", ");
             builder.append(StatCollector.translateToLocal("serverutilities.task.cleanup_experience"));
         }
 
