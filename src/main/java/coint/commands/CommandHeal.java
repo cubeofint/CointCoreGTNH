@@ -55,7 +55,8 @@ public class CommandHeal extends CommandBase {
         player.heal(Float.MAX_VALUE);
         clearNegativeEffects(player);
         ChatComponentText success = new ChatComponentText("Здоровье восстановлено, все эффекты сняты");
-        success.getChatStyle().setColor(EnumChatFormatting.GREEN);
+        success.getChatStyle()
+            .setColor(EnumChatFormatting.GREEN);
         sender.addChatMessage(success);
     }
 

@@ -52,7 +52,8 @@ public class CommandFeed extends CommandBase {
             .addStats(20, 20.0F);
         applyNutritionMax(player);
         ChatComponentText success = new ChatComponentText("Голод восполнен, милорд");
-        success.getChatStyle().setColor(EnumChatFormatting.GREEN);
+        success.getChatStyle()
+            .setColor(EnumChatFormatting.GREEN);
         sender.addChatMessage(success);
     }
 
