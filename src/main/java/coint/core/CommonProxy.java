@@ -20,7 +20,6 @@ import coint.commands.mute.MuteTickHandler;
 import coint.commands.tban.TBanLoginHandler;
 import coint.commands.tban.TBanRegister;
 import coint.commands.tban.TBanStorage;
-import coint.commands.tban.TBanTickHandler;
 import coint.commands.warn.WarnsRegister;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.CointRankConfigs;
@@ -64,9 +63,6 @@ public class CommonProxy {
             .register(new MuteTickHandler());
         MinecraftForge.EVENT_BUS.register(new MuteChatHandler());
         MinecraftForge.EVENT_BUS.register(new TBanRegister());
-        FMLCommonHandler.instance()
-            .bus()
-            .register(new TBanTickHandler());
         FMLCommonHandler.instance()
             .bus()
             .register(new TBanLoginHandler());
@@ -122,6 +118,7 @@ public class CommonProxy {
         CointCore.LOG.debug("Registered server commands");
     }
 
+    @SuppressWarnings("unused")
     public void serverStarted(FMLServerStartedEvent event) {
         Universe universe = Universe.get();
         if (!ServerUtilitiesConfig.tasks.cleanup.enabled) {

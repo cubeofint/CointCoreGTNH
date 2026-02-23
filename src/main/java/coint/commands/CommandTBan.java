@@ -21,7 +21,6 @@ import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
-import serverutils.ranks.Ranks;
 
 public class CommandTBan extends CommandBase {
 
@@ -37,11 +36,9 @@ public class CommandTBan extends CommandBase {
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
         if (sender instanceof EntityPlayer player) {
-            return Ranks.INSTANCE.getPermission(player.getGameProfile(), "cointcore.command.tban", false)
-                .getBoolean();
+            return PermissionAPI.hasPermission(player, "cointcore.command.tban");
         }
-        // Console and other non-player senders always have access
-        return true;
+        return true; // console/RCON
     }
 
     @Override

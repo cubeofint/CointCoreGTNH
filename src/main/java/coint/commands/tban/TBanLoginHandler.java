@@ -1,11 +1,13 @@
 package coint.commands.tban;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.EnumChatFormatting;
 
 import org.apache.logging.log4j.LogManager;
@@ -19,8 +21,15 @@ public class TBanLoginHandler {
 
     private static final Logger LOG = LogManager.getLogger(TBanLoginHandler.class);
 
-    // Non-static: reset per instance (created fresh at server start via CommonProxy)
-    private final Set<UUID> CHECKED_PLAYERS = new HashSet<>();
+    /**
+     * Number of server ticks to wait after login before kicking a banned player.
+     * This gives the client enough time to complete the connection handshake so
+     * the disconnect screen shows the ban message instead of "Connection reset".
+     */
+    private static final int KICK_DELAY_TICKS = 40; // ~2 seconds
+
+    // UUID -> ticks remaining until ban check; non-static, reset per server start
+    private final Map<UUID, Integer> pendingChecks = new HashMap<>();
 
     @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
@@ -28,22 +37,21 @@ public class TBanLoginHandler {
         if (player == null || player.worldObj.isRemote) {
             return;
         }
-
-        // Mark player for checking in next tick
-        CHECKED_PLAYERS.add(player.getUniqueID());
+        pendingChecks.put(player.getUniqueID(), KICK_DELAY_TICKS);
         LOG.debug(
-            "Player {} added to ban check queue",
+            "Player {} queued for ban check in {} ticks",
             player.getGameProfile()
-                .getName());
+                .getName(),
+            KICK_DELAY_TICKS);
     }
 
     @SubscribeEvent
     public void serverTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || CHECKED_PLAYERS.isEmpty()) {
+        if (event.phase != TickEvent.Phase.END || pendingChecks.isEmpty()) {
             return;
         }
 
-        net.minecraft.server.MinecraftServer server = net.minecraft.server.MinecraftServer.getServer();
+        MinecraftServer server = MinecraftServer.getServer();
         if (server == null) {
             return;
         }
@@ -52,38 +60,47 @@ public class TBanLoginHandler {
         java.util.List<EntityPlayer> players = (java.util.List<EntityPlayer>) (java.util.List<?>) server
             .getConfigurationManager().playerEntityList;
 
-        for (EntityPlayer player : players) {
-            UUID uuid = player.getUniqueID();
-            if (!CHECKED_PLAYERS.contains(uuid)) {
+        // Tick down all pending entries
+        Iterator<Map.Entry<UUID, Integer>> it = pendingChecks.entrySet()
+            .iterator();
+        while (it.hasNext()) {
+            Map.Entry<UUID, Integer> entry = it.next();
+            int remaining = entry.getValue() - 1;
+            if (remaining > 0) {
+                entry.setValue(remaining);
                 continue;
             }
-            CHECKED_PLAYERS.remove(uuid);
+            // Delay elapsed — perform the check
+            it.remove();
+
+            UUID uuid = entry.getKey();
+            EntityPlayer player = findPlayer(players, uuid);
+            if (player == null) {
+                // Player disconnected before delay elapsed
+                continue;
+            }
 
             PlayerTBanData tbanData = PlayerTBanData.get(player);
 
             // If EEP has no active ban, check persistent storage (covers offline-ban case)
             if ((tbanData == null || !tbanData.isBanned()) && TBanStorage.isBanned(uuid)) {
                 TBan storedTban = TBanStorage.get(uuid);
-                if (storedTban != null) {
-                    if (tbanData != null) {
-                        tbanData.set(storedTban);
-                    }
+                if (storedTban != null && tbanData != null) {
+                    tbanData.set(storedTban);
                     LOG.info(
                         "Loaded ban from storage for player {}",
                         player.getGameProfile()
                             .getName());
                 }
+                // Re-fetch after potential update
+                tbanData = PlayerTBanData.get(player);
             }
-
-            // Re-fetch in case we just loaded from storage
-            tbanData = PlayerTBanData.get(player);
 
             if (tbanData != null && tbanData.isBanned()) {
                 TBan tban = tbanData.get();
                 long remainingMs = tban.expiresAt - System.currentTimeMillis();
-
                 if (remainingMs > 0) {
-                    String banMessage = EnumChatFormatting.RED + "Вы забанены ещё "
+                    String banMessage = EnumChatFormatting.RED + "Ваш аккаунт будет разблокирован через "
                         + formatDuration(remainingMs)
                         + EnumChatFormatting.RED
                         + " по причине: "
@@ -109,6 +126,15 @@ public class TBanLoginHandler {
                         .getName());
             }
         }
+    }
+
+    private EntityPlayer findPlayer(java.util.List<EntityPlayer> players, UUID uuid) {
+        for (EntityPlayer p : players) {
+            if (uuid.equals(p.getUniqueID())) {
+                return p;
+            }
+        }
+        return null;
     }
 
     private String formatDuration(long ms) {

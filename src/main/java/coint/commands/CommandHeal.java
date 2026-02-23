@@ -16,11 +16,17 @@ import coint.integration.serverutilities.CointRankConfigs;
 import serverutils.lib.config.RankConfigAPI;
 import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
-import serverutils.ranks.Ranks;
+import serverutils.lib.util.permission.DefaultPermissionLevel;
+import serverutils.lib.util.permission.PermissionAPI;
 
 public class CommandHeal extends CommandBase {
 
+    public static final String PERMISSION = "cointcore.command.heal";
     private static final String TAG_LAST_HEAL_MS = "cointcore_heal_last_ms";
+
+    public CommandHeal() {
+        PermissionAPI.registerNode(PERMISSION, DefaultPermissionLevel.OP, "CointCore heal permission");
+    }
 
     @Override
     public String getCommandName() {
@@ -30,10 +36,9 @@ public class CommandHeal extends CommandBase {
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
         if (sender instanceof EntityPlayer player) {
-            return Ranks.INSTANCE.getPermission(player.getGameProfile(), "command.cointcore.heal", false)
-                .getBoolean();
+            return PermissionAPI.hasPermission(player, PERMISSION);
         }
-        return false;
+        return true; // console/RCON
     }
 
     @Override
@@ -49,7 +54,9 @@ public class CommandHeal extends CommandBase {
         }
         player.heal(Float.MAX_VALUE);
         clearNegativeEffects(player);
-        sendSuccess(sender, "Здоровье восстановлено, все эффекты сняты");
+        ChatComponentText success = new ChatComponentText("Здоровье восстановлено, все эффекты сняты");
+        success.getChatStyle().setColor(EnumChatFormatting.GREEN);
+        sender.addChatMessage(success);
     }
 
     private boolean isOnCooldown(ICommandSender sender, EntityPlayer player) {
@@ -93,13 +100,6 @@ public class CommandHeal extends CommandBase {
         ChatComponentText msg = new ChatComponentText(message);
         msg.getChatStyle()
             .setColor(EnumChatFormatting.RED);
-        sender.addChatMessage(msg);
-    }
-
-    private void sendSuccess(ICommandSender sender, String message) {
-        ChatComponentText msg = new ChatComponentText(message);
-        msg.getChatStyle()
-            .setColor(EnumChatFormatting.GREEN);
         sender.addChatMessage(msg);
     }
 

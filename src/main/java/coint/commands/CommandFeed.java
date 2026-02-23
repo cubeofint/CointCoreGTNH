@@ -11,11 +11,17 @@ import coint.integration.serverutilities.CointRankConfigs;
 import serverutils.lib.config.RankConfigAPI;
 import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
-import serverutils.ranks.Ranks;
+import serverutils.lib.util.permission.DefaultPermissionLevel;
+import serverutils.lib.util.permission.PermissionAPI;
 
 public class CommandFeed extends CommandBase {
 
+    public static final String PERMISSION = "cointcore.command.feed";
     private static final String TAG_LAST_FEED_MS = "cointcore_feed_last_ms";
+
+    public CommandFeed() {
+        PermissionAPI.registerNode(PERMISSION, DefaultPermissionLevel.OP, "CointCore feed permission");
+    }
 
     @Override
     public String getCommandName() {
@@ -25,10 +31,9 @@ public class CommandFeed extends CommandBase {
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
         if (sender instanceof EntityPlayer player) {
-            return Ranks.INSTANCE.getPermission(player.getGameProfile(), "command.cointcore.feed", false)
-                .getBoolean();
+            return PermissionAPI.hasPermission(player, PERMISSION);
         }
-        return false;
+        return true; // console/RCON
     }
 
     @Override
@@ -46,7 +51,9 @@ public class CommandFeed extends CommandBase {
         player.getFoodStats()
             .addStats(20, 20.0F);
         applyNutritionMax(player);
-        sendSuccess(sender, "Голод восполнен, милорд");
+        ChatComponentText success = new ChatComponentText("Голод восполнен, милорд");
+        success.getChatStyle().setColor(EnumChatFormatting.GREEN);
+        sender.addChatMessage(success);
     }
 
     private boolean isOnCooldown(ICommandSender sender, EntityPlayer player) {
@@ -80,13 +87,6 @@ public class CommandFeed extends CommandBase {
         sender.addChatMessage(msg);
     }
 
-    private void sendSuccess(ICommandSender sender, String message) {
-        ChatComponentText msg = new ChatComponentText(message);
-        msg.getChatStyle()
-            .setColor(EnumChatFormatting.GREEN);
-        sender.addChatMessage(msg);
-    }
-
     private void applyNutritionMax(EntityPlayer player) {
         try {
             Class<?> playerDataHandler = Class.forName("ca.wescook.nutrition.data.PlayerDataHandler");
@@ -105,7 +105,7 @@ public class CommandFeed extends CommandBase {
                 .invoke(null);
             java.lang.reflect.Method setMethod = nutrientManagerClass.getMethod("set", nutrientClass, Float.class);
             for (Object nutrient : nutrients) {
-                setMethod.invoke(manager, nutrient, Float.valueOf(100.0F));
+                setMethod.invoke(manager, nutrient, 100.0F);
             }
 
             try {
