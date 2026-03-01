@@ -13,6 +13,7 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
 import coint.integration.serverutilities.CointRankConfigs;
+import coint.util.TimeUtil;
 import serverutils.lib.config.RankConfigAPI;
 import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
@@ -75,8 +76,8 @@ public class CommandHeal extends CommandBase {
         long cooldownMs = Ticks.get(cooldownTicks)
             .millis();
         if (lastUse > 0 && elapsed < cooldownMs) {
-            long remainingSeconds = (cooldownMs - elapsed + 999L) / 1000L;
-            sendError(sender, "Вы сможете исцелиться через " + formatDuration(remainingSeconds));
+            long remainingSeconds = cooldownMs - elapsed + 999L;
+            sendError(sender, "Вы сможете исцелиться через " + TimeUtil.formatDuration(remainingSeconds));
             return true;
         }
 
@@ -102,41 +103,5 @@ public class CommandHeal extends CommandBase {
         msg.getChatStyle()
             .setColor(EnumChatFormatting.RED);
         sender.addChatMessage(msg);
-    }
-
-    private String formatDuration(long seconds) {
-        if (seconds <= 0) {
-            return "0 секунд";
-        }
-
-        long minutes = seconds / 60L;
-        long remainingSeconds = seconds % 60L;
-
-        if (minutes > 0 && remainingSeconds > 0) {
-            return formatUnit(minutes, "минута", "минуты", "минут") + " "
-                + formatUnit(remainingSeconds, "секунда", "секунды", "секунд");
-        }
-        if (minutes > 0) {
-            return formatUnit(minutes, "минута", "минуты", "минут");
-        }
-        return formatUnit(remainingSeconds, "секунда", "секунды", "секунд");
-    }
-
-    private String formatUnit(long value, String one, String few, String many) {
-        long mod100 = value % 100L;
-        long mod10 = value % 10L;
-        String word;
-
-        if (mod100 >= 11L && mod100 <= 14L) {
-            word = many;
-        } else if (mod10 == 1L) {
-            word = one;
-        } else if (mod10 >= 2L && mod10 <= 4L) {
-            word = few;
-        } else {
-            word = many;
-        }
-
-        return value + " " + word;
     }
 }

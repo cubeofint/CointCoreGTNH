@@ -118,7 +118,7 @@ public class CleanupTask extends Task {
             return config.hostiles;
         }
         if (entity instanceof EntityItem item) {
-            return config.items && ItemUtil.checkDropTime(item);
+            return config.items && ItemUtil.removeDropTag(item);
         }
         return config.experience && entity instanceof EntityXPOrb;
     }

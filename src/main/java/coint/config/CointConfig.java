@@ -40,7 +40,6 @@ public class CointConfig {
 
     // Cleanup task settings
     public static boolean cleanupEnabled = true;
-    public static int droppedItemTTL = 180;
 
     /**
      * Initialize and load configuration
@@ -111,13 +110,6 @@ public class CointConfig {
                 CATEGORY_TASKS,
                 cleanupEnabled,
                 "Enable cleanup task (server utilities config)");
-            droppedItemTTL = config.getInt(
-                "droppedItemTTL",
-                CATEGORY_TASKS,
-                droppedItemTTL,
-                0,
-                600,
-                "Time that dropped item will not be cleaned");
 
         } catch (Exception e) {
             CointCore.LOG.error("Error loading config: {}", e.getMessage());

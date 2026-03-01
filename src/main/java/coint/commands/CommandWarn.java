@@ -135,8 +135,8 @@ public class CommandWarn extends CommandBase {
                 int i = 1;
                 for (Warn warn : warns) {
                     Instant when = Instant.parse(warn.timestamp);
-                    ZonedDateTime zdt = when.atZone(ZoneId.of("Europe/Moscow"));
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+                    ZonedDateTime zdt = when.atZone(ZoneId.systemDefault());
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
                     sender.addChatMessage(
                         new ChatComponentText(
                             i + ". "

@@ -7,7 +7,7 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
-public class WarnsRegister {
+public class WarnsHandler {
 
     @SubscribeEvent
     public void onEntityConstruct(EntityEvent.EntityConstructing event) {
@@ -19,7 +19,7 @@ public class WarnsRegister {
     }
 
     @SubscribeEvent
-    public void playerClone(PlayerEvent.Clone event) {
+    public void onPlayerClone(PlayerEvent.Clone event) {
         if (event.wasDeath) {
             NBTTagCompound compound = new NBTTagCompound();
             PlayerWarnsData.get(event.original)

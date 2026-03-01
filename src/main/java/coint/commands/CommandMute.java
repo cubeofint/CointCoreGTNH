@@ -15,6 +15,7 @@ import com.google.common.base.Joiner;
 
 import coint.commands.mute.Mute;
 import coint.commands.mute.PlayerMuteData;
+import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -81,7 +82,7 @@ public class CommandMute extends CommandBase {
                         + sender.getCommandSenderName()
                         + EnumChatFormatting.RED
                         + " на "
-                        + formatDuration(durationMs)
+                        + TimeUtil.formatDuration(durationMs)
                         + EnumChatFormatting.RED
                         + " по причине: "
                         + EnumChatFormatting.YELLOW
@@ -97,7 +98,7 @@ public class CommandMute extends CommandBase {
                 + player.getName()
                 + EnumChatFormatting.RESET
                 + " на "
-                + formatDuration(durationMs));
+                + TimeUtil.formatDuration(durationMs));
 
         @SuppressWarnings("unchecked")
         java.util.List<EntityPlayer> players = (java.util.List<EntityPlayer>) (java.util.List<?>) server
@@ -121,22 +122,5 @@ public class CommandMute extends CommandBase {
         }
 
         throw new WrongUsageException("Неверный формат времени. Используйте: 10s, 5m, 2h, 1d");
-    }
-
-    private String formatDuration(long ms) {
-        long seconds = ms / 1000;
-        long minutes = seconds / 60;
-        long hours = minutes / 60;
-        long days = hours / 24;
-
-        if (days > 0) {
-            return days + "д " + (hours % 24) + "ч";
-        } else if (hours > 0) {
-            return hours + "ч " + (minutes % 60) + "м";
-        } else if (minutes > 0) {
-            return minutes + "м " + (seconds % 60) + "с";
-        } else {
-            return seconds + "с";
-        }
     }
 }

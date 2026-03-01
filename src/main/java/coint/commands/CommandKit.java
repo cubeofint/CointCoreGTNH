@@ -25,6 +25,7 @@ import net.minecraft.util.Vec3;
 
 import coint.commands.kit.KitDefinition;
 import coint.commands.kit.KitManager;
+import coint.util.TimeUtil;
 import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -276,8 +277,7 @@ public class CommandKit extends CommandBase {
             return;
         }
 
-        for (int i = 0; i < slots.length; i++) {
-            ItemStack existing = slots[i];
+        for (ItemStack existing : slots) {
             if (existing == null) {
                 continue;
             }
@@ -356,8 +356,8 @@ public class CommandKit extends CommandBase {
         long cooldownMs = Ticks.get(cooldownTicks)
             .millis();
         if (lastUse > 0 && elapsed < cooldownMs) {
-            long remainingSeconds = (cooldownMs - elapsed + 999L) / 1000L;
-            sendError(sender, "Набор будет доступен через " + formatDuration(remainingSeconds));
+            long remainingSeconds = (cooldownMs - elapsed + 999L);
+            sendError(sender, "Набор будет доступен через " + TimeUtil.formatDuration(remainingSeconds));
             return true;
         }
 
@@ -383,41 +383,4 @@ public class CommandKit extends CommandBase {
             .setColor(EnumChatFormatting.RED);
         sender.addChatMessage(msg);
     }
-
-    private String formatDuration(long seconds) {
-        if (seconds <= 0) {
-            return "0 секунд";
-        }
-
-        long minutes = seconds / 60L;
-        long remainingSeconds = seconds % 60L;
-
-        if (minutes > 0 && remainingSeconds > 0) {
-            return formatUnit(minutes, "минута", "минуты", "минут") + " "
-                + formatUnit(remainingSeconds, "секунда", "секунды", "секунд");
-        }
-        if (minutes > 0) {
-            return formatUnit(minutes, "минута", "минуты", "минут");
-        }
-        return formatUnit(remainingSeconds, "секунда", "секунды", "секунд");
-    }
-
-    private String formatUnit(long value, String one, String few, String many) {
-        long mod100 = value % 100L;
-        long mod10 = value % 10L;
-        String word;
-
-        if (mod100 >= 11L && mod100 <= 14L) {
-            word = many;
-        } else if (mod10 == 1L) {
-            word = one;
-        } else if (mod10 >= 2L && mod10 <= 4L) {
-            word = few;
-        } else {
-            word = many;
-        }
-
-        return value + " " + word;
-    }
-
 }

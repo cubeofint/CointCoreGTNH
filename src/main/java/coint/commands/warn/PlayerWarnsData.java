@@ -20,7 +20,7 @@ import coint.CointCore;
 
 public class PlayerWarnsData implements IExtendedEntityProperties {
 
-    public static String EXT_PROP = CointCore.MOD_ID;
+    public static String EXT_PROP = CointCore.MOD_ID + "_warns";
     public static String NBT_TAG_WARNS = "warns";
 
     List<Warn> warns;
