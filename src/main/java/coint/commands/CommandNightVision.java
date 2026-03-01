@@ -8,11 +8,17 @@ import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
-import serverutils.ranks.Ranks;
+import serverutils.lib.util.permission.DefaultPermissionLevel;
+import serverutils.lib.util.permission.PermissionAPI;
 
 public class CommandNightVision extends CommandBase {
 
+    public static final String PERMISSION = "cointcore.command.nv";
     private static final int INFINITE_DURATION = Integer.MAX_VALUE;
+
+    public CommandNightVision() {
+        PermissionAPI.registerNode(PERMISSION, DefaultPermissionLevel.OP, "CointCore night vision permission");
+    }
 
     @Override
     public String getCommandName() {
@@ -22,10 +28,9 @@ public class CommandNightVision extends CommandBase {
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
         if (sender instanceof EntityPlayer player) {
-            return Ranks.INSTANCE.getPermission(player.getGameProfile(), "command.cointcore.nv", false)
-                .getBoolean();
+            return PermissionAPI.hasPermission(player, PERMISSION);
         }
-        return false;
+        return true; // console/RCON
     }
 
     @Override

@@ -17,13 +17,19 @@ import coint.util.ItemUtil;
 import serverutils.lib.config.RankConfigAPI;
 import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
-import serverutils.ranks.Ranks;
+import serverutils.lib.util.permission.DefaultPermissionLevel;
+import serverutils.lib.util.permission.PermissionAPI;
 
 public class CommandRepair extends CommandBase {
 
+    public static final String PERMISSION = "cointcore.command.repair";
     private static final String ARG_HAND = "hand";
     private static final String ARG_ALL = "all";
     private static final String TAG_LAST_REPAIR_MS = "cointcore_repair_last_ms";
+
+    public CommandRepair() {
+        PermissionAPI.registerNode(PERMISSION, DefaultPermissionLevel.OP, "CointCore repair permission");
+    }
 
     @Override
     public String getCommandName() {
@@ -38,10 +44,9 @@ public class CommandRepair extends CommandBase {
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
         if (sender instanceof EntityPlayer player) {
-            return Ranks.INSTANCE.getPermission(player.getGameProfile(), "command.cointcore.repair", false)
-                .getBoolean();
+            return PermissionAPI.hasPermission(player, PERMISSION);
         }
-        return false;
+        return true; // console/RCON
     }
 
     @Override

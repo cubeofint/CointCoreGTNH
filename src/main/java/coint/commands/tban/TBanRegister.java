@@ -21,11 +21,13 @@ public class TBanRegister {
     @SubscribeEvent
     public void playerClone(PlayerEvent.Clone event) {
         if (event.wasDeath) {
-            NBTTagCompound compound = new NBTTagCompound();
-            PlayerTBanData.get(event.original)
-                .saveNBTData(compound);
-            PlayerTBanData.get(event.entityPlayer)
-                .loadNBTData(compound);
+            PlayerTBanData originalData = PlayerTBanData.get(event.original);
+            PlayerTBanData newData = PlayerTBanData.get(event.entityPlayer);
+            if (originalData != null && newData != null) {
+                NBTTagCompound compound = new NBTTagCompound();
+                originalData.saveNBTData(compound);
+                newData.loadNBTData(compound);
+            }
         }
     }
 }
