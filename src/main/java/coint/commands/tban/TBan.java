@@ -1,12 +1,13 @@
 package coint.commands.tban;
 
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import net.minecraft.command.ICommandSender;
 import net.minecraft.util.EnumChatFormatting;
+
+import coint.util.TimeUtil;
 
 public class TBan {
 
@@ -33,7 +34,7 @@ public class TBan {
 
     private String expireDate() {
         Instant instant = Instant.ofEpochMilli(this.expiresAt);
-        ZonedDateTime zonedDateTime = instant.atZone(ZoneId.systemDefault());
+        ZonedDateTime zonedDateTime = instant.atZone(TimeUtil.getZone());
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
         return zonedDateTime.format(formatter);
     }

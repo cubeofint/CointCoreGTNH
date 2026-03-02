@@ -1,7 +1,6 @@
 package coint.commands;
 
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -20,6 +19,7 @@ import com.google.common.base.Joiner;
 
 import coint.commands.warn.PlayerWarnsData;
 import coint.commands.warn.Warn;
+import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -135,7 +135,7 @@ public class CommandWarn extends CommandBase {
                 int i = 1;
                 for (Warn warn : warns) {
                     Instant when = Instant.parse(warn.timestamp);
-                    ZonedDateTime zdt = when.atZone(ZoneId.systemDefault());
+                    ZonedDateTime zdt = when.atZone(TimeUtil.getZone());
                     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
                     sender.addChatMessage(
                         new ChatComponentText(

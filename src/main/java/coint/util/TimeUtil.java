@@ -1,5 +1,8 @@
 package coint.util;
 
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+
 public class TimeUtil {
 
     public static String formatDuration(long ms) {
@@ -17,5 +20,9 @@ public class TimeUtil {
         } else {
             return seconds + "с";
         }
+    }
+
+    public static ZoneId getZone() {
+        return ZoneId.ofOffset("GMT", ZoneOffset.of("+3"));
     }
 }
