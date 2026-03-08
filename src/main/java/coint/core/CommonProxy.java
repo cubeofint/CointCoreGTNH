@@ -9,6 +9,7 @@ import coint.commands.CommandHeal;
 import coint.commands.CommandKit;
 import coint.commands.CommandMute;
 import coint.commands.CommandNightVision;
+import coint.commands.CommandReload;
 import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
 import coint.commands.CommandTBan;
@@ -82,13 +83,12 @@ public class CommonProxy {
      * Called during FML postInit phase
      */
     @SuppressWarnings("unused")
-    public void postInit(FMLPostInitializationEvent event) {
-        moduleManager.postInit();
-        CointCore.LOG.info("CointCore GTNH initialized successfully");
-    }
+    public void postInit(FMLPostInitializationEvent event) {}
 
     public void serverAboutToStart(FMLServerAboutToStartEvent event) {
         EpochRegistry.init(event);
+        moduleManager.onAboutToStart();
+        CointCore.LOG.info("CointCore GTNH initialized successfully");
     }
 
     /**
@@ -108,6 +108,7 @@ public class CommonProxy {
         event.registerServerCommand(new CommandMute());
         event.registerServerCommand(new CommandUnmute());
         event.registerServerCommand(new CommandTBan());
+        event.registerServerCommand(new CommandReload());
         CointCore.LOG.debug("Registered server commands");
     }
 

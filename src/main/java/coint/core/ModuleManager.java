@@ -92,7 +92,7 @@ public class ModuleManager {
     /**
      * Called during postInit phase
      */
-    public void postInit() {
+    public void onAboutToStart() {
         // Initialize modules
         for (IModule module : modules.values()) {
             if (module.isEnabled()) {

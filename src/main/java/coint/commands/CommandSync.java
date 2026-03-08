@@ -46,7 +46,7 @@ public class CommandSync extends CommandBase {
             return;
         }
 
-        SURanksManager manager = SURanksManager.getInstance();
+        SURanksManager manager = SURanksManager.INSTANCE;
         if (manager == null) {
             sendError(sender, "SURanksManager not initialized");
             return;

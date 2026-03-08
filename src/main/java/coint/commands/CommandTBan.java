@@ -103,7 +103,8 @@ public class CommandTBan extends CommandBase {
                 + reason);
 
         MinecraftServer.getServer()
-            .addChatMessage(message);
+            .getConfigurationManager()
+            .sendChatMsg(message);
     }
 
     private long parseTimeToMs(String time) {

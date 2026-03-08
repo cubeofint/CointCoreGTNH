@@ -1,6 +1,5 @@
 package coint.util;
 
-import net.minecraft.entity.item.EntityItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 
@@ -19,23 +18,17 @@ public final class ItemUtil {
 
     private static final String NBT_TAG_DROP = "dropped";
 
-    public static void setDropTag(EntityItem item) {
-        ItemStack stack = item.getEntityItem();
-
-        if (item.delayBeforeCanPickup > 0) {
-            if (!stack.hasTagCompound()) {
-                stack.setTagCompound(new NBTTagCompound());
-            }
-            NBTTagCompound nbt = stack.getTagCompound();
-            nbt.setBoolean(NBT_TAG_DROP, true);
-            stack.setTagCompound(nbt);
+    public static void setDropTag(ItemStack stack) {
+        if (!stack.hasTagCompound()) {
+            stack.setTagCompound(new NBTTagCompound());
         }
+        NBTTagCompound nbt = stack.getTagCompound();
+        nbt.setBoolean(NBT_TAG_DROP, true);
+        stack.setTagCompound(nbt);
     }
 
     // True if item will be removed
-    public static boolean removeDropTag(EntityItem item) {
-        ItemStack stack = item.getEntityItem();
-
+    public static boolean removeDropTag(ItemStack stack) {
         if (stack.hasTagCompound() && stack.getTagCompound()
             .hasKey(NBT_TAG_DROP)) {
             stack.getTagCompound()

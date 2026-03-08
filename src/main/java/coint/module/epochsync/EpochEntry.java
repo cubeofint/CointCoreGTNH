@@ -18,6 +18,9 @@ public class EpochEntry {
     @SerializedName("rank_name")
     public String rankName;
 
+    @SerializedName("display_name")
+    public String displayName;
+
     public int priority;
 
     public int chunks;

@@ -172,8 +172,8 @@ public class PartyEventListener {
      * Get the current epoch rank of a player.
      */
     private EpochEntry getPlayerCurrentEpoch(UUID playerId) {
-        SURanksManager ranksManager = SURanksManager.getInstance();
-        if (ranksManager == null || !ranksManager.isReady()) {
+        SURanksManager ranksManager = SURanksManager.get();
+        if (ranksManager == null) {
             return null;
         }
 
@@ -189,7 +189,7 @@ public class PartyEventListener {
      * Assign a rank to a player.
      */
     private void assignRankToPlayer(UUID playerId, String rank) {
-        SURanksManager ranksManager = SURanksManager.getInstance();
+        SURanksManager ranksManager = SURanksManager.get();
         if (ranksManager == null) {
             LOG.warn("SURanksManager not initialized, cannot set rank");
             return;

@@ -31,6 +31,7 @@ public class CointConfig {
     public static boolean autoParseRewardCommands = true;
 
     // API settings
+    public static boolean notifyEnabled = false;
     public static String apiUrl = "";
     public static int apiTimeout = 10000;
 
@@ -89,6 +90,7 @@ public class CointConfig {
 
             // API
             config.addCustomCategoryComment(CATEGORY_API, "External API settings");
+            notifyEnabled = config.getBoolean("enable", CATEGORY_API, false, "Enable api notify");
             apiUrl = config.getString(
                 "url",
                 CATEGORY_API,

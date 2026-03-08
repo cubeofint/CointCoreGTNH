@@ -94,7 +94,6 @@ public class CommandWarn extends CommandBase {
                 }
 
                 // Broadcast to all players
-                MinecraftServer server = MinecraftServer.getServer();
                 ChatComponentText message = new ChatComponentText(
                     EnumChatFormatting.GOLD + sender.getCommandSenderName()
                         + EnumChatFormatting.RESET
@@ -106,12 +105,9 @@ public class CommandWarn extends CommandBase {
                         + EnumChatFormatting.YELLOW
                         + reason);
 
-                @SuppressWarnings("unchecked")
-                java.util.List<EntityPlayer> players = (java.util.List<EntityPlayer>) (java.util.List<?>) server
-                    .getConfigurationManager().playerEntityList;
-                for (EntityPlayer p : players) {
-                    p.addChatMessage(message);
-                }
+                MinecraftServer.getServer()
+                    .getConfigurationManager()
+                    .sendChatMsg(message);
 
                 sender.addChatMessage(new ChatComponentText("Add warn for " + playerName));
                 break;

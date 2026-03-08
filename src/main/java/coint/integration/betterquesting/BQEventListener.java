@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.EnumChatFormatting;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,6 +21,7 @@ import coint.module.epochsync.EpochRegistry;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import serverutils.lib.data.Universe;
 
 /**
  * Event listener for BetterQuesting quest completion events.
@@ -59,10 +61,7 @@ public class BQEventListener {
         EpochEntry epoch = EpochRegistry.INST.getEpoch(questID);
 
         if (epoch == null) {
-            LOG.debug(
-                "Quest {} is not an epoch quest (no mapping{} )",
-                questID,
-                CointConfig.autoParseRewardCommands ? " and no rank command found" : "");
+            LOG.debug("Quest {} is not an epoch quest", questID);
             return;
         }
 
@@ -74,7 +73,7 @@ public class BQEventListener {
      * Assign rank to a player and all their party members.
      */
     private void assignRankToPlayerAndParty(UUID playerId, EpochEntry epoch) {
-        SURanksManager ranksManager = SURanksManager.getInstance();
+        SURanksManager ranksManager = SURanksManager.INSTANCE;
         if (ranksManager == null) {
             LOG.warn("SURanksManager not initialized, cannot set rank");
             return;
@@ -89,27 +88,32 @@ public class BQEventListener {
             LOG.info("Assigning rank {} to {} party members", epoch, members.size());
 
             for (UUID memberUUID : members) {
-                assignRankToPlayer(ranksManager, memberUUID, epoch);
+                assignRankToPlayer(memberUUID, epoch);
             }
         } else {
             // No party or party sync disabled - assign only to the player
-            assignRankToPlayer(ranksManager, playerId, epoch);
+            assignRankToPlayer(playerId, epoch);
         }
     }
 
     /**
      * Assign rank to a single player.
      */
-    private void assignRankToPlayer(SURanksManager ranksManager, UUID playerId, EpochEntry epoch) {
+    private void assignRankToPlayer(UUID playerId, EpochEntry epoch) {
         try {
-            ranksManager.setRank(playerId, epoch.rankName);
+            SURanksManager.INSTANCE.setRank(playerId, epoch.rankName);
 
-            String name = ranksManager.getUniverse()
+            String msg = epoch.epochUpMessage;
+
+            String name = Universe.get()
                 .getPlayer(playerId)
                 .getName();
-            String msg = epoch.epochUpMessage.replace("@p", name);
+            msg = msg.replace("@p", EnumChatFormatting.GOLD + name + EnumChatFormatting.RESET);
+            msg = msg.replace("@e", epoch.displayName);
+
             MinecraftServer.getServer()
-                .addChatMessage(new ChatComponentText(msg));
+                .getConfigurationManager()
+                .sendChatMsg(new ChatComponentText(msg));
 
             LOG.info("Successfully set rank {} for player {}", epoch.rankName, playerId);
         } catch (Exception e) {
@@ -120,7 +124,7 @@ public class BQEventListener {
     /**
      * Get the party for a player.
      *
-     * @return The party, or null if player is not in a party
+     * @return The party, or null if player is not in a group
      */
     private IParty getPlayerParty(UUID playerId) {
         try {
@@ -147,7 +151,7 @@ public class BQEventListener {
         EpochEntry highestEpoch = null;
         int highestPriority = -1;
 
-        SURanksManager ranksManager = SURanksManager.getInstance();
+        SURanksManager ranksManager = SURanksManager.INSTANCE;
         if (ranksManager == null) {
             return null;
         }
@@ -169,7 +173,7 @@ public class BQEventListener {
      * Get the current epoch rank of a player.
      */
     private EpochEntry getPlayerCurrentEpoch(UUID playerId) {
-        SURanksManager ranksManager = SURanksManager.getInstance();
+        SURanksManager ranksManager = SURanksManager.INSTANCE;
         if (ranksManager == null) {
             return null;
         }
@@ -204,7 +208,7 @@ public class BQEventListener {
         // Only upgrade, never downgrade
         if (playerEpoch == null || partyEpoch.priority > playerEpoch.priority) {
             LOG.info("Syncing player {} to party epoch: {}", playerId, partyEpoch);
-            assignRankToPlayer(SURanksManager.getInstance(), playerId, partyEpoch);
+            assignRankToPlayer(playerId, partyEpoch);
         } else {
             LOG.debug("Player {} already has equal or higher epoch: {}", playerId, playerEpoch);
         }

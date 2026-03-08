@@ -89,7 +89,6 @@ public class CommandMute extends CommandBase {
                         + reason));
         }
 
-        MinecraftServer server = MinecraftServer.getServer();
         ChatComponentText message = new ChatComponentText(
             EnumChatFormatting.GOLD + sender.getCommandSenderName()
                 + EnumChatFormatting.RESET
@@ -100,12 +99,9 @@ public class CommandMute extends CommandBase {
                 + " на "
                 + TimeUtil.formatDuration(durationMs));
 
-        @SuppressWarnings("unchecked")
-        java.util.List<EntityPlayer> players = (java.util.List<EntityPlayer>) (java.util.List<?>) server
-            .getConfigurationManager().playerEntityList;
-        for (EntityPlayer p : players) {
-            p.addChatMessage(message);
-        }
+        MinecraftServer.getServer()
+            .getConfigurationManager()
+            .sendChatMsg(message);
     }
 
     private long parseTimeToMs(String time) {

@@ -1,8 +1,6 @@
 package coint.integration.serverutilities;
 
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,7 +17,6 @@ import coint.util.HttpUtil;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.ranks.PlayerRank;
 import serverutils.ranks.Rank;
-import serverutils.ranks.Rank.Entry;
 import serverutils.ranks.Ranks;
 
 /**
@@ -28,85 +25,54 @@ import serverutils.ranks.Ranks;
 public class SURanksManager {
 
     private static final Logger LOG = LogManager.getLogger(SURanksManager.class);
+    private final Map<String, Rank> epochs = new HashMap<>();
 
-    private static SURanksManager INSTANCE;
+    public static SURanksManager INSTANCE;
 
-    private Ranks ranksInst;
-    private final Map<String, List<Entry>> epochPermissions = new HashMap<>();
-
-    private SURanksManager() {
-        initEpochPermissions();
-    }
-
-    /**
-     * Initialize the singleton instance
-     */
-    public static void init() {
-        if (INSTANCE == null) {
-            INSTANCE = new SURanksManager();
-            LOG.info("SURanksManager initialized");
-        }
+    public SURanksManager() {
+        reload();
     }
 
     /**
      * Get the singleton instance
      */
-    public static SURanksManager getInstance() {
+    public static SURanksManager get() {
         return INSTANCE;
-    }
-
-    /**
-     * Get Ranks instance (lazy initialization)
-     * Ranks.INSTANCE is only available after server starts
-     */
-    private Ranks getRanksInstance() {
-        if (ranksInst == null) {
-            ranksInst = Ranks.INSTANCE;
-            if (ranksInst == null) {
-                LOG.error("Ranks.INSTANCE is null! ServerUtilities ranks not initialized yet.");
-            } else {
-                LOG.debug("Ranks instance obtained successfully");
-            }
-        }
-        return ranksInst;
     }
 
     /**
      * Initialize epoch permissions mapping
      */
-    private void initEpochPermissions() {
+    public void reload() {
         for (EpochEntry entry : EpochRegistry.INST.epochs.values()) {
-            epochPermissions
-                .put(entry.rankName, createEpochPerms(entry.priority, entry.chunks, entry.forcedChunks, entry.homes));
+            epochs.put(entry.rankName, createEpoch(entry));
         }
     }
 
-    private static List<Entry> createEpochPerms(int priority, int chunks, int forcedChunks, int homes) {
-        Entry p = new Entry(Rank.NODE_PRIORITY);
-        p.value = String.valueOf(priority);
-        Entry c = new Entry(ServerUtilitiesPermissions.CLAIMS_MAX_CHUNKS);
-        c.value = String.valueOf(chunks);
-        Entry f = new Entry(ServerUtilitiesPermissions.CHUNKLOADER_MAX_CHUNKS);
-        f.value = String.valueOf(forcedChunks);
-        Entry h = new Entry(ServerUtilitiesPermissions.HOMES_MAX);
-        h.value = String.valueOf(homes);
+    private static Rank createEpoch(EpochEntry entry) {
+        Rank epoch = new Rank(Ranks.INSTANCE, entry.rankName);
 
-        return Arrays.asList(p, c, f, h);
+        String name = "<" + entry.displayName + " {name}>";
+        epoch.setPermission(Rank.NODE_PRIORITY, entry.priority);
+        epoch.setPermission(ServerUtilitiesPermissions.CHAT_NAME_FORMAT, name);
+        epoch.setPermission(ServerUtilitiesPermissions.CLAIMS_MAX_CHUNKS, entry.chunks);
+        epoch.setPermission(ServerUtilitiesPermissions.CHUNKLOADER_MAX_CHUNKS, entry.forcedChunks);
+        epoch.setPermission(ServerUtilitiesPermissions.HOMES_MAX, entry.homes);
+
+        return epoch;
     }
 
-    /**
-     * Get all ranks
-     */
-    public Map<String, Rank> getRanks() {
-        Ranks ranks = getRanksInstance();
-        return ranks != null ? ranks.ranks : null;
+    public void updateRanks() {
+        Ranks ranks = Ranks.INSTANCE;
+        ranks.ranks.putAll(epochs);
+        ranks.save();
     }
 
     /**
      * Set a player's epoch rank
      */
     public void setRank(UUID playerId, String rank) throws Exception {
-        Ranks ranks = getRanksInstance();
+        Ranks ranks = Ranks.INSTANCE;
         if (ranks == null) {
             throw new Exception("ServerUtilities Ranks not initialized yet");
         }
@@ -149,7 +115,9 @@ public class SURanksManager {
         }
 
         // Notify external API
-        notifyApiRankChange(playerId, rank);
+        if (CointConfig.notifyEnabled) {
+            notifyApiRankChange(playerId, rank);
+        }
     }
 
     /**
@@ -178,7 +146,7 @@ public class SURanksManager {
      * Sync all ranks with external API
      */
     public void syncRanks(boolean onlyRoles) {
-        Ranks ranks = getRanksInstance();
+        Ranks ranks = Ranks.INSTANCE;
         if (ranks == null) {
             LOG.error("Cannot sync ranks: ServerUtilities Ranks not initialized");
             return;
@@ -235,35 +203,13 @@ public class SURanksManager {
     }
 
     /**
-     * Get epoch permissions for a rank
-     */
-    public List<Entry> getEpochPermissions(String epoch) {
-        return epochPermissions.get(epoch);
-    }
-
-    /**
-     * Check if ranks system is ready (Ranks.INSTANCE initialized)
-     */
-    public boolean isReady() {
-        return getRanksInstance() != null;
-    }
-
-    /**
-     * Get the universe for player lookups (null if not ready)
-     */
-    public serverutils.lib.data.Universe getUniverse() {
-        Ranks ranks = getRanksInstance();
-        return ranks != null ? ranks.universe : null;
-    }
-
-    /**
      * Get the current epoch rank of a player.
      *
      * @param playerId The player's UUID
      * @return The epoch rank name, or null if player has no epoch rank
      */
     public EpochEntry getPlayerEpoch(UUID playerId) {
-        Ranks ranks = getRanksInstance();
+        Ranks ranks = Ranks.INSTANCE;
         if (ranks == null) {
             LOG.debug("Cannot get player epoch: Ranks not initialized");
             return null;

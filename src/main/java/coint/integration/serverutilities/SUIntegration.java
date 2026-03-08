@@ -23,7 +23,7 @@ public class SUIntegration implements IIntegration {
 
     @Override
     public void register() {
-        SURanksManager.init();
+        SURanksManager.INSTANCE = new SURanksManager();
         CointCore.LOG.debug("ServerUtilities ranks manager initialized");
     }
 
@@ -38,12 +38,5 @@ public class SUIntegration implements IIntegration {
     public void registerCommands() {
         // Commands are registered via FMLServerStartingEvent in the proxy
         CointCore.LOG.debug("ServerUtilities commands ready for registration");
-    }
-
-    /**
-     * Get the ranks manager instance
-     */
-    public SURanksManager getRanksManager() {
-        return SURanksManager.getInstance();
     }
 }

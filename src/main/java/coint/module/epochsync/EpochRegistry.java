@@ -25,7 +25,7 @@ public class EpochRegistry {
 
     public static EpochRegistry INST;
 
-    private static final String EPOCHS_FILE = "cointcore/server/epochs.json";
+    private static final String EPOCHS_FILE = "cointcore/epochs.json";
 
     public HashMap<UUID, EpochEntry> epochs;
 
@@ -50,9 +50,8 @@ public class EpochRegistry {
         epochs.clear();
 
         try {
-            if (!epochsFile.exists() && !epochsFile.createNewFile()) {
+            if (epochsFile.createNewFile()) {
                 CointCore.LOG.info("empty epochs config created");
-                return;
             }
 
             FileReader reader = new FileReader(epochsFile);
@@ -66,6 +65,7 @@ public class EpochRegistry {
             CointCore.LOG.info("epochs loaded from config");
         } catch (IOException e) {
             CointCore.LOG.error(e);
+            e.printStackTrace(System.err);
         }
     }
 
