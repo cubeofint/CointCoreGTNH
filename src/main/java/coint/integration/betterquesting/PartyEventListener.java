@@ -3,6 +3,7 @@ package coint.integration.betterquesting;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraftforge.common.MinecraftForge;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,6 +17,7 @@ import coint.integration.serverutilities.SURanksManager;
 import coint.module.epochsync.EpochEntry;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
  * Event listener for party-related events.
@@ -48,19 +50,22 @@ public class PartyEventListener {
     }
 
     /**
-     * Schedule a delayed sync for a player.
-     * This ensures ServerUtilities ranks are fully loaded.
+     * Schedule a sync for a player on the server thread.
+     * Registers a one-shot TickEvent handler that runs on the next server tick
+     * and immediately unregisters itself — safe pattern for Forge 1.7.10.
      */
     private void scheduleDelayedSync(UUID playerId) {
-        // Use a simple delayed task (1 second delay)
-        new Thread(() -> {
-            try {
-                Thread.sleep(1000);
+        MinecraftForge.EVENT_BUS.register(new Object() {
+
+            @SubscribeEvent
+            public void onServerTick(TickEvent.ServerTickEvent event) {
+                if (event.phase != TickEvent.Phase.END) {
+                    return;
+                }
+                MinecraftForge.EVENT_BUS.unregister(this);
                 syncPlayerToParty(playerId);
-            } catch (InterruptedException e) {
-                LOG.debug("Sync thread interrupted for player {}", playerId);
             }
-        }).start();
+        });
     }
 
     /**
@@ -75,24 +80,23 @@ public class PartyEventListener {
             return;
         }
 
-        EpochEntry partyEpoch = getHighestPartyEpoch(party);
+        SURanksManager ranksManager = SURanksManager.get();
+        if (ranksManager == null) {
+            return;
+        }
+
+        EpochEntry partyEpoch = ranksManager.getHighestPartyEpoch(party);
         if (partyEpoch == null) {
             LOG.debug("Party has no epoch rank, nothing to sync for player {}", playerId);
             return;
         }
 
-        EpochEntry playerEpoch = getPlayerCurrentEpoch(playerId);
-
         // Only upgrade, never downgrade
-        if (playerEpoch == null || partyEpoch.priority > playerEpoch.priority) {
-            LOG.info(
-                "Syncing player {} to party epoch: {} (was: {})",
-                playerId,
-                partyEpoch.rankName,
-                playerEpoch == null ? "non" : playerEpoch.rankName);
+        if (ranksManager.needsEpochUpgrade(playerId, partyEpoch)) {
+            LOG.info("Syncing player {} to party epoch: {}", playerId, partyEpoch.rankName);
             assignRankToPlayer(playerId, partyEpoch.rankName);
         } else {
-            LOG.debug("Player {} already has equal or higher epoch: {}", playerId, playerEpoch);
+            LOG.debug("Player {} already has equal or higher epoch", playerId);
         }
     }
 
@@ -116,16 +120,19 @@ public class PartyEventListener {
      * Internal method to sync a player to a specific party.
      */
     private void syncPlayerToPartyInternal(UUID playerId, IParty party) {
-        EpochEntry partyEpoch = getHighestPartyEpoch(party);
+        SURanksManager ranksManager = SURanksManager.get();
+        if (ranksManager == null) {
+            return;
+        }
+
+        EpochEntry partyEpoch = ranksManager.getHighestPartyEpoch(party);
         if (partyEpoch == null) {
             LOG.debug("Party has no epoch rank, nothing to sync for new member {}", playerId);
             return;
         }
 
-        EpochEntry playerEpoch = getPlayerCurrentEpoch(playerId);
-
         // Only upgrade, never downgrade
-        if (playerEpoch == null || partyEpoch.priority > playerEpoch.priority) {
+        if (ranksManager.needsEpochUpgrade(playerId, partyEpoch)) {
             LOG.info("Syncing new party member {} to epoch: {}", playerId, partyEpoch.rankName);
             assignRankToPlayer(playerId, partyEpoch.rankName);
         }
@@ -140,47 +147,6 @@ public class PartyEventListener {
             return entry != null ? entry.getValue() : null;
         } catch (Exception e) {
             LOG.debug("Could not get party for player {}: {}", playerId, e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Get the highest epoch rank from a party.
-     */
-    private EpochEntry getHighestPartyEpoch(IParty party) {
-        if (party == null) {
-            return null;
-        }
-
-        EpochEntry highestEpoch = null;
-        int highestPriority = -1;
-
-        for (UUID memberUUID : party.getMembers()) {
-            EpochEntry memberEpoch = getPlayerCurrentEpoch(memberUUID);
-            if (memberEpoch != null) {
-                if (memberEpoch.priority > highestPriority) {
-                    highestPriority = memberEpoch.priority;
-                    highestEpoch = memberEpoch;
-                }
-            }
-        }
-
-        return highestEpoch;
-    }
-
-    /**
-     * Get the current epoch rank of a player.
-     */
-    private EpochEntry getPlayerCurrentEpoch(UUID playerId) {
-        SURanksManager ranksManager = SURanksManager.get();
-        if (ranksManager == null) {
-            return null;
-        }
-
-        try {
-            return ranksManager.getPlayerEpoch(playerId);
-        } catch (Exception e) {
-            LOG.debug("Could not get epoch for player {}: {}", playerId, e.getMessage());
             return null;
         }
     }

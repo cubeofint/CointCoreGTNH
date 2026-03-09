@@ -21,6 +21,7 @@ import coint.module.epochsync.EpochRegistry;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 
 /**
@@ -79,41 +80,37 @@ public class BQEventListener {
             return;
         }
 
-        // Get player's party
         IParty party = getPlayerParty(playerId);
 
         if (party != null && CointConfig.partySyncEnabled) {
-            // Assign rank to all party members
             List<UUID> members = party.getMembers();
-            LOG.info("Assigning rank {} to {} party members", epoch, members.size());
-
+            LOG.info("Assigning rank {} to {} party members", epoch.rankName, members.size());
             for (UUID memberUUID : members) {
                 assignRankToPlayer(memberUUID, epoch);
             }
         } else {
-            // No party or party sync disabled - assign only to the player
             assignRankToPlayer(playerId, epoch);
         }
     }
 
     /**
-     * Assign rank to a single player.
+     * Assign rank to a single player and broadcast the epoch-up message.
      */
     private void assignRankToPlayer(UUID playerId, EpochEntry epoch) {
         try {
             SURanksManager.INSTANCE.setRank(playerId, epoch.rankName);
 
             String msg = epoch.epochUpMessage;
-
-            String name = Universe.get()
-                .getPlayer(playerId)
-                .getName();
-            msg = msg.replace("@p", EnumChatFormatting.GOLD + name + EnumChatFormatting.RESET);
-            msg = msg.replace("@e", epoch.displayName);
-
-            MinecraftServer.getServer()
-                .getConfigurationManager()
-                .sendChatMsg(new ChatComponentText(msg));
+            if (msg != null && !msg.isEmpty()) {
+                ForgePlayer forgePlayer = Universe.get()
+                    .getPlayer(playerId);
+                String playerName = forgePlayer != null ? forgePlayer.getName() : playerId.toString();
+                msg = msg.replace("@p", EnumChatFormatting.GOLD + playerName + EnumChatFormatting.RESET);
+                msg = msg.replace("@e", epoch.displayName);
+                MinecraftServer.getServer()
+                    .getConfigurationManager()
+                    .sendChatMsg(new ChatComponentText(msg));
+            }
 
             LOG.info("Successfully set rank {} for player {}", epoch.rankName, playerId);
         } catch (Exception e) {
@@ -123,8 +120,6 @@ public class BQEventListener {
 
     /**
      * Get the party for a player.
-     *
-     * @return The party, or null if player is not in a group
      */
     private IParty getPlayerParty(UUID playerId) {
         try {
@@ -133,84 +128,6 @@ public class BQEventListener {
         } catch (Exception e) {
             LOG.debug("Could not get party for player {}: {}", playerId, e.getMessage());
             return null;
-        }
-    }
-
-    /**
-     * Get the highest epoch rank from a party.
-     * Useful for syncing new members to the party's progress.
-     *
-     * @param party The party to check
-     * @return The highest epoch rank, or null if none found
-     */
-    public EpochEntry getHighestPartyEpoch(IParty party) {
-        if (party == null) {
-            return null;
-        }
-
-        EpochEntry highestEpoch = null;
-        int highestPriority = -1;
-
-        SURanksManager ranksManager = SURanksManager.INSTANCE;
-        if (ranksManager == null) {
-            return null;
-        }
-
-        for (UUID memberUUID : party.getMembers()) {
-            EpochEntry memberEpoch = getPlayerCurrentEpoch(memberUUID);
-            if (memberEpoch != null) {
-                if (memberEpoch.priority > highestPriority) {
-                    highestPriority = memberEpoch.priority;
-                    highestEpoch = memberEpoch;
-                }
-            }
-        }
-
-        return highestEpoch;
-    }
-
-    /**
-     * Get the current epoch rank of a player.
-     */
-    private EpochEntry getPlayerCurrentEpoch(UUID playerId) {
-        SURanksManager ranksManager = SURanksManager.INSTANCE;
-        if (ranksManager == null) {
-            return null;
-        }
-
-        try {
-            return ranksManager.getPlayerEpoch(playerId);
-        } catch (Exception e) {
-            LOG.debug("Could not get epoch for player {}: {}", playerId, e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Sync a player to their party's highest epoch.
-     * Called when a player joins a party.
-     */
-    public void syncPlayerToParty(UUID playerId) {
-        IParty party = getPlayerParty(playerId);
-        if (party == null) {
-            LOG.debug("Player {} is not in a party, nothing to sync", playerId);
-            return;
-        }
-
-        EpochEntry partyEpoch = getHighestPartyEpoch(party);
-        if (partyEpoch == null) {
-            LOG.debug("Party has no epoch rank, nothing to sync for player {}", playerId);
-            return;
-        }
-
-        EpochEntry playerEpoch = getPlayerCurrentEpoch(playerId);
-
-        // Only upgrade, never downgrade
-        if (playerEpoch == null || partyEpoch.priority > playerEpoch.priority) {
-            LOG.info("Syncing player {} to party epoch: {}", playerId, partyEpoch);
-            assignRankToPlayer(playerId, partyEpoch);
-        } else {
-            LOG.debug("Player {} already has equal or higher epoch: {}", playerId, playerEpoch);
         }
     }
 }

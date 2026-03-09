@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import betterquesting.api.questing.party.IParty;
 import coint.config.CointConfig;
 import coint.module.epochsync.EpochEntry;
 import coint.module.epochsync.EpochRegistry;
@@ -247,17 +248,44 @@ public class SURanksManager {
     }
 
     /**
-     * Check if a player has a specific epoch rank or higher.
+     * Check if a player needs to be upgraded to the given epoch rank.
+     * Returns true if the player has no epoch rank, or their current rank is lower than the target.
      *
      * @param playerId The player's UUID
-     * @param epoch    The epoch to check
-     * @return true if player has this epoch or a higher one
+     * @param epoch    The target epoch to compare against
+     * @return true if player does NOT yet have this epoch or higher (i.e. upgrade is needed)
      */
-    public boolean hasEpochOrHigher(UUID playerId, EpochEntry epoch) {
+    public boolean needsEpochUpgrade(UUID playerId, EpochEntry epoch) {
         EpochEntry playerEpoch = getPlayerEpoch(playerId);
         if (playerEpoch == null) {
-            return false;
+            return true;
         }
-        return playerEpoch.priority >= epoch.priority;
+        return playerEpoch.priority < epoch.priority;
+    }
+
+    /**
+     * Get the highest epoch rank among all members of a party.
+     * Iterates all members and returns the EpochEntry with the highest priority.
+     *
+     * @param party The BetterQuesting party to scan
+     * @return The highest epoch rank found, or null if no member has any epoch
+     */
+    public EpochEntry getHighestPartyEpoch(IParty party) {
+        if (party == null) {
+            return null;
+        }
+
+        EpochEntry highestEpoch = null;
+
+        for (UUID memberUUID : party.getMembers()) {
+            EpochEntry memberEpoch = getPlayerEpoch(memberUUID);
+            if (memberEpoch != null) {
+                if (highestEpoch == null || memberEpoch.priority > highestEpoch.priority) {
+                    highestEpoch = memberEpoch;
+                }
+            }
+        }
+
+        return highestEpoch;
     }
 }
