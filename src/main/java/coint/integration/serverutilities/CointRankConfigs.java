@@ -5,6 +5,7 @@ import java.util.List;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.events.RegisterRankConfigEvent;
+import serverutils.lib.config.ConfigInt;
 import serverutils.lib.config.ConfigStringEnum;
 import serverutils.lib.config.ConfigTimer;
 import serverutils.lib.math.Ticks;
@@ -15,6 +16,12 @@ public final class CointRankConfigs {
     public static final String REPAIR_COOLDOWN = "cointcore.repair.cooldown";
     public static final String HEAL_COOLDOWN = "cointcore.heal.cooldown";
     public static final String FEED_COOLDOWN = "cointcore.feed.cooldown";
+
+    /**
+     * Bonus claim chunks added on top of serverutilities.claims.max_chunks.
+     * Set per-rank in ranks.txt, summed across all team members.
+     */
+    public static final String BONUS_CLAIM_CHUNKS = "cointcore.bonus_chunks";
 
     private static final List<String> REPAIR_MODES = Arrays.asList("hand", "all");
 
@@ -27,5 +34,7 @@ public final class CointRankConfigs {
         event.register(REPAIR_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
         event.register(HEAL_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
         event.register(FEED_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
+        // Bonus claim chunks: default 0, max 10000
+        event.register(BONUS_CLAIM_CHUNKS, new ConfigInt(0, 1, 10000), new ConfigInt(0, 1, 10000));
     }
 }

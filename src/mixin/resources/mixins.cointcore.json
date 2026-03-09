@@ -6,7 +6,8 @@
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "betterquesting.MixinPartyInstance"
+    "betterquesting.MixinPartyInstance",
+    "serverutilities.MixinServerUtilitiesTeamData"
   ],
   "client": [],
   "server": []

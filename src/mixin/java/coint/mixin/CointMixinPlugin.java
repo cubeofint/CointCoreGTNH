@@ -35,9 +35,14 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
             return isModLoaded("gregtech");
         }
 
-        // Example: Only apply BetterQuesting mixins if BQ is loaded
+        // Only apply BetterQuesting mixins if BQ is loaded
         if (mixinClassName.contains(".betterquesting.")) {
             return isModLoaded("betterquesting");
+        }
+
+        // Only apply ServerUtilities mixins if SU is loaded
+        if (mixinClassName.contains(".serverutilities.")) {
+            return isModLoaded("serverutilities");
         }
 
         // Example: Only apply AE2 mixins if AE2 is loaded

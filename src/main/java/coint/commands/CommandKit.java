@@ -30,7 +30,6 @@ import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
-import serverutils.ranks.Ranks;
 
 public class CommandKit extends CommandBase {
 
@@ -324,8 +323,7 @@ public class CommandKit extends CommandBase {
     }
 
     private boolean hasPermission(EntityPlayer player, String node) {
-        return Ranks.INSTANCE.getPermission(player.getGameProfile(), node, true)
-            .getBoolean();
+        return PermissionAPI.hasPermission(player, node);
     }
 
     private long parseCooldown(ICommandSender sender, String[] args) {
