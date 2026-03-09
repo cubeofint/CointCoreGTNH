@@ -35,6 +35,6 @@ public final class CointRankConfigs {
         event.register(HEAL_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
         event.register(FEED_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
         // Bonus claim chunks: default 0, max 10000
-        event.register(BONUS_CLAIM_CHUNKS, new ConfigInt(0, 1, 10000), new ConfigInt(0, 1, 10000));
+        event.register(BONUS_CLAIM_CHUNKS, new ConfigInt(0, 0, 10000), new ConfigInt(0, 0, 10000));
     }
 }
