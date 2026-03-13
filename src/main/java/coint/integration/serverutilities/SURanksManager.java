@@ -16,7 +16,6 @@ import coint.module.epochsync.EpochEntry;
 import coint.module.epochsync.EpochRegistry;
 import coint.util.HttpUtil;
 import serverutils.ServerUtilitiesPermissions;
-import serverutils.lib.data.ForgePlayer;
 import serverutils.ranks.PlayerRank;
 import serverutils.ranks.Rank;
 import serverutils.ranks.Ranks;
@@ -111,13 +110,7 @@ public class SURanksManager {
         if (epochRank != null) {
             playerRank.addParent(epochRank);
             ranks.save();
-            // Clear rank permission cache so new rank takes effect immediately
             ranks.clearCache();
-            // Also clear the team's cachedMaxClaimChunks so bonus chunks apply without relog
-            ForgePlayer forgePlayer = ranks.universe.getPlayer(playerId);
-            if (forgePlayer != null) {
-                forgePlayer.team.clearCache();
-            }
             LOG.info("Set rank {} for player {}", rank, playerId);
         } else {
             LOG.warn("Epoch rank {} not found in ServerUtilities", rank);

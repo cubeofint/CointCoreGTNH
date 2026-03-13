@@ -1,6 +1,5 @@
 package coint.integration.betterquesting;
 
-import java.util.List;
 import java.util.UUID;
 
 import net.minecraft.server.MinecraftServer;
@@ -11,9 +10,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import betterquesting.api.events.QuestEvent;
-import betterquesting.api.questing.party.IParty;
-import betterquesting.api2.storage.DBEntry;
-import betterquesting.questing.party.PartyManager;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.SURanksManager;
 import coint.module.epochsync.EpochEntry;
@@ -67,30 +63,7 @@ public class BQEventListener {
         }
 
         LOG.info("Quest {} triggers rank: {}", questID, epoch.rankName);
-        assignRankToPlayerAndParty(playerId, epoch);
-    }
-
-    /**
-     * Assign rank to a player and all their party members.
-     */
-    private void assignRankToPlayerAndParty(UUID playerId, EpochEntry epoch) {
-        SURanksManager ranksManager = SURanksManager.INSTANCE;
-        if (ranksManager == null) {
-            LOG.warn("SURanksManager not initialized, cannot set rank");
-            return;
-        }
-
-        IParty party = getPlayerParty(playerId);
-
-        if (party != null && CointConfig.partySyncEnabled) {
-            List<UUID> members = party.getMembers();
-            LOG.info("Assigning rank {} to {} party members", epoch.rankName, members.size());
-            for (UUID memberUUID : members) {
-                assignRankToPlayer(memberUUID, epoch);
-            }
-        } else {
-            assignRankToPlayer(playerId, epoch);
-        }
+        assignRankToPlayer(playerId, epoch);
     }
 
     /**
@@ -115,19 +88,6 @@ public class BQEventListener {
             LOG.info("Successfully set rank {} for player {}", epoch.rankName, playerId);
         } catch (Exception e) {
             LOG.error("Error setting rank {} for player {}: {}", epoch.rankName, playerId, e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Get the party for a player.
-     */
-    private IParty getPlayerParty(UUID playerId) {
-        try {
-            DBEntry<IParty> entry = PartyManager.INSTANCE.getParty(playerId);
-            return entry != null ? entry.getValue() : null;
-        } catch (Exception e) {
-            LOG.debug("Could not get party for player {}: {}", playerId, e.getMessage());
-            return null;
         }
     }
 }

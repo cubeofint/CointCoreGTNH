@@ -15,6 +15,7 @@ import betterquesting.questing.party.PartyManager;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.SURanksManager;
 import coint.module.epochsync.EpochEntry;
+import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
@@ -31,7 +32,7 @@ public class PartyEventListener {
      * Called when a player logs in.
      * Syncs the player's rank to their party's highest rank if applicable.
      */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!CointConfig.syncNewPartyMembers || !CointConfig.partySyncEnabled) {
             return;
@@ -45,8 +46,7 @@ public class PartyEventListener {
         UUID playerId = QuestingAPI.getQuestingUUID(player);
         LOG.debug("Player {} logged in, checking party sync", playerId);
 
-        // Delay the sync slightly to ensure all systems are initialized
-        scheduleDelayedSync(playerId);
+        syncPlayerToParty(playerId);
     }
 
     /**
