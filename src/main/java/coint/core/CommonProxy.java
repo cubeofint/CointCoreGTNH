@@ -22,6 +22,7 @@ import coint.commands.tban.TBanHandler;
 import coint.commands.warn.WarnsHandler;
 import coint.config.CointConfig;
 import coint.integration.serverutilities.CointRankConfigs;
+import coint.integration.serverutilities.SURanksManager;
 import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
 import coint.tasks.CleanupTask;
@@ -112,10 +113,19 @@ public class CommonProxy {
         CointCore.LOG.debug("Registered server commands");
     }
 
+    @SuppressWarnings("unused")
     public void serverStarted(FMLServerStartedEvent event) {
         if (!ServerUtilitiesConfig.tasks.cleanup.enabled) {
             Universe universe = Universe.get();
             universe.scheduleTask(new CleanupTask(), CointConfig.cleanupEnabled);
+        }
+        // Register epoch ranks into ServerUtilities now that both EpochRegistry and
+        // Ranks.INSTANCE are guaranteed to be fully initialized.
+        if (SURanksManager.INSTANCE != null) {
+            SURanksManager.INSTANCE.updateRanks();
+        } else {
+            CointCore.LOG
+                .warn("[EpochSync] SURanksManager not initialized at serverStarted — epoch ranks not registered");
         }
     }
 

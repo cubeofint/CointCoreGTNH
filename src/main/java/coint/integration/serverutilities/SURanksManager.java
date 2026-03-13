@@ -42,12 +42,21 @@ public class SURanksManager {
     }
 
     /**
-     * Initialize epoch permissions mapping
+     * Initialize epoch permissions mapping.
+     * Safe to call even when Ranks.INSTANCE is null — epoch Rank objects will be
+     * (re)created during the next updateRanks() call once Ranks is ready.
      */
     public void reload() {
+        epochs.clear();
+        if (Ranks.INSTANCE == null) {
+            LOG.warn(
+                "[EpochSync] Ranks.INSTANCE is null during reload — epoch ranks will be registered on updateRanks()");
+            return;
+        }
         for (EpochEntry entry : EpochRegistry.INST.epochs.values()) {
             epochs.put(entry.rankName, createEpoch(entry));
         }
+        LOG.debug("[EpochSync] Loaded {} epoch rank definitions", epochs.size());
     }
 
     private static Rank createEpoch(EpochEntry entry) {
@@ -65,8 +74,22 @@ public class SURanksManager {
 
     public void updateRanks() {
         Ranks ranks = Ranks.INSTANCE;
+        if (ranks == null) {
+            LOG.error("[EpochSync] updateRanks() called but Ranks.INSTANCE is null — skipping");
+            return;
+        }
+        // If reload() was called before Ranks was ready, epoch Rank objects were not built yet.
+        // Rebuild them now.
+        if (epochs.isEmpty() && !EpochRegistry.INST.epochs.isEmpty()) {
+            LOG.info("[EpochSync] epochs map is empty, rebuilding from EpochRegistry before updateRanks");
+            for (EpochEntry entry : EpochRegistry.INST.epochs.values()) {
+                epochs.put(entry.rankName, createEpoch(entry));
+            }
+        }
         ranks.ranks.putAll(epochs);
+        ranks.clearCache();
         ranks.save();
+        LOG.info("[EpochSync] Registered {} epoch ranks into ServerUtilities", epochs.size());
     }
 
     /**
@@ -107,13 +130,24 @@ public class SURanksManager {
 
         // Add new epoch rank
         Rank epochRank = ranks.getRank(rank);
+        if (epochRank == null) {
+            // Epoch ranks may not have been registered yet (e.g. updateRanks() was not called at startup).
+            // Attempt a lazy registration now and retry.
+            LOG.warn(
+                "[EpochSync] Epoch rank '{}' not found in ServerUtilities ranks — attempting lazy updateRanks()",
+                rank);
+            updateRanks();
+            epochRank = ranks.getRank(rank);
+        }
         if (epochRank != null) {
             playerRank.addParent(epochRank);
             ranks.save();
             ranks.clearCache();
             LOG.info("Set rank {} for player {}", rank, playerId);
         } else {
-            LOG.warn("Epoch rank {} not found in ServerUtilities", rank);
+            LOG.error(
+                "[EpochSync] Epoch rank '{}' still not found after updateRanks() — check epochs.json and /coint_reload",
+                rank);
         }
 
         // Notify external API

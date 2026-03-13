@@ -1,6 +1,7 @@
 package coint.commands;
 
 import java.util.Arrays;
+import java.util.List;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
@@ -44,6 +45,22 @@ public class CommandTBan extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         return "/tban <player> <time> 'reason' | /tban <player> remove";
+    }
+
+    @Override
+    public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
+        if (args.length == 1) {
+            String[] players = Universe.get()
+                .getPlayers()
+                .stream()
+                .map(ForgePlayer::getName)
+                .toArray(String[]::new);
+            return getListOfStringsMatchingLastWord(args, players);
+        }
+        if (args.length == 2) {
+            return getListOfStringsMatchingLastWord(args, "remove", "1d", "7d", "30d", "perm");
+        }
+        return super.addTabCompletionOptions(sender, args);
     }
 
     @Override

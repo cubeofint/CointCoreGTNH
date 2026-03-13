@@ -26,6 +26,8 @@ import net.minecraft.util.Vec3;
 import coint.commands.kit.KitDefinition;
 import coint.commands.kit.KitManager;
 import coint.util.TimeUtil;
+import serverutils.lib.data.ForgePlayer;
+import serverutils.lib.data.Universe;
 import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -41,6 +43,8 @@ public class CommandKit extends CommandBase {
         PermissionAPI.registerNode("cointcore.command.kit.claim", DefaultPermissionLevel.NONE, "CointCore kit claim");
         PermissionAPI.registerNode("cointcore.command.kit.list", DefaultPermissionLevel.NONE, "CointCore kit list");
         PermissionAPI.registerNode("cointcore.command.kit.delete", DefaultPermissionLevel.NONE, "CointCore kit delete");
+        PermissionAPI
+            .registerNode("cointcore.command.kit.reset", DefaultPermissionLevel.OP, "CointCore kit reset cooldown");
 
         if (server != null) {
             for (String name : KitManager.getKitNames(server)) {
@@ -57,38 +61,100 @@ public class CommandKit extends CommandBase {
 
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
-        return sender instanceof EntityPlayer;
+        return true;
     }
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/kit create <name> [cooldown] | /kit claim <name> | /kit list | /kit delete <name>";
+        return "/kit create <name> [cooldown] | /kit claim <name> | /kit list | /kit delete <name> | /kit reset <name> <player>";
     }
 
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, "create", "claim", "list", "delete");
+            return getListOfStringsMatchingLastWord(args, "create", "claim", "list", "delete", "reset");
         }
         if (args.length == 2 && ("claim".equalsIgnoreCase(args[0]) || "create".equalsIgnoreCase(args[0])
-            || "delete".equalsIgnoreCase(args[0]))) {
+            || "delete".equalsIgnoreCase(args[0])
+            || "reset".equalsIgnoreCase(args[0]))) {
             Collection<String> names = KitManager.getKitNames(MinecraftServer.getServer());
             return getListOfStringsMatchingLastWord(args, names.toArray(new String[0]));
+        }
+        if (args.length == 3 && "reset".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(
+                args,
+                MinecraftServer.getServer()
+                    .getAllUsernames());
         }
         return super.addTabCompletionOptions(sender, args);
     }
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
-        if (!(sender instanceof EntityPlayerMP player)) {
-            return;
-        }
-
         if (args.length < 1) {
             throw new WrongUsageException(getCommandUsage(sender));
         }
 
         String sub = args[0].toLowerCase();
+
+        // reset — не требует EntityPlayer от sender, обрабатываем отдельно
+        if ("reset".equals(sub)) {
+            if (sender instanceof EntityPlayer player
+                && !PermissionAPI.hasPermission(player, "cointcore.command.kit.reset")) {
+                throw new CommandException("commands.generic.permission");
+            }
+            if (args.length < 3) {
+                throw new WrongUsageException("/kit reset <kitName> <player>");
+            }
+            String kitName = args[1].toLowerCase();
+            if (!KIT_NAME.matcher(kitName)
+                .matches()) {
+                sendError(sender, "Некорректное имя набора");
+                return;
+            }
+            KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), kitName);
+            if (kit == null) {
+                sendError(sender, "Набор не найден: " + kitName);
+                return;
+            }
+
+            ForgePlayer target = Universe.get()
+                .getPlayer(args[2]);
+            if (target == null) {
+                sendError(sender, "Игрок не найден: " + args[2]);
+                return;
+            }
+
+            if (target.isOnline()) {
+                // Онлайн: работаем напрямую с entityData в памяти игрока.
+                // setPlayerNBT() вызывает readEntityFromNBT(), который НЕ восстанавливает
+                // entityData/PERSISTED_NBT_TAG — поэтому кулдаун там не сбросится.
+                EntityPlayerMP onlinePlayer = target.getPlayer();
+                NBTTagCompound persisted = NBTUtils.getPersistedData(onlinePlayer, true);
+                NBTTagCompound kitsTag = persisted.getCompoundTag(TAG_KIT_COOLDOWNS);
+                kitsTag.removeTag(kitName);
+                persisted.setTag(TAG_KIT_COOLDOWNS, kitsTag);
+            } else {
+                // Оффлайн: читаем .dat файл, правим, пишем обратно.
+                NBTTagCompound playerNBT = target.getPlayerNBT();
+                NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+                NBTTagCompound kitsTag = persisted.getCompoundTag(TAG_KIT_COOLDOWNS);
+                kitsTag.removeTag(kitName);
+                persisted.setTag(TAG_KIT_COOLDOWNS, kitsTag);
+                playerNBT.setTag(EntityPlayer.PERSISTED_NBT_TAG, persisted);
+                target.setPlayerNBT(playerNBT);
+            }
+
+            String status = target.isOnline() ? "" : " (оффлайн)";
+            sendSuccess(sender, "Кулдаун набора " + kitName + " сброшен для " + target.getName() + status);
+            return;
+        }
+
+        if (!(sender instanceof EntityPlayerMP player)) {
+            sendError(sender, "Эту команду может использовать только игрок");
+            return;
+        }
+
         String name = args.length > 1 ? args[1].toLowerCase() : null;
         if (("create".equals(sub) || "claim".equals(sub) || "delete".equals(sub)) && name == null) {
             throw new WrongUsageException(getCommandUsage(sender));
@@ -99,84 +165,83 @@ public class CommandKit extends CommandBase {
             return;
         }
 
-        if ("create".equals(sub)) {
-            if (!hasPermission(player, "cointcore.command.kit.create")) {
-                throw new CommandException("commands.generic.permission");
-            }
-            long cooldownTicks = parseCooldown(sender, args);
-            if (cooldownTicks < 0) {
+        switch (sub) {
+            case "create": {
+                if (lacksPermission(player, "cointcore.command.kit.create")) {
+                    throw new CommandException("commands.generic.permission");
+                }
+                long cooldownTicks = parseCooldown(sender, args);
+                if (cooldownTicks < 0) {
+                    return;
+                }
+
+                List<ItemStack> items = captureItems(player);
+                if (items.isEmpty()) {
+                    sendError(sender, "Не найден источник набора: сундук или предмет в руке");
+                    return;
+                }
+
+                KitDefinition kit = new KitDefinition(name, items, cooldownTicks);
+                KitManager.putKit(MinecraftServer.getServer(), kit);
+                registerKitPermission(name);
+                sendSuccess(sender, "Набор сохранен: " + name);
                 return;
             }
+            case "claim": {
+                KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), name);
+                if (kit == null) {
+                    sendError(sender, "Набор не найден: " + name);
+                    return;
+                }
 
-            List<ItemStack> items = captureItems(player);
-            if (items.isEmpty()) {
-                sendError(sender, "Не найден источник набора: сундук или предмет в руке");
+                if (lacksPermission(player, "cointcore.command.kit.claim")
+                    || lacksPermission(player, "cointcore.kit." + name)) {
+                    throw new CommandException("commands.generic.permission");
+                }
+
+                if (isOnCooldown(sender, player, kit)) {
+                    return;
+                }
+
+                if (!canFitAll(player, kit.getItems())) {
+                    sendError(sender, "Инвентарь полон, набор не получен");
+                    return;
+                }
+
+                for (ItemStack stack : kit.getItems()) {
+                    giveItem(player, stack.copy());
+                }
+                sendSuccess(sender, "Набор получен: " + name);
                 return;
             }
-
-            KitDefinition kit = new KitDefinition(name, items, cooldownTicks);
-            KitManager.putKit(MinecraftServer.getServer(), kit);
-            registerKitPermission(name);
-            sendSuccess(sender, "Набор сохранен: " + name);
-            return;
+            case "list": {
+                if (lacksPermission(player, "cointcore.command.kit.list")) {
+                    throw new CommandException("commands.generic.permission");
+                }
+                Collection<String> names = KitManager.getKitNames(MinecraftServer.getServer());
+                if (names.isEmpty()) {
+                    sendError(sender, "Наборы не найдены");
+                    return;
+                }
+                sendSuccess(sender, "Наборы: " + String.join(", ", names));
+                return;
+            }
+            case "delete": {
+                if (lacksPermission(player, "cointcore.command.kit.delete")) {
+                    throw new CommandException("commands.generic.permission");
+                }
+                KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), name);
+                if (kit == null) {
+                    sendError(sender, "Набор не найден: " + name);
+                    return;
+                }
+                KitManager.removeKit(MinecraftServer.getServer(), name);
+                sendSuccess(sender, "Набор удален: " + name);
+                return;
+            }
+            default:
+                throw new WrongUsageException(getCommandUsage(sender));
         }
-
-        if ("claim".equals(sub)) {
-            KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), name);
-            if (kit == null) {
-                sendError(sender, "Набор не найден: " + name);
-                return;
-            }
-
-            if (!hasPermission(player, "cointcore.command.kit.claim")
-                || !hasPermission(player, "cointcore.kit." + name)) {
-                throw new CommandException("commands.generic.permission");
-            }
-
-            if (isOnCooldown(sender, player, kit)) {
-                return;
-            }
-
-            if (!canFitAll(player, kit.getItems())) {
-                sendError(sender, "Инвентарь полон, набор не получен");
-                return;
-            }
-
-            for (ItemStack stack : kit.getItems()) {
-                giveItem(player, stack.copy());
-            }
-            sendSuccess(sender, "Набор получен: " + name);
-            return;
-        }
-
-        if ("list".equals(sub)) {
-            if (!hasPermission(player, "cointcore.command.kit.list")) {
-                throw new CommandException("commands.generic.permission");
-            }
-            Collection<String> names = KitManager.getKitNames(MinecraftServer.getServer());
-            if (names.isEmpty()) {
-                sendError(sender, "Наборы не найдены");
-                return;
-            }
-            sendSuccess(sender, "Наборы: " + String.join(", ", names));
-            return;
-        }
-
-        if ("delete".equals(sub)) {
-            if (!hasPermission(player, "cointcore.command.kit.delete")) {
-                throw new CommandException("commands.generic.permission");
-            }
-            KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), name);
-            if (kit == null) {
-                sendError(sender, "Набор не найден: " + name);
-                return;
-            }
-            KitManager.removeKit(MinecraftServer.getServer(), name);
-            sendSuccess(sender, "Набор удален: " + name);
-            return;
-        }
-
-        throw new WrongUsageException(getCommandUsage(sender));
     }
 
     private List<ItemStack> captureItems(EntityPlayer player) {
@@ -215,8 +280,8 @@ public class CommandKit extends CommandBase {
         }
 
         TileEntity tile = player.worldObj.getTileEntity(hit.blockX, hit.blockY, hit.blockZ);
-        if (tile instanceof IInventory) {
-            return (IInventory) tile;
+        if (tile instanceof IInventory inv) {
+            return inv;
         }
 
         return null;
@@ -322,8 +387,8 @@ public class CommandKit extends CommandBase {
         }
     }
 
-    private boolean hasPermission(EntityPlayer player, String node) {
-        return PermissionAPI.hasPermission(player, node);
+    private boolean lacksPermission(EntityPlayer player, String node) {
+        return !PermissionAPI.hasPermission(player, node);
     }
 
     private long parseCooldown(ICommandSender sender, String[] args) {
@@ -354,8 +419,8 @@ public class CommandKit extends CommandBase {
         long cooldownMs = Ticks.get(cooldownTicks)
             .millis();
         if (lastUse > 0 && elapsed < cooldownMs) {
-            long remainingSeconds = (cooldownMs - elapsed + 999L);
-            sendError(sender, "Набор будет доступен через " + TimeUtil.formatDuration(remainingSeconds));
+            long remainingMs = cooldownMs - elapsed + 999L;
+            sendError(sender, "Набор будет доступен через " + TimeUtil.formatDuration(remainingMs));
             return true;
         }
 

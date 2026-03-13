@@ -46,7 +46,23 @@ public class CommandWarn extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/warn add <player> 'reason' | /warn get <player> | /warn clear <player> | /warn remove <player>";
+        return "/warn add <player> 'reason' | /warn get <player> | /warn clear <player> | /warn remove <player> <index>";
+    }
+
+    @Override
+    public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
+        if (args.length == 1) {
+            return getListOfStringsMatchingLastWord(args, "add", "get", "clear", "remove");
+        }
+        if (args.length == 2) {
+            String[] players = Universe.get()
+                .getPlayers()
+                .stream()
+                .map(ForgePlayer::getName)
+                .toArray(String[]::new);
+            return getListOfStringsMatchingLastWord(args, players);
+        }
+        return super.addTabCompletionOptions(sender, args);
     }
 
     @Override
