@@ -23,40 +23,43 @@ import serverutils.ranks.Ranks;
 /**
  * Manager for ServerUtilities ranks integration.
  */
-public class SURanksManager {
+public class RanksManager {
 
-    private static final Logger LOG = LogManager.getLogger(SURanksManager.class);
-    private final Map<String, Rank> epochs = new HashMap<>();
+    private static final Logger LOG = LogManager.getLogger(RanksManager.class);
+    private final Map<String, Rank> epochRanks = new HashMap<>();
 
-    public static SURanksManager INSTANCE;
+    private static RanksManager INSTANCE;
 
-    public SURanksManager() {
+    public RanksManager() {
         reload();
     }
 
     /**
      * Get the singleton instance
      */
-    public static SURanksManager get() {
+    public static RanksManager get() {
+        if (INSTANCE == null) {
+            INSTANCE = new RanksManager();
+        }
         return INSTANCE;
     }
 
     /**
      * Initialize epoch permissions mapping.
-     * Safe to call even when Ranks.INSTANCE is null — epoch Rank objects will be
+     * Safe to call even when `Ranks.INSTANCE` is null — epoch Rank objects will be
      * (re)created during the next updateRanks() call once Ranks is ready.
      */
     public void reload() {
-        epochs.clear();
+        epochRanks.clear();
         if (Ranks.INSTANCE == null) {
             LOG.warn(
                 "[EpochSync] Ranks.INSTANCE is null during reload — epoch ranks will be registered on updateRanks()");
             return;
         }
         for (EpochEntry entry : EpochRegistry.INST.epochs.values()) {
-            epochs.put(entry.rankName, createEpoch(entry));
+            epochRanks.put(entry.rankName, createEpoch(entry));
         }
-        LOG.debug("[EpochSync] Loaded {} epoch rank definitions", epochs.size());
+        LOG.debug("[EpochSync] Loaded {} epoch rank definitions", epochRanks.size());
     }
 
     private static Rank createEpoch(EpochEntry entry) {
@@ -80,16 +83,16 @@ public class SURanksManager {
         }
         // If reload() was called before Ranks was ready, epoch Rank objects were not built yet.
         // Rebuild them now.
-        if (epochs.isEmpty() && !EpochRegistry.INST.epochs.isEmpty()) {
+        if (epochRanks.isEmpty() && !EpochRegistry.INST.epochs.isEmpty()) {
             LOG.info("[EpochSync] epochs map is empty, rebuilding from EpochRegistry before updateRanks");
             for (EpochEntry entry : EpochRegistry.INST.epochs.values()) {
-                epochs.put(entry.rankName, createEpoch(entry));
+                epochRanks.put(entry.rankName, createEpoch(entry));
             }
         }
-        ranks.ranks.putAll(epochs);
+        ranks.ranks.putAll(epochRanks);
         ranks.clearCache();
         ranks.save();
-        LOG.info("[EpochSync] Registered {} epoch ranks into ServerUtilities", epochs.size());
+        LOG.info("[EpochSync] Registered {} epoch ranks into ServerUtilities", epochRanks.size());
     }
 
     /**

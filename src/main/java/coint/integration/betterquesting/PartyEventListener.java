@@ -2,6 +2,7 @@ package coint.integration.betterquesting;
 
 import java.util.UUID;
 
+import coint.integration.serverutilities.RanksManager;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.common.MinecraftForge;
 
@@ -13,7 +14,6 @@ import betterquesting.api.questing.party.IParty;
 import betterquesting.api2.storage.DBEntry;
 import betterquesting.questing.party.PartyManager;
 import coint.config.CointConfig;
-import coint.integration.serverutilities.SURanksManager;
 import coint.module.epochsync.EpochEntry;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -80,7 +80,7 @@ public class PartyEventListener {
             return;
         }
 
-        SURanksManager ranksManager = SURanksManager.get();
+        RanksManager ranksManager = RanksManager.get();
         if (ranksManager == null) {
             return;
         }
@@ -120,7 +120,7 @@ public class PartyEventListener {
      * Internal method to sync a player to a specific party.
      */
     private void syncPlayerToPartyInternal(UUID playerId, IParty party) {
-        SURanksManager ranksManager = SURanksManager.get();
+        RanksManager ranksManager = RanksManager.get();
         if (ranksManager == null) {
             return;
         }
@@ -155,7 +155,7 @@ public class PartyEventListener {
      * Assign a rank to a player.
      */
     private void assignRankToPlayer(UUID playerId, String rank) {
-        SURanksManager ranksManager = SURanksManager.get();
+        RanksManager ranksManager = RanksManager.get();
         if (ranksManager == null) {
             LOG.warn("SURanksManager not initialized, cannot set rank");
             return;

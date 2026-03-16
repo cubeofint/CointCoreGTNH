@@ -458,7 +458,7 @@ Set<String> allEpochs = EpochRegistry.getAllEpochs();
 ### Управление рангами
 
 ```java
-import coint.integration.serverutilities.SURanksManager;
+import coint.integration.serverutilities.RanksManager;
 
 SURanksManager manager = SURanksManager.getInstance();
 

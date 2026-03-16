@@ -39,10 +39,10 @@ public class CommandKit extends CommandBase {
     private static final String TAG_KIT_COOLDOWNS = "cointcore_kit_cooldowns";
 
     public CommandKit(MinecraftServer server) {
-        PermissionAPI.registerNode("cointcore.command.kit.create", DefaultPermissionLevel.NONE, "CointCore kit create");
+        PermissionAPI.registerNode("cointcore.command.kit.create", DefaultPermissionLevel.OP, "CointCore kit create");
         PermissionAPI.registerNode("cointcore.command.kit.claim", DefaultPermissionLevel.NONE, "CointCore kit claim");
         PermissionAPI.registerNode("cointcore.command.kit.list", DefaultPermissionLevel.NONE, "CointCore kit list");
-        PermissionAPI.registerNode("cointcore.command.kit.delete", DefaultPermissionLevel.NONE, "CointCore kit delete");
+        PermissionAPI.registerNode("cointcore.command.kit.delete", DefaultPermissionLevel.OP, "CointCore kit delete");
         PermissionAPI
             .registerNode("cointcore.command.kit.reset", DefaultPermissionLevel.OP, "CointCore kit reset cooldown");
 

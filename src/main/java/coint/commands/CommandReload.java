@@ -4,7 +4,7 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayer;
 
-import coint.integration.serverutilities.SURanksManager;
+import coint.integration.serverutilities.RanksManager;
 import coint.module.epochsync.EpochRegistry;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
@@ -38,9 +38,9 @@ public class CommandReload extends CommandBase {
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
         EpochRegistry.INST.reload();
-        SURanksManager.get()
+        RanksManager.get()
             .reload();
-        SURanksManager.get()
+        RanksManager.get()
             .updateRanks();
     }
 }

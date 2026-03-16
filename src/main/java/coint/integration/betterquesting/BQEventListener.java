@@ -11,7 +11,7 @@ import org.apache.logging.log4j.Logger;
 
 import betterquesting.api.events.QuestEvent;
 import coint.config.CointConfig;
-import coint.integration.serverutilities.SURanksManager;
+import coint.integration.serverutilities.RanksManager;
 import coint.module.epochsync.EpochEntry;
 import coint.module.epochsync.EpochRegistry;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -71,7 +71,7 @@ public class BQEventListener {
      */
     private void assignRankToPlayer(UUID playerId, EpochEntry epoch) {
         try {
-            SURanksManager.INSTANCE.setRank(playerId, epoch.rankName);
+            RanksManager.get().setRank(playerId, epoch.rankName);
 
             String msg = epoch.epochUpMessage;
             if (msg != null && !msg.isEmpty()) {

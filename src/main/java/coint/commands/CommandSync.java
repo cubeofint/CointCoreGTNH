@@ -1,12 +1,12 @@
 package coint.commands;
 
+import coint.integration.serverutilities.RanksManager;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 
-import coint.integration.serverutilities.SURanksManager;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 
@@ -46,7 +46,7 @@ public class CommandSync extends CommandBase {
             return;
         }
 
-        SURanksManager manager = SURanksManager.INSTANCE;
+        RanksManager manager = RanksManager.get();
         if (manager == null) {
             sendError(sender, "SURanksManager not initialized");
             return;

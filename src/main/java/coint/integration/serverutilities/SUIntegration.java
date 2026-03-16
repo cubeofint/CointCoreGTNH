@@ -23,7 +23,7 @@ public class SUIntegration implements IIntegration {
 
     @Override
     public void register() {
-        SURanksManager.INSTANCE = new SURanksManager();
+        RanksManager.get();
         CointCore.LOG.debug("ServerUtilities ranks manager initialized");
     }
 
