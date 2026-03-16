@@ -55,12 +55,13 @@ public class CommandWarn extends CommandBase {
             return getListOfStringsMatchingLastWord(args, "add", "get", "clear", "remove");
         }
         if (args.length == 2) {
-            String[] players = Universe.get()
-                .getPlayers()
-                .stream()
-                .map(ForgePlayer::getName)
-                .toArray(String[]::new);
-            return getListOfStringsMatchingLastWord(args, players);
+            return getListOfStringsMatchingLastWord(
+                args,
+                Universe.get()
+                    .getPlayers()
+                    .stream()
+                    .map(ForgePlayer::getName)
+                    .toArray(String[]::new));
         }
         return super.addTabCompletionOptions(sender, args);
     }

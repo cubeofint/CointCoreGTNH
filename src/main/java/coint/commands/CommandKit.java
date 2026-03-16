@@ -280,8 +280,8 @@ public class CommandKit extends CommandBase {
         }
 
         TileEntity tile = player.worldObj.getTileEntity(hit.blockX, hit.blockY, hit.blockZ);
-        if (tile instanceof IInventory inv) {
-            return inv;
+        if (tile instanceof IInventory) {
+            return (IInventory) tile;
         }
 
         return null;
