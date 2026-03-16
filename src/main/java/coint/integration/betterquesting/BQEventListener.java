@@ -71,7 +71,8 @@ public class BQEventListener {
      */
     private void assignRankToPlayer(UUID playerId, EpochEntry epoch) {
         try {
-            RanksManager.get().setRank(playerId, epoch.rankName);
+            RanksManager.get()
+                .setRank(playerId, epoch.rankName);
 
             String msg = epoch.epochUpMessage;
             if (msg != null && !msg.isEmpty()) {

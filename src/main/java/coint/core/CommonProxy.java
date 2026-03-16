@@ -27,6 +27,7 @@ import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
 import coint.tasks.CleanupTask;
 import coint.tasks.DropHandler;
+import coint.tasks.KeepInventoryHandler;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
@@ -36,6 +37,8 @@ import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import serverutils.ServerUtilitiesConfig;
 import serverutils.lib.data.Universe;
+import serverutils.lib.util.permission.DefaultPermissionLevel;
+import serverutils.lib.util.permission.PermissionAPI;
 
 /**
  * Common proxy for both client and server.
@@ -54,6 +57,7 @@ public class CommonProxy {
         MinecraftForge.EVENT_BUS.register(new CointRankConfigs());
         MinecraftForge.EVENT_BUS.register(new WarnsHandler());
         MinecraftForge.EVENT_BUS.register(new DropHandler());
+        MinecraftForge.EVENT_BUS.register(new KeepInventoryHandler());
         MinecraftForge.EVENT_BUS.register(new MuteRegister());
         FMLCommonHandler.instance()
             .bus()
@@ -77,6 +81,10 @@ public class CommonProxy {
      */
     @SuppressWarnings("unused")
     public void init(FMLInitializationEvent event) {
+        PermissionAPI.registerNode(
+            KeepInventoryHandler.PERMISSION,
+            DefaultPermissionLevel.NONE,
+            "Сохранять инвентарь при смерти");
         moduleManager.init();
     }
 
@@ -121,7 +129,8 @@ public class CommonProxy {
         }
         // Register epoch ranks into ServerUtilities now that both EpochRegistry and
         // Ranks.INSTANCE are guaranteed to be fully initialized.
-        RanksManager.get().updateRanks();
+        RanksManager.get()
+            .updateRanks();
     }
 
     /**

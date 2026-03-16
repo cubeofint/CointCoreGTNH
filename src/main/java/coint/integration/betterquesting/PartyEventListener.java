@@ -2,7 +2,6 @@ package coint.integration.betterquesting;
 
 import java.util.UUID;
 
-import coint.integration.serverutilities.RanksManager;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.common.MinecraftForge;
 
@@ -14,6 +13,7 @@ import betterquesting.api.questing.party.IParty;
 import betterquesting.api2.storage.DBEntry;
 import betterquesting.questing.party.PartyManager;
 import coint.config.CointConfig;
+import coint.integration.serverutilities.RanksManager;
 import coint.module.epochsync.EpochEntry;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;

@@ -49,12 +49,13 @@ public class CommandMute extends CommandBase {
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
-            String[] players = Universe.get()
-                .getPlayers()
-                .stream()
-                .map(ForgePlayer::getName)
-                .toArray(String[]::new);
-            return getListOfStringsMatchingLastWord(args, players);
+            return getListOfStringsMatchingLastWord(
+                args,
+                Universe.get()
+                    .getPlayers()
+                    .stream()
+                    .map(ForgePlayer::getName)
+                    .toArray(String[]::new));
         }
         if (args.length == 2) {
             return getListOfStringsMatchingLastWord(args, "1h", "12h", "1d", "7d", "30d");
