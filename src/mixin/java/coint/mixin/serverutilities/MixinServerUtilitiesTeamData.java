@@ -18,7 +18,7 @@ import serverutils.lib.data.ForgePlayer;
  *
  * <p>
  * Formula for both methods:
- * 
+ *
  * <pre>
  *   limit = MAX(base_permission per member) + MAX(cointcore.bonus_* per member)
  * </pre>

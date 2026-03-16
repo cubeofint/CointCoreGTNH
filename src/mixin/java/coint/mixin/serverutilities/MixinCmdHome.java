@@ -1,5 +1,6 @@
 package coint.mixin.serverutilities;
 
+import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -30,17 +31,15 @@ public class MixinCmdHome {
         method = "processCommand(Lnet/minecraft/command/ICommandSender;[Ljava/lang/String;)V",
         at = @At(
             value = "INVOKE",
-            target = "Lserverutils/lib/data/ForgePlayer;getRankConfig(Ljava/lang/String;)Lserverutils/lib/config/ConfigValue;"))
+            target = "Lserverutils/lib/config/ConfigValue;getInt()I"))
     @SuppressWarnings("unused")
-    private ConfigValue cointcore$withBonusHomesDisplay(ForgePlayer p, String node) {
-        ConfigValue base = RankConfigAPI.get(MinecraftServer.getServer(), p.getProfile(), node);
-        if (ServerUtilitiesPermissions.HOMES_MAX.equals(node)) {
-            int bonus = RankConfigAPI.get(MinecraftServer.getServer(), p.getProfile(), CointRankConfigs.BONUS_HOMES)
-                .getInt();
-            if (bonus > 0) {
-                return new ConfigInt(base.getInt() + bonus);
-            }
+    private int cointcore$withBonusHomesDisplay(ConfigValue v, ICommandSender sender, String[] args) {
+        int base = v.getInt();
+
+        if (sender instanceof ForgePlayer player) {
+            base += player.getRankConfig(CointRankConfigs.BONUS_HOMES).getInt();
         }
+
         return base;
     }
 }

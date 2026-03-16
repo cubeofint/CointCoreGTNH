@@ -1,17 +1,26 @@
 package coint.mixin.serverutilities;
 
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Overwrite;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 import coint.integration.serverutilities.CointRankConfigs;
+import serverutils.ServerUtilities;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.command.tp.CmdSetHome;
+import serverutils.data.ServerUtilitiesPlayerData;
+import serverutils.lib.command.CommandUtils;
 import serverutils.lib.config.ConfigInt;
 import serverutils.lib.config.ConfigValue;
 import serverutils.lib.config.RankConfigAPI;
+import serverutils.lib.math.BlockDimPos;
 
 /**
  * Adds {@code cointcore.bonus_homes} on top of the base {@code serverutilities.homes.max}
@@ -26,25 +35,35 @@ import serverutils.lib.config.RankConfigAPI;
 public class MixinCmdSetHome {
 
     /**
-     * Intercepts the {@code RankConfigAPI.get(player, node)} call used to read
-     * {@code maxHomes} and adds the player's {@code cointcore.bonus_homes} rank
-     * config value on top.
+     * @author EternalQ
+     * @reason Integrating bonus homes
      */
-    @Redirect(
-        method = "processCommand(Lnet/minecraft/command/ICommandSender;[Ljava/lang/String;)V",
-        at = @At(
-            value = "INVOKE",
-            target = "Lserverutils/lib/config/RankConfigAPI;get(Lnet/minecraft/entity/player/EntityPlayerMP;Ljava/lang/String;)Lserverutils/lib/config/ConfigValue;"))
-    @SuppressWarnings("unused")
-    private ConfigValue cointcore$getMaxHomesWithBonus(EntityPlayerMP player, String node) {
-        ConfigValue base = RankConfigAPI.get(player, node);
-        if (ServerUtilitiesPermissions.HOMES_MAX.equals(node)) {
-            int bonus = RankConfigAPI.get(player, CointRankConfigs.BONUS_HOMES)
-                .getInt();
-            if (bonus > 0) {
-                return new ConfigInt(base.getInt() + bonus);
+    @Overwrite(remap = false)
+    public void processCommand(ICommandSender sender, String[] args) throws CommandException {
+        EntityPlayerMP player;
+        if (sender instanceof EntityPlayerMP) {
+            player = (EntityPlayerMP) sender;
+        } else {
+            throw new PlayerNotFoundException("You must specify which player you wish to perform this action on.", new Object[0]);
+        }
+        ServerUtilitiesPlayerData data = ServerUtilitiesPlayerData.get(CommandUtils.getForgePlayer(player));
+
+        if (args.length == 0) {
+            args = new String[]{"home"};
+        }
+
+        args[0] = args[0].toLowerCase();
+
+        int maxHomes = RankConfigAPI.get(player, ServerUtilitiesPermissions.HOMES_MAX).getInt() + RankConfigAPI.get(player, CointRankConfigs.BONUS_HOMES).getInt();
+
+        if (maxHomes <= 0 || data.homes.size() >= maxHomes) {
+            if (maxHomes == 0 || data.homes.get(args[0]) == null) {
+                throw ServerUtilities.error(sender, "serverutilities.lang.homes.limit");
             }
         }
-        return base;
+
+        data.homes.set(args[0], new BlockDimPos(sender));
+        sender.addChatMessage(ServerUtilities.lang(sender, "serverutilities.lang.homes.set", args[0]));
+        data.player.markDirty();
     }
 }
