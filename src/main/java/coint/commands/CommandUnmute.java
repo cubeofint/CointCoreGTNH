@@ -44,12 +44,13 @@ public class CommandUnmute extends CommandBase {
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
-            String[] players = Universe.get()
-                .getPlayers()
-                .stream()
-                .map(ForgePlayer::getName)
-                .toArray(String[]::new);
-            return getListOfStringsMatchingLastWord(args, players);
+            return getListOfStringsMatchingLastWord(
+                args,
+                Universe.get()
+                    .getPlayers()
+                    .stream()
+                    .map(ForgePlayer::getName)
+                    .toArray(String[]::new));
         }
         return super.addTabCompletionOptions(sender, args);
     }

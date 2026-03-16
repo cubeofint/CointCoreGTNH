@@ -19,9 +19,24 @@ public final class CointRankConfigs {
 
     /**
      * Bonus claim chunks added on top of serverutilities.claims.max_chunks.
-     * Set per-rank in ranks.txt, summed across all team members.
+     * The highest value among all team members is used (max-based logic).
+     * Set per-rank in ranks.txt.
      */
     public static final String BONUS_CLAIM_CHUNKS = "cointcore.bonus_chunks";
+
+    /**
+     * Bonus force-load chunks added on top of serverutilities.chunkloader.max_chunks.
+     * The highest value among all team members is used (max-based logic).
+     * Set per-rank in ranks.txt.
+     */
+    public static final String BONUS_FORCELOAD_CHUNKS = "cointcore.bonus_forceload_chunks";
+
+    /**
+     * Bonus homes added on top of serverutilities.homes.max.
+     * Applied per-player from their assigned rank.
+     * Set per-rank in ranks.txt.
+     */
+    public static final String BONUS_HOMES = "cointcore.bonus_homes";
 
     private static final List<String> REPAIR_MODES = Arrays.asList("hand", "all");
 
@@ -36,5 +51,9 @@ public final class CointRankConfigs {
         event.register(FEED_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
         // Bonus claim chunks: default 0, max 10000
         event.register(BONUS_CLAIM_CHUNKS, new ConfigInt(0, 0, 10000), new ConfigInt(0, 0, 10000));
+        // Bonus force-load chunks: default 0, max 10000
+        event.register(BONUS_FORCELOAD_CHUNKS, new ConfigInt(0, 0, 10000), new ConfigInt(0, 0, 10000));
+        // Bonus homes: default 0, max 30000
+        event.register(BONUS_HOMES, new ConfigInt(0, 0, 30000), new ConfigInt(0, 0, 30000));
     }
 }
