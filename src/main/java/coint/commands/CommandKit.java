@@ -66,16 +66,59 @@ public class CommandKit extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/kit create <name> [cooldown] | /kit claim <name> | /kit list | /kit delete <name> | /kit reset <name> <player>";
+        // EntityPlayerMP is the concrete server-side player class; using it avoids
+        // edge cases where Forge wraps the sender in a non-EntityPlayer proxy.
+        if (!(sender instanceof EntityPlayerMP)) {
+            return "/kit <create|claim|list|delete|reset>";
+        }
+        EntityPlayerMP player = EntityPlayerMP.class.cast(sender);
+        List<String> parts = new ArrayList<>();
+        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.create")) {
+            parts.add("/kit create <name> [cooldown]");
+        }
+        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.claim")) {
+            parts.add("/kit claim <name>");
+        }
+        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.list")) {
+            parts.add("/kit list");
+        }
+        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.delete")) {
+            parts.add("/kit delete <name>");
+        }
+        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.reset")) {
+            parts.add("/kit reset <name> <player>");
+        }
+        return parts.isEmpty() ? "У вас нет доступа к /kit" : String.join(" | ", parts);
     }
 
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, "create", "claim", "list", "delete", "reset");
+            List<String> subs = new ArrayList<>();
+            if (sender instanceof EntityPlayerMP player) {
+                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.create")) subs.add("create");
+                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.claim")) subs.add("claim");
+                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.list")) subs.add("list");
+                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.delete")) subs.add("delete");
+                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.reset")) subs.add("reset");
+            } else {
+                subs.addAll(java.util.Arrays.asList("create", "claim", "list", "delete", "reset"));
+            }
+            return getListOfStringsMatchingLastWord(args, subs.toArray(new String[0]));
         }
-        if (args.length == 2 && ("claim".equalsIgnoreCase(args[0]) || "create".equalsIgnoreCase(args[0])
-            || "delete".equalsIgnoreCase(args[0])
+        if (args.length == 2 && "claim".equalsIgnoreCase(args[0])) {
+            // For claim: show only kits the player has permission to use
+            if (sender instanceof EntityPlayerMP player) {
+                List<String> accessible = new ArrayList<>();
+                for (String n : KitManager.getKitNames(MinecraftServer.getServer())) {
+                    if (PermissionAPI.hasPermission(player, "cointcore.kit." + n)) {
+                        accessible.add(n);
+                    }
+                }
+                return getListOfStringsMatchingLastWord(args, accessible.toArray(new String[0]));
+            }
+        }
+        if (args.length == 2 && ("create".equalsIgnoreCase(args[0]) || "delete".equalsIgnoreCase(args[0])
             || "reset".equalsIgnoreCase(args[0]))) {
             Collection<String> names = KitManager.getKitNames(MinecraftServer.getServer());
             return getListOfStringsMatchingLastWord(args, names.toArray(new String[0]));
@@ -218,12 +261,18 @@ public class CommandKit extends CommandBase {
                 if (lacksPermission(player, "cointcore.command.kit.list")) {
                     throw new CommandException("commands.generic.permission");
                 }
-                Collection<String> names = KitManager.getKitNames(MinecraftServer.getServer());
-                if (names.isEmpty()) {
-                    sendError(sender, "Наборы не найдены");
+                Collection<String> allNames = KitManager.getKitNames(MinecraftServer.getServer());
+                List<String> accessible = new ArrayList<>();
+                for (String kitName : allNames) {
+                    if (PermissionAPI.hasPermission(player, "cointcore.kit." + kitName)) {
+                        accessible.add(kitName);
+                    }
+                }
+                if (accessible.isEmpty()) {
+                    sendError(sender, "Нет доступных наборов");
                     return;
                 }
-                sendSuccess(sender, "Наборы: " + String.join(", ", names));
+                sendSuccess(sender, "Доступные наборы: " + String.join(", ", accessible));
                 return;
             }
             case "delete": {

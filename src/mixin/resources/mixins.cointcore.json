@@ -7,6 +7,10 @@
   "compatibilityLevel": "JAVA_8",
   "mixins": [
     "betterquesting.MixinPartyInstance",
+    "minecraft.MixinEntityLivingBase",
+    "minecraft.MixinEntityPlayer",
+    "serverutilities.MixinCmdHome",
+    "serverutilities.MixinCmdSetHome",
     "serverutilities.MixinServerUtilitiesTeamData"
   ],
   "client": [],
