@@ -18,7 +18,7 @@ public class DropHandler {
     public void onBlockDrop(BlockEvent.HarvestDropsEvent event) {
         if (!event.world.isRemote) {
             for (ItemStack drop : event.drops) {
-                ItemUtil.setDropTag(drop);
+                if (drop != null) ItemUtil.setDropTag(drop);
             }
         }
     }
