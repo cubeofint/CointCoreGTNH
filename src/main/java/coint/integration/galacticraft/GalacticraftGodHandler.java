@@ -15,10 +15,10 @@ import serverutils.lib.util.NBTUtils;
  * inside {@code GCPlayerHandler.checkOxygen()} just before the suffocation hit. When
  * this event is cancelled, GC sets {@code playerStats.oxygenSetupValid = true}, which:
  * <ul>
- *   <li>suppresses the "OXYGEN SETUP INVALID!" HUD warning</li>
- *   <li>prevents {@code damageCounter} and {@code incrementalDamage} from being set</li>
- *   <li>skips the actual {@code attackEntityFrom} call (already covered by
- *       {@code MixinEntityPlayer}, but avoiding it entirely is cleaner)</li>
+ * <li>suppresses the "OXYGEN SETUP INVALID!" HUD warning</li>
+ * <li>prevents {@code damageCounter} and {@code incrementalDamage} from being set</li>
+ * <li>skips the actual {@code attackEntityFrom} call (already covered by
+ * {@code MixinEntityPlayer}, but avoiding it entirely is cleaner)</li>
  * </ul>
  *
  * <p>
