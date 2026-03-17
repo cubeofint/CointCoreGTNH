@@ -21,6 +21,7 @@ import coint.commands.mute.MuteTickHandler;
 import coint.commands.tban.TBanHandler;
 import coint.commands.warn.WarnsHandler;
 import coint.config.CointConfig;
+import coint.integration.galacticraft.GalacticraftGodHandler;
 import coint.integration.serverutilities.CointRankConfigs;
 import coint.integration.serverutilities.RanksManager;
 import coint.module.epochsync.EpochRegistry;
@@ -65,6 +66,7 @@ public class CommonProxy {
         MinecraftForge.EVENT_BUS.register(new MuteChatHandler());
         MinecraftForge.EVENT_BUS.register(new TBanHandler());
         // FMLCommonHandler.instance().bus().register(new TBanFMLHandler());
+        MinecraftForge.EVENT_BUS.register(new GalacticraftGodHandler());
 
         CointCore.LOG.info(CointConfig.greeting);
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);
