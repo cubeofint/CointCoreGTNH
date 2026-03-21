@@ -1,11 +1,11 @@
 package coint.commands;
 
+import java.util.Collections;
 import java.util.List;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.nbt.NBTTagCompound;
@@ -24,8 +24,7 @@ import serverutils.lib.util.permission.PermissionAPI;
 public class CommandRepair extends CommandBase {
 
     public static final String PERMISSION = "cointcore.command.repair";
-    private static final String ARG_HAND = "hand";
-    private static final String ARG_ALL = "all";
+    private static final String MODE_ALL = "all";
     private static final String TAG_LAST_REPAIR_MS = "cointcore_repair_last_ms";
 
     public CommandRepair() {
@@ -52,15 +51,12 @@ public class CommandRepair extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/repair [hand|all]";
+        return "/repair";
     }
 
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
-        if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, ARG_HAND, ARG_ALL);
-        }
-        return super.addTabCompletionOptions(sender, args);
+        return Collections.emptyList();
     }
 
     @Override
@@ -69,19 +65,10 @@ public class CommandRepair extends CommandBase {
             return;
         }
 
-        String allowedMode = RankConfigAPI
+        String mode = RankConfigAPI
             .get((net.minecraft.entity.player.EntityPlayerMP) player, CointRankConfigs.REPAIR_MODE)
             .getString();
-        if (allowedMode == null || allowedMode.isEmpty()) {
-            throw new CommandException("commands.generic.permission");
-        }
-
-        String mode = args.length == 0 ? allowedMode : args[0].toLowerCase();
-        if (!ARG_HAND.equals(mode) && !ARG_ALL.equals(mode)) {
-            throw new WrongUsageException(getCommandUsage(sender));
-        }
-
-        if (ARG_ALL.equals(mode) && ARG_HAND.equals(allowedMode)) {
+        if (mode == null || mode.isEmpty()) {
             throw new CommandException("commands.generic.permission");
         }
 
@@ -103,20 +90,19 @@ public class CommandRepair extends CommandBase {
             persisted.setLong(TAG_LAST_REPAIR_MS, now);
         }
 
-        if (ARG_HAND.equals(mode)) {
-            ItemUtil.Repair(player.getHeldItem());
-            sendSuccess(sender, "Предмет в руке починен");
-            return;
-        }
-
         InventoryPlayer inventory = player.inventory;
         for (int i = 0; i < inventory.mainInventory.length; i++) {
             ItemUtil.Repair(inventory.mainInventory[i]);
         }
-        for (int i = 0; i < inventory.armorInventory.length; i++) {
-            ItemUtil.Repair(inventory.armorInventory[i]);
+
+        if (MODE_ALL.equals(mode)) {
+            for (int i = 0; i < inventory.armorInventory.length; i++) {
+                ItemUtil.Repair(inventory.armorInventory[i]);
+            }
+            sendSuccess(sender, "Предметы в инвентаре и броня починены");
+        } else {
+            sendSuccess(sender, "Предметы в инвентаре починены");
         }
-        sendSuccess(sender, "Предметы в инвентаре починены");
     }
 
     private void sendSuccess(ICommandSender sender, String message) {

@@ -75,6 +75,13 @@ public final class ItemUtil {
                 }
                 LOG.debug("wand vis restored");
             }
+
+            // Fallback: items with NBT that weren't handled above
+            // (e.g. enchanted/renamed armor) still need standard damage reset
+            if (itemStack.isItemDamaged()) {
+                itemStack.setItemDamage(0);
+                LOG.debug("repaired nbt item (fallback)");
+            }
         } else if (itemStack.isItemDamaged()) {
             // repairing for simple tools
             LOG.debug("repaired simple tool");

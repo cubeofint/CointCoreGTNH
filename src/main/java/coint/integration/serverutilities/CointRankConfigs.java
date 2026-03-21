@@ -38,14 +38,14 @@ public final class CointRankConfigs {
      */
     public static final String BONUS_HOMES = "cointcore.bonus_homes";
 
-    private static final List<String> REPAIR_MODES = Arrays.asList("hand", "all");
+    private static final List<String> REPAIR_MODES = Arrays.asList("inventory", "all");
 
     @SubscribeEvent
     public void onRegisterRankConfigs(RegisterRankConfigEvent event) {
         event.register(
             REPAIR_MODE,
-            new ConfigStringEnum(REPAIR_MODES, "all"),
-            new ConfigStringEnum(REPAIR_MODES, "all"));
+            new ConfigStringEnum(REPAIR_MODES, "inventory"),
+            new ConfigStringEnum(REPAIR_MODES, "inventory"));
         event.register(REPAIR_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
         event.register(HEAL_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
         event.register(FEED_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));

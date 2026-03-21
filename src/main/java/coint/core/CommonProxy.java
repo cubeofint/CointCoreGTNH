@@ -13,23 +13,31 @@ import coint.commands.CommandReload;
 import coint.commands.CommandRepair;
 import coint.commands.CommandSync;
 import coint.commands.CommandTBan;
+import coint.commands.CommandTRank;
+import coint.commands.CommandTpAlias;
 import coint.commands.CommandUnmute;
 import coint.commands.CommandWarn;
 import coint.commands.mute.MuteChatHandler;
 import coint.commands.mute.MuteRegister;
 import coint.commands.mute.MuteTickHandler;
 import coint.commands.tban.TBanHandler;
+import coint.commands.temprank.TempRankManager;
+import coint.commands.temprank.TempRankTask;
 import coint.commands.warn.WarnsHandler;
 import coint.config.CointConfig;
 import coint.integration.galacticraft.GalacticraftGodHandler;
+import coint.integration.serverutilities.CointCommandGuard;
 import coint.integration.serverutilities.CointRankConfigs;
+import coint.integration.serverutilities.CointSUPermissions;
 import coint.integration.serverutilities.RanksManager;
+import coint.integration.serverutilities.SUIntegration;
 import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
 import coint.tasks.CleanupTask;
 import coint.tasks.DropHandler;
 import coint.tasks.KeepInventoryHandler;
 import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
@@ -68,6 +76,14 @@ public class CommonProxy {
         // FMLCommonHandler.instance().bus().register(new TBanFMLHandler());
         MinecraftForge.EVENT_BUS.register(new GalacticraftGodHandler());
 
+        // Guard /fly, /god, /tpl "target another player" variants.
+        // Must be registered here (not inside SUIntegration.register) because
+        // moduleManager.postInit() is never invoked and SUIntegration.register()
+        // would therefore never run.
+        if (Loader.isModLoaded(SUIntegration.MOD_ID)) {
+            MinecraftForge.EVENT_BUS.register(new CointCommandGuard());
+        }
+
         CointCore.LOG.info(CointConfig.greeting);
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);
 
@@ -87,6 +103,27 @@ public class CommonProxy {
             KeepInventoryHandler.PERMISSION,
             DefaultPermissionLevel.NONE,
             "Сохранять инвентарь при смерти");
+
+        // Split /god, /fly, /tpl into self-use vs. targeting-others tiers.
+        // The existing SU node "commands.<name>" controls self-use (unchanged).
+        // These new nodes guard the "apply to another player" variant.
+        PermissionAPI.registerNode(
+            CointSUPermissions.TP_COORDS,
+            DefaultPermissionLevel.NONE,
+            "Teleport to coordinates via /tp x y z (JourneyMap waypoints)");
+        PermissionAPI.registerNode(
+            CointSUPermissions.GOD_OTHER,
+            DefaultPermissionLevel.OP,
+            "Apply god mode to another player via /god <player>");
+        PermissionAPI.registerNode(
+            CointSUPermissions.FLY_OTHER,
+            DefaultPermissionLevel.OP,
+            "Toggle fly for another player via /fly <player>");
+        PermissionAPI.registerNode(
+            CointSUPermissions.TPL_OTHER,
+            DefaultPermissionLevel.OP,
+            "Teleport another player to someone via /tpl <who> <to>");
+
         moduleManager.init();
     }
 
@@ -115,10 +152,12 @@ public class CommonProxy {
         event.registerServerCommand(new CommandFeed());
         event.registerServerCommand(new CommandKit(event.getServer()));
         event.registerServerCommand(new CommandNightVision());
+        event.registerServerCommand(new CommandTpAlias());
         event.registerServerCommand(new CommandWarn());
         event.registerServerCommand(new CommandMute());
         event.registerServerCommand(new CommandUnmute());
         event.registerServerCommand(new CommandTBan());
+        event.registerServerCommand(new CommandTRank());
         event.registerServerCommand(new CommandReload());
         CointCore.LOG.debug("Registered server commands");
     }
@@ -133,6 +172,15 @@ public class CommonProxy {
         // Ranks.INSTANCE are guaranteed to be fully initialized.
         RanksManager.get()
             .updateRanks();
+
+        // Restore active temp-rank assignments and start the expiry checker.
+        if (Loader.isModLoaded(SUIntegration.MOD_ID)) {
+            TempRankManager.reset(); // discard stale state from a previous session in this JVM
+            TempRankManager.get()
+                .restoreAll();
+            Universe.get()
+                .scheduleTask(new TempRankTask());
+        }
     }
 
     /**

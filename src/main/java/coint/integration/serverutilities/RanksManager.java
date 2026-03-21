@@ -96,6 +96,64 @@ public class RanksManager {
     }
 
     /**
+     * Add a rank as a parent of a player's rank without touching any existing parents.
+     *
+     * @throws Exception if SU Ranks is not initialized, rank not found, or player never joined
+     */
+    public void addParentRank(UUID playerId, String rankId) throws Exception {
+        Ranks ranks = Ranks.INSTANCE;
+        if (ranks == null) throw new Exception("ServerUtilities Ranks not initialized");
+
+        Rank rankToAdd = ranks.getRank(rankId);
+        if (rankToAdd == null) throw new Exception("Rank '" + rankId + "' not found in ServerUtilities");
+
+        PlayerRank playerRank = ranks.playerRanks.get(playerId);
+        if (playerRank == null) {
+            var forgePlayer = ranks.universe.getPlayer(playerId);
+            if (forgePlayer != null) {
+                playerRank = ranks.getPlayerRank(forgePlayer.getProfile());
+            } else {
+                throw new Exception("Player " + playerId + " has never joined the server");
+            }
+        }
+
+        playerRank.addParent(rankToAdd);
+        ranks.save();
+        ranks.clearCache();
+        LOG.info("[TempRank] Added parent rank '{}' to player {}", rankId, playerId);
+    }
+
+    /**
+     * Remove a specific parent rank from a player's rank without touching others.
+     * Silently does nothing if the player has no such parent.
+     */
+    public void removeParentRank(UUID playerId, String rankId) {
+        Ranks ranks = Ranks.INSTANCE;
+        if (ranks == null) {
+            LOG.warn("[TempRank] Ranks not initialized, cannot remove '{}' from {}", rankId, playerId);
+            return;
+        }
+
+        Rank rankToRemove = ranks.getRank(rankId);
+        if (rankToRemove == null) {
+            LOG.warn("[TempRank] Rank '{}' not found in SU, nothing to remove", rankId);
+            return;
+        }
+
+        PlayerRank playerRank = ranks.playerRanks.get(playerId);
+        if (playerRank == null) {
+            LOG.debug("[TempRank] Player {} not in playerRanks, nothing to remove", playerId);
+            return;
+        }
+
+        if (playerRank.removeParent(rankToRemove)) {
+            ranks.save();
+            ranks.clearCache();
+            LOG.info("[TempRank] Removed parent rank '{}' from player {}", rankId, playerId);
+        }
+    }
+
+    /**
      * Set a player's epoch rank
      */
     public void setRank(UUID playerId, String rank) throws Exception {

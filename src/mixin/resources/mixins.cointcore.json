@@ -5,7 +5,7 @@
   "refmap": "mixins.cointcore.refmap.json",
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
-  "mixins": [
+    "mixins": [
     "betterquesting.MixinPartyInstance",
     "galacticraft.MixinGCPlayerHandler",
     "minecraft.MixinEntityLivingBase",
