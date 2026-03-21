@@ -59,19 +59,19 @@ public class MixinServerUtilitiesTeamData {
         }
 
         int maxBase = 0;
-        int maxBonus = 0;
+        int bonus = 0;
         for (ForgePlayer player : self.team.getMembers()) {
             maxBase = Math.max(
                 maxBase,
                 player.getRankConfig(ServerUtilitiesPermissions.CLAIMS_MAX_CHUNKS)
                     .getInt());
-            maxBonus = Math.max(
-                maxBonus,
-                player.getRankConfig(CointRankConfigs.BONUS_CLAIM_CHUNKS)
-                    .getInt());
+            bonus += player.getRankConfig(CointRankConfigs.BONUS_CLAIM_CHUNKS)
+                .getInt();
+            bonus += player.getRankConfig(CointRankConfigs.EBOBONUS_CLAIM_CHUNKS)
+                .getInt();
         }
 
-        cachedMaxClaimChunks = maxBase + maxBonus;
+        cachedMaxClaimChunks = maxBase + bonus;
         cir.setReturnValue(cachedMaxClaimChunks);
     }
 
@@ -98,19 +98,19 @@ public class MixinServerUtilitiesTeamData {
         }
 
         int maxBase = 0;
-        int maxBonus = 0;
+        int bonus = 0;
         for (ForgePlayer player : self.team.getMembers()) {
             maxBase = Math.max(
                 maxBase,
                 player.getRankConfig(ServerUtilitiesPermissions.CHUNKLOADER_MAX_CHUNKS)
                     .getInt());
-            maxBonus = Math.max(
-                maxBonus,
-                player.getRankConfig(CointRankConfigs.BONUS_FORCELOAD_CHUNKS)
-                    .getInt());
+            bonus += player.getRankConfig(CointRankConfigs.BONUS_FORCELOAD_CHUNKS)
+                .getInt();
+            bonus += player.getRankConfig(CointRankConfigs.EBOBONUS_FORCELOAD_CHUNKS)
+                .getInt();
         }
 
-        cachedMaxChunkloaderChunks = maxBase + maxBonus;
+        cachedMaxChunkloaderChunks = maxBase + bonus;
         cir.setReturnValue(cachedMaxChunkloaderChunks);
     }
 }

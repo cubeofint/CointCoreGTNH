@@ -23,6 +23,7 @@ public final class CointRankConfigs {
      * Set per-rank in ranks.txt.
      */
     public static final String BONUS_CLAIM_CHUNKS = "cointcore.bonus_chunks";
+    public static final String EBOBONUS_CLAIM_CHUNKS = "cointcore.ebobonus_chunks";
 
     /**
      * Bonus force-load chunks added on top of serverutilities.chunkloader.max_chunks.
@@ -30,6 +31,7 @@ public final class CointRankConfigs {
      * Set per-rank in ranks.txt.
      */
     public static final String BONUS_FORCELOAD_CHUNKS = "cointcore.bonus_forceload_chunks";
+    public static final String EBOBONUS_FORCELOAD_CHUNKS = "cointcore.ebobonus_forceload_chunks";
 
     /**
      * Bonus homes added on top of serverutilities.homes.max.
