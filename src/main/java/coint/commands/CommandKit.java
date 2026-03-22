@@ -38,13 +38,15 @@ public class CommandKit extends CommandBase {
     private static final Pattern KIT_NAME = Pattern.compile("^[a-z0-9_-]{1,32}$");
     private static final String TAG_KIT_COOLDOWNS = "cointcore_kit_cooldowns";
 
+    private static final String PERM_KIT_EDIT = "cointcore.command.kit.edit";
+    private static final String PERM_KIT_RESET = "cointcore.command.kit.reset";
+
     public CommandKit(MinecraftServer server) {
-        PermissionAPI.registerNode("cointcore.command.kit.create", DefaultPermissionLevel.OP, "CointCore kit create");
-        PermissionAPI.registerNode("cointcore.command.kit.claim", DefaultPermissionLevel.NONE, "CointCore kit claim");
-        PermissionAPI.registerNode("cointcore.command.kit.list", DefaultPermissionLevel.NONE, "CointCore kit list");
-        PermissionAPI.registerNode("cointcore.command.kit.delete", DefaultPermissionLevel.OP, "CointCore kit delete");
+        // PermissionAPI.registerNode("cointcore.command.kit.claim", DefaultPermissionLevel.NONE, "CointCore kit claim");
+        // PermissionAPI.registerNode("cointcore.command.kit.list", DefaultPermissionLevel.NONE, "CointCore kit list");
+        PermissionAPI.registerNode(PERM_KIT_EDIT, DefaultPermissionLevel.OP, "CointCore kit create and delete");
         PermissionAPI
-            .registerNode("cointcore.command.kit.reset", DefaultPermissionLevel.OP, "CointCore kit reset cooldown");
+            .registerNode(PERM_KIT_RESET, DefaultPermissionLevel.OP, "CointCore kit reset cooldown");
 
         if (server != null) {
             for (String name : KitManager.getKitNames(server)) {
@@ -66,43 +68,36 @@ public class CommandKit extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        // EntityPlayerMP is the concrete server-side player class; using it avoids
-        // edge cases where Forge wraps the sender in a non-EntityPlayer proxy.
         if (!(sender instanceof EntityPlayerMP)) {
             return "/kit <create|claim|list|delete|reset>";
         }
-        EntityPlayerMP player = EntityPlayerMP.class.cast(sender);
+        ForgePlayer player = Universe.get().getPlayer(sender);
         List<String> parts = new ArrayList<>();
-        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.create")) {
+        parts.add("/kit claim <name>");
+        parts.add("/kit list");
+
+        if (PermissionAPI.hasPermission(player.getPlayer(), PERM_KIT_EDIT)) {
             parts.add("/kit create <name> [cooldown]");
-        }
-        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.claim")) {
-            parts.add("/kit claim <name>");
-        }
-        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.list")) {
-            parts.add("/kit list");
-        }
-        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.delete")) {
             parts.add("/kit delete <name>");
         }
-        if (PermissionAPI.hasPermission(player, "cointcore.command.kit.reset")) {
+        if (PermissionAPI.hasPermission(player.getPlayer(), PERM_KIT_RESET)) {
             parts.add("/kit reset <name> <player>");
         }
-        return parts.isEmpty() ? "У вас нет доступа к /kit" : String.join(" | ", parts);
+        return String.join(" | ", parts);
     }
 
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
-            List<String> subs = new ArrayList<>();
+            List<String> subs = java.util.Arrays.asList("claim", "list");
             if (sender instanceof EntityPlayerMP player) {
-                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.create")) subs.add("create");
-                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.claim")) subs.add("claim");
-                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.list")) subs.add("list");
-                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.delete")) subs.add("delete");
-                if (PermissionAPI.hasPermission(player, "cointcore.command.kit.reset")) subs.add("reset");
+                if (PermissionAPI.hasPermission(player, PERM_KIT_EDIT)) {
+                    subs.add("create");
+                    subs.add("delete");
+                }
+                if (PermissionAPI.hasPermission(player, PERM_KIT_RESET)) subs.add("reset");
             } else {
-                subs.addAll(java.util.Arrays.asList("create", "claim", "list", "delete", "reset"));
+                subs.addAll(java.util.Arrays.asList("create", "delete", "reset"));
             }
             return getListOfStringsMatchingLastWord(args, subs.toArray(new String[0]));
         }
@@ -140,10 +135,9 @@ public class CommandKit extends CommandBase {
 
         String sub = args[0].toLowerCase();
 
-        // reset — не требует EntityPlayer от sender, обрабатываем отдельно
         if ("reset".equals(sub)) {
             if (sender instanceof EntityPlayer player
-                && !PermissionAPI.hasPermission(player, "cointcore.command.kit.reset")) {
+                && !PermissionAPI.hasPermission(player, PERM_KIT_RESET)) {
                 throw new CommandException("commands.generic.permission");
             }
             if (args.length < 3) {
@@ -210,7 +204,7 @@ public class CommandKit extends CommandBase {
 
         switch (sub) {
             case "create": {
-                if (lacksPermission(player, "cointcore.command.kit.create")) {
+                if (lacksPermission(player, PERM_KIT_EDIT)) {
                     throw new CommandException("commands.generic.permission");
                 }
                 long cooldownTicks = parseCooldown(sender, args);
@@ -237,11 +231,6 @@ public class CommandKit extends CommandBase {
                     return;
                 }
 
-                if (lacksPermission(player, "cointcore.command.kit.claim")
-                    || lacksPermission(player, "cointcore.kit." + name)) {
-                    throw new CommandException("commands.generic.permission");
-                }
-
                 if (isOnCooldown(sender, player, kit)) {
                     return;
                 }
@@ -258,9 +247,6 @@ public class CommandKit extends CommandBase {
                 return;
             }
             case "list": {
-                if (lacksPermission(player, "cointcore.command.kit.list")) {
-                    throw new CommandException("commands.generic.permission");
-                }
                 Collection<String> allNames = KitManager.getKitNames(MinecraftServer.getServer());
                 List<String> accessible = new ArrayList<>();
                 for (String kitName : allNames) {
@@ -276,7 +262,7 @@ public class CommandKit extends CommandBase {
                 return;
             }
             case "delete": {
-                if (lacksPermission(player, "cointcore.command.kit.delete")) {
+                if (lacksPermission(player, PERM_KIT_EDIT)) {
                     throw new CommandException("commands.generic.permission");
                 }
                 KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), name);
