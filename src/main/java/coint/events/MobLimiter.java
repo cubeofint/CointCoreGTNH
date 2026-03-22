@@ -1,9 +1,7 @@
 package coint.events;
 
-import coint.config.CointConfig;
-import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
-import cpw.mods.fml.common.eventhandler.EventPriority;
-import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import java.util.List;
+
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.INpc;
 import net.minecraft.entity.monster.IMob;
@@ -12,7 +10,11 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 
-import java.util.List;
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+
+import coint.config.CointConfig;
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 @EventBusSubscriber
 public class MobLimiter {

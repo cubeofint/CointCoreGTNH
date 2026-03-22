@@ -42,11 +42,11 @@ public class CommandKit extends CommandBase {
     private static final String PERM_KIT_RESET = "cointcore.command.kit.reset";
 
     public CommandKit(MinecraftServer server) {
-        // PermissionAPI.registerNode("cointcore.command.kit.claim", DefaultPermissionLevel.NONE, "CointCore kit claim");
+        // PermissionAPI.registerNode("cointcore.command.kit.claim", DefaultPermissionLevel.NONE, "CointCore kit
+        // claim");
         // PermissionAPI.registerNode("cointcore.command.kit.list", DefaultPermissionLevel.NONE, "CointCore kit list");
         PermissionAPI.registerNode(PERM_KIT_EDIT, DefaultPermissionLevel.OP, "CointCore kit create and delete");
-        PermissionAPI
-            .registerNode(PERM_KIT_RESET, DefaultPermissionLevel.OP, "CointCore kit reset cooldown");
+        PermissionAPI.registerNode(PERM_KIT_RESET, DefaultPermissionLevel.OP, "CointCore kit reset cooldown");
 
         if (server != null) {
             for (String name : KitManager.getKitNames(server)) {
@@ -71,7 +71,8 @@ public class CommandKit extends CommandBase {
         if (!(sender instanceof EntityPlayerMP)) {
             return "/kit <create|claim|list|delete|reset>";
         }
-        ForgePlayer player = Universe.get().getPlayer(sender);
+        ForgePlayer player = Universe.get()
+            .getPlayer(sender);
         List<String> parts = new ArrayList<>();
         parts.add("/kit claim <name>");
         parts.add("/kit list");
@@ -136,8 +137,7 @@ public class CommandKit extends CommandBase {
         String sub = args[0].toLowerCase();
 
         if ("reset".equals(sub)) {
-            if (sender instanceof EntityPlayer player
-                && !PermissionAPI.hasPermission(player, PERM_KIT_RESET)) {
+            if (sender instanceof EntityPlayer player && !PermissionAPI.hasPermission(player, PERM_KIT_RESET)) {
                 throw new CommandException("commands.generic.permission");
             }
             if (args.length < 3) {

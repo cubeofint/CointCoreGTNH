@@ -1,11 +1,11 @@
 package coint.commands;
 
-import coint.config.CointConfig;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 
+import coint.config.CointConfig;
 import coint.integration.serverutilities.RanksManager;
 import coint.module.epochsync.EpochRegistry;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -14,7 +14,8 @@ import serverutils.lib.util.permission.PermissionAPI;
 public class CommandReload extends CommandBase {
 
     public CommandReload() {
-        PermissionAPI.registerNode("cointcore.command.reload", DefaultPermissionLevel.OP, "CointCore epochs reload permission");
+        PermissionAPI
+            .registerNode("cointcore.command.reload", DefaultPermissionLevel.OP, "CointCore epochs reload permission");
     }
 
     @Override
@@ -44,8 +45,10 @@ public class CommandReload extends CommandBase {
         switch (args[0]) {
             case "epoch": {
                 EpochRegistry.INST.reload();
-                RanksManager.get().reload();
-                RanksManager.get().updateRanks();
+                RanksManager.get()
+                    .reload();
+                RanksManager.get()
+                    .updateRanks();
                 return;
             }
             case "config": {

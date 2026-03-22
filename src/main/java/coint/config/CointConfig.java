@@ -81,33 +81,64 @@ public class CointConfig {
 
             // EpochSync
             config.addCustomCategoryComment(CATEGORY_EPOCHSYNC, "Epoch synchronization settings");
-            epochSyncEnabled = config.getBoolean("enabled", CATEGORY_EPOCHSYNC, epochSyncEnabled, "Enable epoch synchronization module");
-            autoSyncOnQuestComplete = config.getBoolean("autoSyncOnQuestComplete", CATEGORY_EPOCHSYNC, autoSyncOnQuestComplete, "Automatically sync rank when a quest is completed");
-            partySyncEnabled = config.getBoolean("partySyncEnabled", CATEGORY_EPOCHSYNC, partySyncEnabled, "Sync ranks to all party members when a quest is completed");
-            syncNewPartyMembers = config.getBoolean("syncNewPartyMembers", CATEGORY_EPOCHSYNC, syncNewPartyMembers, "Sync ranks to new players when they join a party");
-            autoParseRewardCommands = config.getBoolean("autoParseRewardCommands", CATEGORY_EPOCHSYNC, autoParseRewardCommands, "Automatically parse /ranks add commands from quest rewards (no manual quest ID mapping needed)");
+            epochSyncEnabled = config
+                .getBoolean("enabled", CATEGORY_EPOCHSYNC, epochSyncEnabled, "Enable epoch synchronization module");
+            autoSyncOnQuestComplete = config.getBoolean(
+                "autoSyncOnQuestComplete",
+                CATEGORY_EPOCHSYNC,
+                autoSyncOnQuestComplete,
+                "Automatically sync rank when a quest is completed");
+            partySyncEnabled = config.getBoolean(
+                "partySyncEnabled",
+                CATEGORY_EPOCHSYNC,
+                partySyncEnabled,
+                "Sync ranks to all party members when a quest is completed");
+            syncNewPartyMembers = config.getBoolean(
+                "syncNewPartyMembers",
+                CATEGORY_EPOCHSYNC,
+                syncNewPartyMembers,
+                "Sync ranks to new players when they join a party");
+            autoParseRewardCommands = config.getBoolean(
+                "autoParseRewardCommands",
+                CATEGORY_EPOCHSYNC,
+                autoParseRewardCommands,
+                "Automatically parse /ranks add commands from quest rewards (no manual quest ID mapping needed)");
 
             // API
             config.addCustomCategoryComment(CATEGORY_API, "External API settings");
             notifyEnabled = config.getBoolean("enable", CATEGORY_API, false, "Enable api notify");
-            apiUrl = config.getString("url", CATEGORY_API, apiUrl, "Base URL for external API (leave empty to use API_URL env variable)");
-            apiTimeout = config.getInt("timeout", CATEGORY_API, apiTimeout, 1000, 60000, "API request timeout in milliseconds");
+            apiUrl = config.getString(
+                "url",
+                CATEGORY_API,
+                apiUrl,
+                "Base URL for external API (leave empty to use API_URL env variable)");
+            apiTimeout = config
+                .getInt("timeout", CATEGORY_API, apiTimeout, 1000, 60000, "API request timeout in milliseconds");
 
             // Debug
             config.addCustomCategoryComment(CATEGORY_DEBUG, "Debug settings");
             debugMode = config.getBoolean("debugMode", CATEGORY_DEBUG, debugMode, "Enable debug mode");
-            verboseLogging = config.getBoolean("verboseLogging", CATEGORY_DEBUG, verboseLogging, "Enable verbose logging");
+            verboseLogging = config
+                .getBoolean("verboseLogging", CATEGORY_DEBUG, verboseLogging, "Enable verbose logging");
 
             // Tasks
             config.addCustomCategoryComment(CATEGORY_TASKS, "tasks settings");
-            cleanupEnabled = config.getBoolean("cleanupEnabled", CATEGORY_TASKS, cleanupEnabled, "Enable cleanup task (server utilities config)");
+            cleanupEnabled = config.getBoolean(
+                "cleanupEnabled",
+                CATEGORY_TASKS,
+                cleanupEnabled,
+                "Enable cleanup task (server utilities config)");
 
             // Tasks
             config.addCustomCategoryComment(CATEGORY_LIMITER, "limiter settings");
-            limiterEnabled = config.getBoolean("limiterEnabled", CATEGORY_LIMITER, limiterEnabled, "Enable Mob Limiter");
-            limiterChunkCup = config.getInt("limiterChunkCup", CATEGORY_LIMITER, limiterChunkCup, 0, 50, "All mobs chunk limit");
-            limiterHostileCup = config.getInt("limiterHostileCup", CATEGORY_LIMITER, limiterHostileCup, 0, 50, "Hostile mob limit");
-            limiterPassiveCup = config.getInt("limiterPassiveCup", CATEGORY_LIMITER, limiterPassiveCup, 0, 50, "Passive mob limit");
+            limiterEnabled = config
+                .getBoolean("limiterEnabled", CATEGORY_LIMITER, limiterEnabled, "Enable Mob Limiter");
+            limiterChunkCup = config
+                .getInt("limiterChunkCup", CATEGORY_LIMITER, limiterChunkCup, 0, 50, "All mobs chunk limit");
+            limiterHostileCup = config
+                .getInt("limiterHostileCup", CATEGORY_LIMITER, limiterHostileCup, 0, 50, "Hostile mob limit");
+            limiterPassiveCup = config
+                .getInt("limiterPassiveCup", CATEGORY_LIMITER, limiterPassiveCup, 0, 50, "Passive mob limit");
 
             // Chat split
             config.addCustomCategoryComment(CATEGORY_CHAT, "Local/global chat split settings");
