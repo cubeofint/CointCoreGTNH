@@ -8,12 +8,15 @@
     "mixins": [
     "betterquesting.MixinPartyInstance",
     "galacticraft.MixinGCPlayerHandler",
+    "minecraft.MixinCommandMessage",
     "minecraft.MixinEntityLivingBase",
     "minecraft.MixinEntityPlayer",
     "serverutilities.MixinCmdHome",
     "serverutilities.MixinCmdSetHome",
     "serverutilities.MixinServerUtilitiesTeamData"
   ],
-  "client": [],
+  "client": [
+    "serverutilities.MixinMessageUpdateTabName"
+  ],
   "server": []
 }

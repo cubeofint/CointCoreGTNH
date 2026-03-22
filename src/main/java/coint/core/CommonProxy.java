@@ -11,12 +11,15 @@ import coint.commands.CommandMute;
 import coint.commands.CommandNightVision;
 import coint.commands.CommandReload;
 import coint.commands.CommandRepair;
+import coint.commands.CommandReply;
 import coint.commands.CommandSync;
 import coint.commands.CommandTBan;
 import coint.commands.CommandTRank;
 import coint.commands.CommandTpAlias;
 import coint.commands.CommandUnmute;
 import coint.commands.CommandWarn;
+import coint.commands.dm.CommandDmSpy;
+import coint.commands.dm.DmLogger;
 import coint.commands.mute.MuteChatHandler;
 import coint.commands.mute.MuteRegister;
 import coint.commands.mute.MuteTickHandler;
@@ -44,6 +47,7 @@ import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import cpw.mods.fml.common.event.FMLServerStoppingEvent;
 import serverutils.ServerUtilitiesConfig;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -136,6 +140,7 @@ public class CommonProxy {
     public void serverAboutToStart(FMLServerAboutToStartEvent event) {
         EpochRegistry.init(event);
         moduleManager.onAboutToStart();
+        DmLogger.init(new java.io.File("."));
         CointCore.LOG.info("CointCore GTNH initialized successfully");
     }
 
@@ -159,6 +164,8 @@ public class CommonProxy {
         event.registerServerCommand(new CommandTBan());
         event.registerServerCommand(new CommandTRank());
         event.registerServerCommand(new CommandReload());
+        event.registerServerCommand(new CommandReply());
+        event.registerServerCommand(new CommandDmSpy());
         CointCore.LOG.debug("Registered server commands");
     }
 
@@ -181,6 +188,11 @@ public class CommonProxy {
             Universe.get()
                 .scheduleTask(new TempRankTask());
         }
+    }
+
+    @SuppressWarnings("unused")
+    public void serverStopping(FMLServerStoppingEvent event) {
+        DmLogger.close();
     }
 
     /**
