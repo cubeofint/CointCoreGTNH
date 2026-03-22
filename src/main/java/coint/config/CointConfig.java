@@ -17,6 +17,7 @@ public class CointConfig {
     public static final String CATEGORY_API = "api";
     public static final String CATEGORY_DEBUG = "debug";
     public static final String CATEGORY_TASKS = "tasks";
+    public static final String CATEGORY_CHAT = "chat";
 
     private static Configuration config;
 
@@ -41,6 +42,14 @@ public class CointConfig {
 
     // Cleanup task settings
     public static boolean cleanupEnabled = true;
+
+    // Chat split settings
+    public static boolean chatSplitEnabled = true;
+    public static double localChatRadius = 100.0;
+    public static String globalChatPrefix = "!";
+    public static boolean sameDimensionOnly = true;
+    public static String localChatFormat = "§7[Лок] %s§r§7: §f%s";
+    public static String globalChatFormat = "§a[Глоб] %s§r§7: §f%s";
 
     /**
      * Initialize and load configuration
@@ -113,6 +122,41 @@ public class CointConfig {
                 cleanupEnabled,
                 "Enable cleanup task (server utilities config)");
 
+            // Chat split
+            config.addCustomCategoryComment(CATEGORY_CHAT, "Local/global chat split settings");
+            chatSplitEnabled = config.getBoolean(
+                "enabled",
+                CATEGORY_CHAT,
+                chatSplitEnabled,
+                "Enable local/global chat split. Local chat is distance-limited; prefix a message with '!' to send globally.");
+            localChatRadius = config.getFloat(
+                "localRadius",
+                CATEGORY_CHAT,
+                (float) localChatRadius,
+                1f,
+                10000f,
+                "Radius (in blocks) within which local chat messages are visible");
+            globalChatPrefix = config.getString(
+                "globalPrefix",
+                CATEGORY_CHAT,
+                globalChatPrefix,
+                "Prefix character that switches a message to global chat (e.g. '!')");
+            sameDimensionOnly = config.getBoolean(
+                "sameDimensionOnly",
+                CATEGORY_CHAT,
+                sameDimensionOnly,
+                "If true, local chat is only visible to players in the same dimension");
+            localChatFormat = config.getString(
+                "localFormat",
+                CATEGORY_CHAT,
+                localChatFormat,
+                "Format string for local chat. %s placeholders: 1=player name, 2=message");
+            globalChatFormat = config.getString(
+                "globalFormat",
+                CATEGORY_CHAT,
+                globalChatFormat,
+                "Format string for global chat. %s placeholders: 1=player name, 2=message");
+
         } catch (Exception e) {
             CointCore.LOG.error("Error loading config: {}", e.getMessage());
         } finally {
@@ -130,14 +174,6 @@ public class CointConfig {
             return apiUrl;
         }
         return System.getenv("API_URL");
-    }
-
-    /**
-     * Check if API is configured
-     */
-    public static boolean isApiConfigured() {
-        String url = getEffectiveApiUrl();
-        return url != null && !url.isEmpty();
     }
 
     /**

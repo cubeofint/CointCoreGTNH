@@ -11,6 +11,8 @@ import coint.CointCore;
 import coint.config.CointConfig;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import serverutils.ServerUtilitiesPermissions;
+import serverutils.ranks.Ranks;
 
 /**
  * Разделяет игровой чат на <b>локальный</b> и <b>глобальный</b>.
@@ -24,7 +26,9 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
  * </ul>
  *
  * <p>
- * Отправителю всегда показывается его же сообщение, чтобы он видел, что оно было отправлено.
+ * Имя отправителя форматируется по шаблону {@code CHAT_NAME_FORMAT} из ServerUtilities Ranks
+ * (например {@code &c[Админ]&r {name}:}), что обеспечивает отображение ранга в обоих каналах.
+ * Если Ranks недоступны — используется обычное имя игрока.
  *
  * <p>
  * Приоритет {@code NORMAL} — мьют ({@code MuteChatHandler}, {@code HIGHEST}) проверяется раньше
@@ -51,13 +55,15 @@ public class ChatSplitHandler {
         String prefix = CointConfig.globalChatPrefix;
         boolean isGlobal = prefix != null && !prefix.isEmpty() && rawMessage.startsWith(prefix);
 
-        String text = isGlobal ? rawMessage.substring(prefix.length()).trim() : rawMessage;
+        String text = isGlobal ? rawMessage.substring(prefix.length())
+            .trim() : rawMessage;
 
         if (text.isEmpty()) {
             return;
         }
 
-        String senderName = sender.func_145748_c_().getUnformattedText();
+        // Получаем имя с префиксом ранга из ServerUtilities (или просто ник, если SU недоступен).
+        String senderName = getRankFormattedName(sender);
 
         if (isGlobal) {
             sendGlobal(senderName, text);
@@ -67,7 +73,67 @@ public class ChatSplitHandler {
     }
 
     // ------------------------------------------------------------------
-    // Helpers
+    // Rank name resolution
+    // ------------------------------------------------------------------
+
+    /**
+     * Возвращает имя игрока, отформатированное согласно его рангу в ServerUtilities.
+     *
+     * <p>
+     * Алгоритм:
+     * <ol>
+     * <li>Берём шаблон {@code CHAT_NAME_FORMAT} из ранга игрока
+     * (например {@code &c[Админ]&r {name}:}).</li>
+     * <li>Транслируем {@code &x} в {@code §x}.</li>
+     * <li>Заменяем {@code {name}} на реальный ник.</li>
+     * <li>Убираем завершающее {@code :} — оно нужно SU для собственного чата,
+     * но в нашем формате разделитель уже задан в строке формата.</li>
+     * </ol>
+     *
+     * <p>
+     * При любой ошибке (Ranks не загружен, формат пустой) возвращает чистый ник.
+     */
+    private static String getRankFormattedName(EntityPlayerMP player) {
+        String plainName = player.getGameProfile()
+            .getName();
+
+        try {
+            if (Ranks.INSTANCE == null) {
+                return plainName;
+            }
+
+            String format = Ranks.INSTANCE.getPlayerRank(player.getGameProfile())
+                .getPermission(ServerUtilitiesPermissions.CHAT_NAME_FORMAT);
+
+            if (format.isEmpty()) {
+                return plainName;
+            }
+
+            // ranks.txt использует &x для цветов; переводим в §x
+            format = format.replaceAll("&([0-9a-fk-orA-FK-OR])", "§$1");
+
+            // Подставляем ник
+            format = format.replace("{name}", plainName);
+
+            // Убираем угловые скобки <> — стандартная обёртка в шаблонах SU вида <Ранг {name}>
+            format = format.replace("<", "")
+                .replace(">", "");
+
+            // Убираем хвостовое «:» (и пробелы вокруг него) — SU добавляет его
+            // как разделитель чата, но в нашем формате разделитель уже есть.
+            format = format.replaceAll(":\\s*$", "")
+                .trim();
+
+            return format;
+
+        } catch (Exception e) {
+            CointCore.LOG.warn("[ChatSplit] Failed to get rank format for {}: {}", plainName, e.getMessage());
+            return plainName;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Send helpers
     // ------------------------------------------------------------------
 
     private void sendGlobal(String senderName, String text) {
@@ -95,17 +161,14 @@ public class ChatSplitHandler {
 
         int recipients = 0;
         for (EntityPlayerMP p : players) {
-            // Фильтр по измерению
             if (CointConfig.sameDimensionOnly && p.dimension != senderDim) {
                 continue;
             }
-            // Фильтр по расстоянию (сам отправитель — всегда получает)
             if (p != sender) {
                 double dx = p.posX - sender.posX;
                 double dy = p.posY - sender.posY;
                 double dz = p.posZ - sender.posZ;
-                double distSq = dx * dx + dy * dy + dz * dz;
-                if (distSq > radiusSq) {
+                if (dx * dx + dy * dy + dz * dz > radiusSq) {
                     continue;
                 }
             }
@@ -117,5 +180,3 @@ public class ChatSplitHandler {
             .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.localChatRadius, senderName, text, recipients);
     }
 }
-
-

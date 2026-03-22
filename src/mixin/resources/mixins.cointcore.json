@@ -13,7 +13,9 @@
     "minecraft.MixinEntityPlayer",
     "serverutilities.MixinCmdHome",
     "serverutilities.MixinCmdSetHome",
-    "serverutilities.MixinServerUtilitiesTeamData"
+    "serverutilities.MixinServerUtilitiesTeamData",
+    "thaumcraft.MixinItemFocusBasic",
+    "thaumcraft.MixinItemFocusTrade"
   ],
   "client": [
     "serverutilities.MixinMessageUpdateTabName"

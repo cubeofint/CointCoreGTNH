@@ -1,9 +1,12 @@
-﻿package coint.mixin.serverutilities;
+package coint.mixin.serverutilities;
+
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
+
 import coint.integration.serverutilities.CointSUPermissions;
 import serverutils.lib.util.permission.PermissionAPI;
+
 /**
  * Splits {@code /tpl} into two separate permission levels:
  * <ul>
@@ -25,6 +28,7 @@ import serverutils.lib.util.permission.PermissionAPI;
  */
 @Deprecated
 public class MixinCmdTplast {
+
     // Historical injection target: CmdTplast.processCommand - no longer active.
     @SuppressWarnings("unused")
     private void cointcore$checkTplOther(ICommandSender sender, String[] args) {
@@ -33,10 +37,12 @@ public class MixinCmdTplast {
             cointcore$sneakyThrow(new CommandException("commands.generic.permission"));
         }
     }
+
     @SuppressWarnings("unchecked")
     private static <T extends Throwable> void cointcore$sneakyThrow(Throwable t) throws T {
         throw (T) t;
     }
+
     /** Prevents instantiation - historical reference class only. */
     private MixinCmdTplast() {}
 }
