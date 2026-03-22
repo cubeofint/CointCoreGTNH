@@ -9,6 +9,7 @@ import net.minecraftforge.event.ServerChatEvent;
 
 import coint.CointCore;
 import coint.config.CointConfig;
+import coint.integration.nilcord.NilcordBridge;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.ServerUtilitiesPermissions;
@@ -36,7 +37,10 @@ import serverutils.ranks.Ranks;
  */
 public class ChatSplitHandler {
 
-    @SubscribeEvent(priority = EventPriority.NORMAL)
+    // HIGH — выполняется после MuteChatHandler (HIGHEST), но гарантированно до
+    // любого стороннего мода на NORMAL (например Nilcord). Это исключает гонку
+    // порядка регистрации хэндлеров и делает страховочный мixin ненужным.
+    @SubscribeEvent(priority = EventPriority.HIGH)
     public void onServerChat(ServerChatEvent event) {
         if (!CointConfig.chatSplitEnabled) {
             return;
@@ -66,7 +70,7 @@ public class ChatSplitHandler {
         String senderName = getRankFormattedName(sender);
 
         if (isGlobal) {
-            sendGlobal(senderName, text);
+            sendGlobal(sender, senderName, text);
         } else {
             sendLocal(sender, senderName, text);
         }
@@ -136,7 +140,7 @@ public class ChatSplitHandler {
     // Send helpers
     // ------------------------------------------------------------------
 
-    private void sendGlobal(String senderName, String text) {
+    private void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
         String formatted = String.format(CointConfig.globalChatFormat, senderName, text);
         ChatComponentText component = new ChatComponentText(formatted);
 
@@ -147,6 +151,11 @@ public class ChatSplitHandler {
         }
 
         CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
+
+        // Пересылаем в Discord через Nilcord (если установлен).
+        // Nilcord не получает ServerChatEvent напрямую, т.к. мы его отменяем раньше,
+        // поэтому вызываем их EventListener напрямую через рефлексию.
+        NilcordBridge.forwardGlobalChat(sender, text);
     }
 
     private void sendLocal(EntityPlayerMP sender, String senderName, String text) {
@@ -178,5 +187,9 @@ public class ChatSplitHandler {
 
         CointCore.LOG
             .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.localChatRadius, senderName, text, recipients);
+
+        // Рассылаем копию администраторам с включённым /localspy,
+        // которые находились вне радиуса (и не получили сообщение обычным путём).
+        LocalSpyRegistry.notifySpies(sender, senderName, text);
     }
 }

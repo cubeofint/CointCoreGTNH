@@ -19,6 +19,7 @@ import coint.commands.CommandTpAlias;
 import coint.commands.CommandUnmute;
 import coint.commands.CommandWarn;
 import coint.commands.chat.ChatSplitHandler;
+import coint.commands.chat.CommandLocalSpy;
 import coint.commands.dm.CommandDmSpy;
 import coint.commands.dm.DmLogger;
 import coint.commands.mute.MuteChatHandler;
@@ -168,6 +169,7 @@ public class CommonProxy {
         event.registerServerCommand(new CommandReload());
         event.registerServerCommand(new CommandReply());
         event.registerServerCommand(new CommandDmSpy());
+        event.registerServerCommand(new CommandLocalSpy());
         CointCore.LOG.debug("Registered server commands");
     }
 

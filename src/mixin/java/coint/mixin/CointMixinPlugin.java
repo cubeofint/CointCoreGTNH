@@ -8,18 +8,21 @@ import org.spongepowered.asm.lib.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
-import cpw.mods.fml.common.Loader;
-
 /**
  * Mixin plugin for CointCore.
  * Allows conditional mixin loading based on which mods are present.
+ *
+ * <p>
+ * NOTE: {@code shouldApplyMixin} is invoked during the Mixin PREPARE phase — well before
+ * FML has finished discovering mods. At that point {@code Loader.instance().namedMods} is
+ * still {@code null}, so {@code Loader.isModLoaded()} throws a NullPointerException.
+ * Instead we check whether the mixin's <em>target class</em> is actually present on the
+ * classpath: if the target cannot be loaded the mixin must not be applied anyway.
  */
 public class CointMixinPlugin implements IMixinConfigPlugin {
 
     @Override
-    public void onLoad(String mixinPackage) {
-        // Called when the mixin config is loaded
-    }
+    public void onLoad(String mixinPackage) {}
 
     @Override
     public String getRefMapperConfig() {
@@ -28,64 +31,61 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        // Check if the mixin should be applied based on mod presence
+        // For every optional-mod mixin package, guard by checking whether the
+        // target class (= a class that only exists when the mod is installed)
+        // is present on the classpath.
 
-        // Example: Only apply GregTech mixins if GT is loaded
         if (mixinClassName.contains(".gregtech.")) {
-            return isModLoaded("gregtech");
+            return isClassAvailable(targetClassName);
         }
-
-        // Only apply BetterQuesting mixins if BQ is loaded
         if (mixinClassName.contains(".betterquesting.")) {
-            return isModLoaded("betterquesting");
+            return isClassAvailable(targetClassName);
         }
-
-        // Only apply ServerUtilities mixins if SU is loaded
+        if (mixinClassName.contains(".galacticraft.")) {
+            return isClassAvailable(targetClassName);
+        }
         if (mixinClassName.contains(".serverutilities.")) {
-            return isModLoaded("serverutilities");
+            return isClassAvailable(targetClassName);
         }
-
-        // Example: Only apply AE2 mixins if AE2 is loaded
         if (mixinClassName.contains(".appliedenergistics2.")) {
-            return isModLoaded("appliedenergistics2");
+            return isClassAvailable(targetClassName);
+        }
+        if (mixinClassName.contains(".thaumcraft.")) {
+            return isClassAvailable(targetClassName);
         }
 
-        // Apply all other mixins
         return true;
     }
 
     @Override
-    public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {
-        // Called to allow the plugin to add/remove targets
-    }
+    public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {}
 
     @Override
     public List<String> getMixins() {
-        // Return additional mixins to load dynamically
-        List<String> mixins = new ArrayList<>();
-
-        // Add BetterQuesting mixins if BQ is loaded
-        if (isModLoaded("betterquesting")) {
-            mixins.add("betterquesting.MixinPartyInstance");
-        }
-
-        return mixins;
+        // All mixins are declared in mixins.cointcore.json; nothing to add dynamically.
+        return new ArrayList<>();
     }
 
     @Override
-    public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
-        // Called before a mixin is applied
-    }
+    public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
 
     @Override
-    public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
-        // Called after a mixin is applied
-    }
+    public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
 
     /**
-     * Check if a mod is loaded
+     * Returns {@code true} if {@code className} is present on the classpath.
+     *
+     * <p>
+     * Uses {@link ClassLoader#getResource} instead of {@link Class#forName} so that
+     * the class is <em>never actually loaded</em>. Loading a class during the Mixin
+     * PREPARE phase triggers other transformers (e.g. CoFH AT), which re-enter the
+     * Mixin transformer and cause a {@code ReEntrantTransformerError} that breaks
+     * unrelated early mixins (e.g. ArchaicFix's {@code MixinEntity}).
      */
-    private boolean isModLoaded(String modId) {
-        return Loader.isModLoaded(modId);
+    private boolean isClassAvailable(String className) {
+        // Convert binary class name to resource path: dots → slashes, keep '$' as-is.
+        String resourcePath = className.replace('.', '/') + ".class";
+        return getClass().getClassLoader()
+            .getResource(resourcePath) != null;
     }
 }

@@ -2,10 +2,11 @@
   "required": true,
   "minVersion": "0.8",
   "package": "coint.mixin",
+  "plugin": "coint.mixin.CointMixinPlugin",
   "refmap": "mixins.cointcore.refmap.json",
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
-    "mixins": [
+  "mixins": [
     "betterquesting.MixinPartyInstance",
     "galacticraft.MixinGCPlayerHandler",
     "minecraft.MixinCommandMessage",
