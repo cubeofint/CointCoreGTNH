@@ -18,6 +18,7 @@ import coint.commands.CommandTRank;
 import coint.commands.CommandTpAlias;
 import coint.commands.CommandUnmute;
 import coint.commands.CommandWarn;
+import coint.commands.chat.ChatSplitHandler;
 import coint.commands.dm.CommandDmSpy;
 import coint.commands.dm.DmLogger;
 import coint.commands.mute.MuteChatHandler;
@@ -76,6 +77,7 @@ public class CommonProxy {
             .bus()
             .register(new MuteTickHandler());
         MinecraftForge.EVENT_BUS.register(new MuteChatHandler());
+        MinecraftForge.EVENT_BUS.register(new ChatSplitHandler());
         MinecraftForge.EVENT_BUS.register(new TBanHandler());
         // FMLCommonHandler.instance().bus().register(new TBanFMLHandler());
         MinecraftForge.EVENT_BUS.register(new GalacticraftGodHandler());

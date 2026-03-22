@@ -6,11 +6,12 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.event.ServerChatEvent;
 
 import coint.util.TimeUtil;
+import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 public class MuteChatHandler {
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onServerChat(ServerChatEvent event) {
         EntityPlayer player = event.player;
         if (player == null) {
