@@ -37,10 +37,7 @@ import serverutils.ranks.Ranks;
  */
 public class ChatSplitHandler {
 
-    // HIGH — выполняется после MuteChatHandler (HIGHEST), но гарантированно до
-    // любого стороннего мода на NORMAL (например Nilcord). Это исключает гонку
-    // порядка регистрации хэндлеров и делает страховочный мixin ненужным.
-    @SubscribeEvent(priority = EventPriority.HIGH)
+    @SubscribeEvent(priority = EventPriority.NORMAL)
     public void onServerChat(ServerChatEvent event) {
         if (!CointConfig.chatSplitEnabled) {
             return;
@@ -152,9 +149,7 @@ public class ChatSplitHandler {
 
         CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
 
-        // Пересылаем в Discord через Nilcord (если установлен).
-        // Nilcord не получает ServerChatEvent напрямую, т.к. мы его отменяем раньше,
-        // поэтому вызываем их EventListener напрямую через рефлексию.
+        // Forward to Discord via Nilcord (no-op if Nilcord is not installed).
         NilcordBridge.forwardGlobalChat(sender, text);
     }
 
@@ -188,8 +183,7 @@ public class ChatSplitHandler {
         CointCore.LOG
             .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.localChatRadius, senderName, text, recipients);
 
-        // Рассылаем копию администраторам с включённым /localspy,
-        // которые находились вне радиуса (и не получили сообщение обычным путём).
+        // Notify admins who have /localspy enabled and were out of range.
         LocalSpyRegistry.notifySpies(sender, senderName, text);
     }
 }
