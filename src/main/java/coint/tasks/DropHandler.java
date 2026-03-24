@@ -8,13 +8,15 @@ import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
 import net.minecraftforge.event.world.BlockEvent;
 
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+
 import coint.util.ItemUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
+@EventBusSubscriber
 public class DropHandler {
 
-    @SubscribeEvent
     public void onBlockDrop(BlockEvent.HarvestDropsEvent event) {
         if (!event.world.isRemote) {
             for (ItemStack drop : event.drops) {
@@ -23,7 +25,6 @@ public class DropHandler {
         }
     }
 
-    // drop on player and boss death
     @SubscribeEvent
     public void onLivingDrop(LivingDropsEvent event) {
         if (event.entity instanceof EntityPlayer || event.entity instanceof IBossDisplayData) {

@@ -26,7 +26,6 @@ import coint.integration.serverutilities.SUIntegration;
 import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
 import coint.tasks.CleanupTask;
-import coint.tasks.DropHandler;
 import coint.tasks.KeepInventoryHandler;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
@@ -58,7 +57,6 @@ public class CommonProxy {
 
         MinecraftForge.EVENT_BUS.register(new CointRankConfigs());
         MinecraftForge.EVENT_BUS.register(new WarnsHandler());
-        MinecraftForge.EVENT_BUS.register(new DropHandler());
         MinecraftForge.EVENT_BUS.register(new KeepInventoryHandler());
         MinecraftForge.EVENT_BUS.register(new MuteRegister());
         FMLCommonHandler.instance()
