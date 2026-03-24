@@ -4,20 +4,7 @@ import net.minecraftforge.common.MinecraftForge;
 
 import coint.CointCore;
 import coint.Tags;
-import coint.commands.CommandFeed;
-import coint.commands.CommandHeal;
-import coint.commands.CommandKit;
-import coint.commands.CommandMute;
-import coint.commands.CommandNightVision;
-import coint.commands.CommandReload;
-import coint.commands.CommandRepair;
-import coint.commands.CommandReply;
-import coint.commands.CommandSync;
-import coint.commands.CommandTBan;
-import coint.commands.CommandTRank;
-import coint.commands.CommandTpAlias;
-import coint.commands.CommandUnmute;
-import coint.commands.CommandWarn;
+import coint.commands.*;
 import coint.commands.chat.ChatSplitHandler;
 import coint.commands.chat.CommandLocalSpy;
 import coint.commands.dm.CommandDmSpy;
@@ -170,6 +157,7 @@ public class CommonProxy {
         event.registerServerCommand(new CommandReply());
         event.registerServerCommand(new CommandDmSpy());
         event.registerServerCommand(new CommandLocalSpy());
+        event.registerServerCommand(new CommandCleanup());
         CointCore.LOG.debug("Registered server commands");
     }
 

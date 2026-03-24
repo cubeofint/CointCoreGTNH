@@ -30,8 +30,15 @@ import serverutils.task.Task;
 
 public class CleanupTask extends Task {
 
+    private static CleanupTask INST;
+
     public CleanupTask() {
         super(Ticks.HOUR.x(tasks.cleanup.interval));
+        INST = this;
+    }
+
+    public static CleanupTask get() {
+        return INST;
     }
 
     @Override
