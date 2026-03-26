@@ -9,35 +9,111 @@ import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 import net.minecraft.world.World;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 import serverutils.data.ClaimedChunks;
 import thaumcraft.api.wands.ItemFocusBasic;
 import thaumcraft.common.items.wands.ItemWandCasting;
 
 /**
- * Закрывает обход защиты привата (ServerUtilities chunk claiming) через фокусы жезлов Thaumcraft.
+ * Закрывает обход защиты привата (ServerUtilities chunk claiming) через жезлы Thaumcraft.
  *
  * <p>
- * Проблема: фокусы {@code ItemFocusPortableHole} («Переносная дыра») и {@code ItemFocusTrade}
- * («Обмен блоков») переопределяют {@code onFocusRightClick} и вызывают {@code world.setBlock()}
- * или {@code ServerTickEventsFML.addSwapper()} <b>напрямую</b>, минуя {@code PlayerInteractEvent}
- * и {@code BlockEvent.BreakEvent}, на которые опирается ServerUtilities.
+ * <b>Вектор 1 — набалдашник (IWandable):</b> правый клик жезлом на блок/TileEntity,
+ * реализующий {@code IWandable}, вызывает {@code onWandRightClick} напрямую,
+ * <em>до</em> фокусного диспатча и полностью в обход {@code PlayerInteractEvent}.
+ * Защита: два {@code @Inject} с {@code LocalCapture.CAPTURE_FAILSOFT} перед каждым из двух
+ * вызовов {@code IWandable.onWandRightClick} внутри {@code ItemWandCasting.onItemRightClick}.
+ * Координаты блока извлекаются прямо из локальных переменных (local 5/6/7 = blockX/Y/Z),
+ * которые уже вычислены к этому моменту.
  *
  * <p>
- * Решение: {@code @Redirect} на вызов {@code focus.onFocusRightClick(...)} внутри
- * {@code ItemWandCasting.onItemRightClick}. Это единственная точка диспатча для ВСЕХ фокусов —
- * перехват здесь покрывает любые текущие и будущие фокусы, независимо от того,
- * переопределяют ли они метод базового класса.
- *
- * <p>
- * Исключение: {@code ItemFocusExcavation} уже вызывает {@code ForgeHooks.onBlockBreakEvent()},
- * поэтому он защищён ServerUtilities через событие, но наш перехват его не ломает —
- * защита просто сработает дважды.
+ * <b>Вектор 2 — фокус (Focus):</b> {@code ItemFocusPortableHole}, {@code ItemFocusTrade} и др.
+ * переопределяют {@code onFocusRightClick} и вызывают {@code world.setBlock()} напрямую.
+ * Защита: {@code @Redirect} на вызов {@code focus.onFocusRightClick} — единственная точка
+ * диспатча для всех фокусов.
  */
 @Mixin(value = ItemWandCasting.class, remap = false)
 public class MixinItemFocusBasic {
+
+    // ── IWandable path (набалдашник, до фокусного диспатча) ──────────────────
+
+    /**
+     * Перехватывает взаимодействие жезла с блоком (Block instanceof IWandable, ordinal 0).
+     * {@code mop} включён в захват — нужен как маркер: если CAPTURE_FAILSOFT не смог
+     * захватить locals, mop будет null и проверка пропускается (безопасный fallback).
+     */
+    @Inject(
+        method = "onItemRightClick",
+        at = @At(
+            value = "INVOKE",
+            target = "Lthaumcraft/api/wands/IWandable;onWandRightClick(Lnet/minecraft/world/World;Lnet/minecraft/item/ItemStack;Lnet/minecraft/entity/player/EntityPlayer;)Lnet/minecraft/item/ItemStack;",
+            ordinal = 0),
+        cancellable = true,
+        locals = LocalCapture.CAPTURE_FAILSOFT,
+        remap = false)
+    private void cointcore$guardWandableBlock(
+        ItemStack wandstack, World world, EntityPlayer player,
+        CallbackInfoReturnable<ItemStack> cir,
+        MovingObjectPosition mop, int blockX, int blockY, int blockZ) {
+        if (mop != null) {
+            cointcore$checkWandableClaimGuard(wandstack, world, player, cir, blockX, blockY, blockZ);
+        }
+    }
+
+    /**
+     * Перехватывает взаимодействие жезла с TileEntity (TileEntity instanceof IWandable, ordinal 1).
+     */
+    @Inject(
+        method = "onItemRightClick",
+        at = @At(
+            value = "INVOKE",
+            target = "Lthaumcraft/api/wands/IWandable;onWandRightClick(Lnet/minecraft/world/World;Lnet/minecraft/item/ItemStack;Lnet/minecraft/entity/player/EntityPlayer;)Lnet/minecraft/item/ItemStack;",
+            ordinal = 1),
+        cancellable = true,
+        locals = LocalCapture.CAPTURE_FAILSOFT,
+        remap = false)
+    private void cointcore$guardWandableTileEntity(
+        ItemStack wandstack, World world, EntityPlayer player,
+        CallbackInfoReturnable<ItemStack> cir,
+        MovingObjectPosition mop, int blockX, int blockY, int blockZ) {
+        if (mop != null) {
+            cointcore$checkWandableClaimGuard(wandstack, world, player, cir, blockX, blockY, blockZ);
+        }
+    }
+
+    /**
+     * Общая логика проверки для обоих IWandable-инджектов.
+     *
+     * <p>
+     * При блокировке вызывает {@code cir.setReturnValue(wandstack)}, что неявно выставляет
+     * {@code cancelled = true}: Mixin вставляет проверку сразу после инджекта и, если
+     * метод отменён, выполняет {@code return cir.getReturnValue()} — вызов
+     * {@code IWandable.onWandRightClick} пропускается, кулдаун не выставляется.
+     */
+    @Unique
+    private static void cointcore$checkWandableClaimGuard(
+        ItemStack wandstack, World world, EntityPlayer player,
+        CallbackInfoReturnable<ItemStack> cir,
+        int blockX, int blockY, int blockZ) {
+
+        if (world.isRemote) return;
+
+        if (ClaimedChunks.isActive()
+            && ClaimedChunks.blockBlockEditing(player, blockX, blockY, blockZ, 0)) {
+            player.addChatMessage(
+                new ChatComponentText(
+                    EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
+            cir.setReturnValue(wandstack);
+        }
+    }
+
+    // ── Focus path ────────────────────────────────────────────────────────────
 
     /**
      * Перехватывает виртуальный вызов {@code focus.onFocusRightClick()} в методе
@@ -53,19 +129,16 @@ public class MixinItemFocusBasic {
     private ItemStack cointcore$guardFocusRightClick(ItemFocusBasic focus, ItemStack wandstack, World world,
         EntityPlayer player, MovingObjectPosition mop) {
 
-        // Клиентская сторона не принимает решений о защите.
         if (world.isRemote) {
             return focus.onFocusRightClick(wandstack, world, player, mop);
         }
 
-        // Если MOP указывает на блок — проверяем права доступа.
         if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
             && ClaimedChunks.isActive()
             && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, 0)) {
             player.addChatMessage(
                 new ChatComponentText(
                     EnumChatFormatting.RED + "Вы не можете использовать фокус жезла в чужом привате!"));
-            // null = поведение базового класса, жезл возвращается без изменений, виз не тратится.
             return null;
         }
 

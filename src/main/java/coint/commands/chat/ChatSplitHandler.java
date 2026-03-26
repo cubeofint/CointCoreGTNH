@@ -5,6 +5,7 @@ import java.util.List;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.event.ServerChatEvent;
 
 import coint.CointCore;
@@ -13,6 +14,8 @@ import coint.integration.nilcord.NilcordBridge;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.ServerUtilitiesPermissions;
+import serverutils.lib.config.ConfigEnum;
+import serverutils.lib.config.RankConfigAPI;
 import serverutils.ranks.Ranks;
 
 /**
@@ -30,6 +33,11 @@ import serverutils.ranks.Ranks;
  * Имя отправителя форматируется по шаблону {@code CHAT_NAME_FORMAT} из ServerUtilities Ranks
  * (например {@code &c[Админ]&r {name}:}), что обеспечивает отображение ранга в обоих каналах.
  * Если Ranks недоступны — используется обычное имя игрока.
+ *
+ * <p>
+ * Цвет текста сообщения берётся из {@code serverutilities.chat.text.color} ранга отправителя
+ * (тот же параметр, что используется в стандартном чате ServerUtilities).
+ * Если значение не задано или равно {@code white} — цвет не применяется.
  *
  * <p>
  * Приоритет {@code NORMAL} — мьют ({@code MuteChatHandler}, {@code HIGHEST}) проверяется раньше
@@ -134,11 +142,56 @@ public class ChatSplitHandler {
     }
 
     // ------------------------------------------------------------------
+    // Text colour resolution
+    // ------------------------------------------------------------------
+
+    /**
+     * Возвращает Minecraft-код цвета (например {@code §c}) для текста сообщения отправителя,
+     * взятый из привилегии {@code serverutilities.chat.text.color} в ranks.txt.
+     *
+     * <p>
+     * Возвращает пустую строку, если:
+     * <ul>
+     * <li>Ranks недоступен</li>
+     * <li>значение не задано / равно {@code white} (умолчание по умолчанию)</li>
+     * </ul>
+     *
+     * <p>
+     * Логика намеренно повторяет подход из
+     * {@code ServerUtilitiesServerEventHandler.onServerChatEvent}.
+     */
+    private static String getTextColorCode(EntityPlayerMP player) {
+        try {
+            if (Ranks.INSTANCE == null) {
+                return "";
+            }
+
+            EnumChatFormatting color = (EnumChatFormatting) ((ConfigEnum<?>) RankConfigAPI
+                .get(player, ServerUtilitiesPermissions.CHAT_TEXT_COLOR)).getValue();
+
+            // WHITE — значение по умолчанию; не добавляем лишний код.
+            if (color == EnumChatFormatting.WHITE) {
+                return "";
+            }
+
+            return color.toString(); // возвращает §x
+        } catch (Exception e) {
+            CointCore.LOG.warn(
+                "[ChatSplit] Failed to get text color for {}: {}",
+                player.getGameProfile()
+                    .getName(),
+                e.getMessage());
+            return "";
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Send helpers
     // ------------------------------------------------------------------
 
     private void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
-        String formatted = String.format(CointConfig.globalChatFormat, senderName, text);
+        String colorCode = getTextColorCode(sender);
+        String formatted = String.format(CointConfig.globalChatFormat, senderName, colorCode + text);
         ChatComponentText component = new ChatComponentText(formatted);
 
         List<EntityPlayerMP> players = MinecraftServer.getServer()
@@ -147,14 +200,14 @@ public class ChatSplitHandler {
             p.addChatMessage(component);
         }
 
-        CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
-
         // Forward to Discord via Nilcord (no-op if Nilcord is not installed).
         NilcordBridge.forwardGlobalChat(sender, text);
+        CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
     }
 
     private void sendLocal(EntityPlayerMP sender, String senderName, String text) {
-        String formatted = String.format(CointConfig.localChatFormat, senderName, text);
+        String colorCode = getTextColorCode(sender);
+        String formatted = String.format(CointConfig.localChatFormat, senderName, colorCode + text);
         ChatComponentText component = new ChatComponentText(formatted);
 
         double radiusSq = CointConfig.localChatRadius * CointConfig.localChatRadius;
