@@ -57,10 +57,8 @@ public class MixinItemFocusBasic {
         cancellable = true,
         locals = LocalCapture.CAPTURE_FAILSOFT,
         remap = false)
-    private void cointcore$guardWandableBlock(
-        ItemStack wandstack, World world, EntityPlayer player,
-        CallbackInfoReturnable<ItemStack> cir,
-        MovingObjectPosition mop, int blockX, int blockY, int blockZ) {
+    private void cointcore$guardWandableBlock(ItemStack wandstack, World world, EntityPlayer player,
+        CallbackInfoReturnable<ItemStack> cir, MovingObjectPosition mop, int blockX, int blockY, int blockZ) {
         if (mop != null) {
             cointcore$checkWandableClaimGuard(wandstack, world, player, cir, blockX, blockY, blockZ);
         }
@@ -78,10 +76,8 @@ public class MixinItemFocusBasic {
         cancellable = true,
         locals = LocalCapture.CAPTURE_FAILSOFT,
         remap = false)
-    private void cointcore$guardWandableTileEntity(
-        ItemStack wandstack, World world, EntityPlayer player,
-        CallbackInfoReturnable<ItemStack> cir,
-        MovingObjectPosition mop, int blockX, int blockY, int blockZ) {
+    private void cointcore$guardWandableTileEntity(ItemStack wandstack, World world, EntityPlayer player,
+        CallbackInfoReturnable<ItemStack> cir, MovingObjectPosition mop, int blockX, int blockY, int blockZ) {
         if (mop != null) {
             cointcore$checkWandableClaimGuard(wandstack, world, player, cir, blockX, blockY, blockZ);
         }
@@ -97,18 +93,14 @@ public class MixinItemFocusBasic {
      * {@code IWandable.onWandRightClick} пропускается, кулдаун не выставляется.
      */
     @Unique
-    private static void cointcore$checkWandableClaimGuard(
-        ItemStack wandstack, World world, EntityPlayer player,
-        CallbackInfoReturnable<ItemStack> cir,
-        int blockX, int blockY, int blockZ) {
+    private static void cointcore$checkWandableClaimGuard(ItemStack wandstack, World world, EntityPlayer player,
+        CallbackInfoReturnable<ItemStack> cir, int blockX, int blockY, int blockZ) {
 
         if (world.isRemote) return;
 
-        if (ClaimedChunks.isActive()
-            && ClaimedChunks.blockBlockEditing(player, blockX, blockY, blockZ, 0)) {
+        if (ClaimedChunks.isActive() && ClaimedChunks.blockBlockEditing(player, blockX, blockY, blockZ, 0)) {
             player.addChatMessage(
-                new ChatComponentText(
-                    EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
+                new ChatComponentText(EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
             cir.setReturnValue(wandstack);
         }
     }
