@@ -17,7 +17,8 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 @EventBusSubscriber
 public class DropHandler {
 
-    public void onBlockDrop(BlockEvent.HarvestDropsEvent event) {
+    @SubscribeEvent
+    public static void onBlockDrop(BlockEvent.HarvestDropsEvent event) {
         if (!event.world.isRemote) {
             for (ItemStack drop : event.drops) {
                 if (drop != null) ItemUtil.setDropTag(drop);
@@ -26,7 +27,7 @@ public class DropHandler {
     }
 
     @SubscribeEvent
-    public void onLivingDrop(LivingDropsEvent event) {
+    public static void onLivingDrop(LivingDropsEvent event) {
         if (event.entity instanceof EntityPlayer || event.entity instanceof IBossDisplayData) {
             for (EntityItem drop : event.drops) {
                 ItemUtil.setDropTag(drop.getEntityItem());
@@ -35,7 +36,7 @@ public class DropHandler {
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public void onItemPickup(EntityItemPickupEvent event) {
+    public static void onItemPickup(EntityItemPickupEvent event) {
         ItemUtil.removeDropTag(event.item.getEntityItem());
     }
 }
