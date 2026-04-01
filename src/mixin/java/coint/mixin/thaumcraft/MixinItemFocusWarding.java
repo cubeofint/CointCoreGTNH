@@ -4,8 +4,6 @@ import java.util.ArrayList;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 import net.minecraft.world.World;
@@ -16,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import coint.util.ClaimGuardNotifier;
 import serverutils.data.ClaimedChunks;
 import thaumcraft.api.BlockCoordinates;
 import thaumcraft.common.items.wands.foci.ItemFocusWarding;
@@ -59,8 +58,7 @@ public class MixinItemFocusWarding {
     @Unique
     private static boolean cointcore$isBlocked(EntityPlayer player, int x, int y, int z, int side) {
         if (ClaimedChunks.blockBlockEditing(player, x, y, z, side)) {
-            player.addChatMessage(
-                new ChatComponentText(EnumChatFormatting.RED + "Ты не состоишь в команде, действие заблокировано"));
+            ClaimGuardNotifier.notifyDenied(player);
             return true;
         }
         return false;

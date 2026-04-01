@@ -1,8 +1,16 @@
 package coint.mixin.dreamcraft;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import net.minecraft.event.ClickEvent;
+import net.minecraft.event.HoverEvent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.util.ChatStyle;
+import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.IChatComponent;
 
 import org.spongepowered.asm.mixin.Dynamic;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,6 +32,9 @@ import cpw.mods.fml.common.gameevent.PlayerEvent;
 @Mixin(targets = "com.dreammaster.loginhandler.LoginHandler", remap = false)
 public class MixinLoginHandler {
 
+    @Unique
+    private static final Pattern COINTCORE_URL_PATTERN = Pattern.compile("https?://\\S+");
+
     @Dynamic("Target method exists in NewHorizonsCoreMod and is not available in this compile classpath")
     @Inject(method = "onPlayerLogin", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     @SuppressWarnings("unused")
@@ -40,7 +51,7 @@ public class MixinLoginHandler {
         String playerName = event.player.getCommandSenderName();
         for (String rawLine : lines) {
             String line = cointcore$applyPlaceholders(rawLine, playerName);
-            event.player.addChatMessage(new ChatComponentText(line));
+            event.player.addChatMessage(cointcore$buildLoginComponent(line));
         }
 
         // Keep original Open to LAN warning semantics and translation key.
@@ -61,5 +72,55 @@ public class MixinLoginHandler {
         line = line.replace("%player%", playerName);
         line = line.replace("%mod_version%", Tags.VERSION);
         return line.replace('&', (char) 167);
+    }
+
+    @Unique
+    private static IChatComponent cointcore$buildLoginComponent(String line) {
+        ChatComponentText root = new ChatComponentText("");
+        Matcher matcher = COINTCORE_URL_PATTERN.matcher(line);
+        int cursor = 0;
+
+        while (matcher.find()) {
+            if (matcher.start() > cursor) {
+                root.appendSibling(new ChatComponentText(line.substring(cursor, matcher.start())));
+            }
+
+            String matched = matcher.group();
+            int end = matched.length();
+            while (end > 0 && cointcore$isTrailingPunctuation(matched.charAt(end - 1))) {
+                end--;
+            }
+
+            String url = matched.substring(0, end);
+            String trailing = matched.substring(end);
+
+            if (!url.isEmpty()) {
+                ChatComponentText link = new ChatComponentText(url);
+                ChatStyle style = new ChatStyle().setUnderlined(true)
+                    .setColor(EnumChatFormatting.AQUA)
+                    .setChatClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
+                    .setChatHoverEvent(
+                        new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Открыть ссылку")));
+                link.setChatStyle(style);
+                root.appendSibling(link);
+            }
+
+            if (!trailing.isEmpty()) {
+                root.appendSibling(new ChatComponentText(trailing));
+            }
+
+            cursor = matcher.end();
+        }
+
+        if (cursor < line.length()) {
+            root.appendSibling(new ChatComponentText(line.substring(cursor)));
+        }
+
+        return root;
+    }
+
+    @Unique
+    private static boolean cointcore$isTrailingPunctuation(char c) {
+        return c == '.' || c == ',' || c == '!' || c == '?' || c == ':' || c == ';' || c == ')' || c == ']';
     }
 }

@@ -3,8 +3,6 @@ package coint.mixin.thaumcraft;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 import net.minecraft.world.World;
@@ -15,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import coint.util.ClaimGuardNotifier;
 import serverutils.data.ClaimedChunks;
 import thaumcraft.common.items.wands.foci.ItemFocusTrade;
 
@@ -67,8 +66,7 @@ public abstract class MixinItemFocusTrade {
         if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
             && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, 0)) {
 
-            player.addChatMessage(
-                new ChatComponentText(EnumChatFormatting.RED + "Ты не состоишь в команде, действие заблокировано"));
+            ClaimGuardNotifier.notifyDenied(player);
             cir.setReturnValue(true);
         }
     }
