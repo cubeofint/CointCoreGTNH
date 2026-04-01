@@ -17,6 +17,7 @@
     "serverutilities.MixinCmdSetHome",
     "serverutilities.MixinServerUtilitiesTeamData",
     "thaumcraft.MixinItemFocusBasic",
+    "thaumcraft.MixinItemFocusPortableHole",
     "thaumcraft.MixinItemFocusTrade",
     "thaumcraft.MixinItemFocusWarding"
   ],

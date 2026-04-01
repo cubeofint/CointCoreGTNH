@@ -195,7 +195,7 @@ public class CointConfig {
                 "lines",
                 CATEGORY_LOGIN_MESSAGE,
                 loginMessageLines,
-                "Custom welcome lines sent on PlayerLoggedInEvent. Supports placeholders: %player% and %mod_version%. Supports '&' color codes.");
+                "Custom welcome lines sent on PlayerLoggedInEvent. Supports placeholders: %player% and %mod_version%. Supports '&' color codes. http/https links are auto-detected and sent as clickable links.");
 
         } catch (Exception e) {
             CointCore.LOG.error("Error loading config: {}", e.getMessage());

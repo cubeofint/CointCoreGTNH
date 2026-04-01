@@ -1,11 +1,11 @@
 package coint.mixin.thaumcraft;
 
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
+import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
+import coint.util.ClaimGuardNotifier;
 import serverutils.data.ClaimedChunks;
 import thaumcraft.api.wands.ItemFocusBasic;
 import thaumcraft.common.items.wands.ItemWandCasting;
@@ -99,8 +100,7 @@ public class MixinItemFocusBasic {
         if (world.isRemote) return;
 
         if (ClaimedChunks.isActive() && ClaimedChunks.blockBlockEditing(player, blockX, blockY, blockZ, 1)) {
-            player.addChatMessage(
-                new ChatComponentText(EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
+            ClaimGuardNotifier.notifyDenied(player);
             cir.setReturnValue(wandstack);
         }
     }
@@ -128,8 +128,7 @@ public class MixinItemFocusBasic {
         if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
             && ClaimedChunks.isActive()
             && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, mop.sideHit)) {
-            player.addChatMessage(
-                new ChatComponentText(EnumChatFormatting.RED + "Ты не состоишь в команде, действие заблокировано"));
+            ClaimGuardNotifier.notifyDenied(player);
             return null;
         }
 
@@ -151,9 +150,42 @@ public class MixinItemFocusBasic {
         MovingObjectPosition mop = player.rayTrace(5.0D, 1.0F);
         if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
             && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, mop.sideHit)) {
-            player.addChatMessage(
-                new ChatComponentText(EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
+            ClaimGuardNotifier.notifyDenied(player);
             cir.setReturnValue(wandstack);
+        }
+    }
+
+    /**
+     * Перехватывает общий left-click путь для фокусов (onEntitySwing) в ItemWandCasting.
+     * Это закрывает обходы для фокусов, которые выполняют действие по взмаху/левому клику.
+     */
+    @Inject(
+        method = "onEntitySwing(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/item/ItemStack;)Z",
+        at = @At("HEAD"),
+        cancellable = true,
+        remap = false,
+        require = 0)
+    private void cointcore$guardAnyFocusSwing(EntityLivingBase entityLiving, ItemStack stack,
+        CallbackInfoReturnable<Boolean> cir) {
+        if (!(entityLiving instanceof EntityPlayer)) {
+            return;
+        }
+
+        cointcore$guardAnyFocusSwingPlayer((EntityPlayer) entityLiving, cir);
+    }
+
+    @Unique
+    private static void cointcore$guardAnyFocusSwingPlayer(EntityPlayer player, CallbackInfoReturnable<Boolean> cir) {
+        World world = player.worldObj;
+        if (world == null || world.isRemote || !ClaimedChunks.isActive()) {
+            return;
+        }
+
+        MovingObjectPosition mop = cointcore$rayTraceFromEyes(player, world);
+        if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
+            && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, mop.sideHit)) {
+            ClaimGuardNotifier.notifyDenied(player);
+            cir.setReturnValue(true);
         }
     }
 
@@ -174,7 +206,6 @@ public class MixinItemFocusBasic {
         }
     }
 
-
     @Unique
     private static boolean cointcore$denyClaimedBlockUse(EntityPlayer player, World world, int x, int y, int z,
         int side) {
@@ -182,10 +213,22 @@ public class MixinItemFocusBasic {
             return false;
         }
         if (ClaimedChunks.blockBlockEditing(player, x, y, z, side)) {
-            player.addChatMessage(
-                new ChatComponentText(EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
+            ClaimGuardNotifier.notifyDenied(player);
             return true;
         }
         return false;
+    }
+
+    @Unique
+    private static MovingObjectPosition cointcore$rayTraceFromEyes(EntityPlayer player, World world) {
+        if (player == null || world == null) {
+            return null;
+        }
+
+        Vec3 start = Vec3.createVectorHelper(player.posX, player.posY + player.getEyeHeight(), player.posZ);
+        Vec3 look = player.getLook(1.0F);
+        Vec3 end = start.addVector(look.xCoord * 5.0D, look.yCoord * 5.0D, look.zCoord * 5.0D);
+
+        return world.rayTraceBlocks(start, end);
     }
 }
