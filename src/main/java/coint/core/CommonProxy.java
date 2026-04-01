@@ -39,6 +39,7 @@ import coint.integration.serverutilities.RanksManager;
 import coint.integration.serverutilities.SUIntegration;
 import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
+import coint.tasks.ChatMessageFilter;
 import coint.tasks.CleanupTask;
 import coint.tasks.KeepInventoryHandler;
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -78,6 +79,7 @@ public class CommonProxy {
             .register(new MuteTickHandler());
         MinecraftForge.EVENT_BUS.register(new MuteChatHandler());
         MinecraftForge.EVENT_BUS.register(new ChatSplitHandler());
+        MinecraftForge.EVENT_BUS.register(new ChatMessageFilter());
         MinecraftForge.EVENT_BUS.register(new TBanHandler());
         // FMLCommonHandler.instance().bus().register(new TBanFMLHandler());
         MinecraftForge.EVENT_BUS.register(new GalacticraftGodHandler());
