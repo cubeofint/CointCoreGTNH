@@ -43,4 +43,11 @@ public final class CointSUPermissions {
      * Without this permission the player may still use {@code /tpl <player>} to teleport themselves.
      */
     public static final String TPL_OTHER = "cointcore.tpl.other";
+
+    /**
+     * Allows teleporting to protected targets via {@code /tpl <player>} and
+     * {@code /tpl <who> <to>} where {@code <to>} is protected (e.g. admin/OP).
+     * Without this permission, protected targets cannot be used as destination.
+     */
+    public static final String TPL_TO_PROTECTED = "cointcore.tpl.to_protected";
 }

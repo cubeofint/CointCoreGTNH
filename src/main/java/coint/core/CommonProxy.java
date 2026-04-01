@@ -129,6 +129,11 @@ public class CommonProxy {
             CointSUPermissions.TPL_OTHER,
             DefaultPermissionLevel.OP,
             "Teleport another player to someone via /tpl <who> <to>");
+        PermissionAPI.registerNode(
+            CointSUPermissions.TPL_TO_PROTECTED,
+            DefaultPermissionLevel.OP,
+            "Teleport to protected players via /tpl (e.g. admins)"
+        );
 
         moduleManager.init();
     }

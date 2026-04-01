@@ -19,6 +19,7 @@ public class CointConfig {
     public static final String CATEGORY_TASKS = "tasks";
     public static final String CATEGORY_CHAT = "chat";
     public static final String CATEGORY_LIMITER = "limiter";
+    public static final String CATEGORY_LOGIN_MESSAGE = "login_message";
 
     private static Configuration config;
 
@@ -57,6 +58,12 @@ public class CointConfig {
     public static boolean sameDimensionOnly = true;
     public static String localChatFormat = "§7[Лок] %s§r§7: §f%s";
     public static String globalChatFormat = "§a[Глоб] %s§r§7: §f%s";
+
+    // Login message override settings (NewHorizonsCoreMod LoginHandler)
+    public static boolean loginMessageOverrideEnabled = false;
+    public static String[] loginMessageLines = new String[] {
+        "&6&m-----------------------------------------------------", "&fWelcome to our server, %player%!",
+        "&7Configure these lines in cointcore.cfg -> [login_message]" };
 
     /**
      * Initialize and load configuration
@@ -174,6 +181,21 @@ public class CointConfig {
                 CATEGORY_CHAT,
                 globalChatFormat,
                 "Format string for global chat. %s placeholders: 1=player name, 2=message");
+
+            // Login message override
+            config.addCustomCategoryComment(
+                CATEGORY_LOGIN_MESSAGE,
+                "Overrides NewHorizonsCoreMod login welcome text. Open to LAN warning is kept original.");
+            loginMessageOverrideEnabled = config.getBoolean(
+                "enabled",
+                CATEGORY_LOGIN_MESSAGE,
+                loginMessageOverrideEnabled,
+                "Enable replacing NHCore login welcome lines with values from this category");
+            loginMessageLines = config.getStringList(
+                "lines",
+                CATEGORY_LOGIN_MESSAGE,
+                loginMessageLines,
+                "Custom welcome lines sent on PlayerLoggedInEvent. Supports placeholders: %player% and %mod_version%. Supports '&' color codes.");
 
         } catch (Exception e) {
             CointCore.LOG.error("Error loading config: {}", e.getMessage());
