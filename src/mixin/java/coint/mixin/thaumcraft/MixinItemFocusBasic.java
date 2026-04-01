@@ -129,8 +129,7 @@ public class MixinItemFocusBasic {
             && ClaimedChunks.isActive()
             && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, mop.sideHit)) {
             player.addChatMessage(
-                new ChatComponentText(
-                    EnumChatFormatting.RED + "Вы не можете использовать фокус жезла в чужом привате!"));
+                new ChatComponentText(EnumChatFormatting.RED + "Ты не состоишь в команде, действие заблокировано"));
             return null;
         }
 
@@ -156,5 +155,37 @@ public class MixinItemFocusBasic {
                 new ChatComponentText(EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
             cir.setReturnValue(wandstack);
         }
+    }
+
+    // ── Block-click path (onItemUseFirst) ───────────────────────────
+
+    /**
+     * Перехватывает первый вызов onItemUse (включая onItemUseFirst) и проверяет,
+     * находится ли целевой блок в привате. Если да — блокирует вызов, предотвращая
+     * установку блока или изменение NBT (возвращает true, чтобы остановить дальнейшую
+     * обработку клика жезлом).
+     */
+    @Inject(method = "onItemUseFirst", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cointcore$guardWandUseFirst(ItemStack wandstack, EntityPlayer player, World world, int x, int y, int z,
+        int side, float hitX, float hitY, float hitZ, CallbackInfoReturnable<Boolean> cir) {
+        if (cointcore$denyClaimedBlockUse(player, world, x, y, z, side)) {
+            // Returning true prevents downstream wand handling for this click path.
+            cir.setReturnValue(true);
+        }
+    }
+
+
+    @Unique
+    private static boolean cointcore$denyClaimedBlockUse(EntityPlayer player, World world, int x, int y, int z,
+        int side) {
+        if (world == null || world.isRemote || player == null || !ClaimedChunks.isActive()) {
+            return false;
+        }
+        if (ClaimedChunks.blockBlockEditing(player, x, y, z, side)) {
+            player.addChatMessage(
+                new ChatComponentText(EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
+            return true;
+        }
+        return false;
     }
 }
