@@ -53,8 +53,7 @@ public class CointCommandGuard {
 
             // Block teleports to protected destinations unless sender has bypass.
             EntityPlayerMP target = cointcore$resolveTplTarget(event, args);
-            if (target != null
-                && cointcore$isProtectedTplTarget(target)
+            if (target != null && cointcore$isProtectedTplTarget(target)
                 && !PermissionAPI.hasPermission(player, CointSUPermissions.TPL_TO_PROTECTED)) {
                 cointcore$deny(event, player);
                 return;
@@ -75,9 +74,9 @@ public class CointCommandGuard {
     }
 
     private static EntityPlayerMP cointcore$resolveTplTarget(CommandEvent event, String[] args) {
-        // /tpl <player>            -> target = args[0]
-        // /tpl <who> <to>          -> target = args[1]
-        // /tpl <x> <y> <z>         -> no player target
+        // /tpl <player> -> target = args[0]
+        // /tpl <who> <to> -> target = args[1]
+        // /tpl <x> <y> <z> -> no player target
         String targetName = null;
         if (args.length == 1) {
             targetName = args[0];
@@ -97,9 +96,8 @@ public class CointCommandGuard {
     }
 
     private static boolean cointcore$isProtectedTplTarget(EntityPlayerMP target) {
-        return MinecraftServer.getServer() != null
-            && MinecraftServer.getServer()
-                .getConfigurationManager()
-                .func_152596_g(target.getGameProfile());
+        return MinecraftServer.getServer() != null && MinecraftServer.getServer()
+            .getConfigurationManager()
+            .func_152596_g(target.getGameProfile());
     }
 }

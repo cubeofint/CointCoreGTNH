@@ -17,7 +17,8 @@
     "serverutilities.MixinCmdSetHome",
     "serverutilities.MixinServerUtilitiesTeamData",
     "thaumcraft.MixinItemFocusBasic",
-    "thaumcraft.MixinItemFocusTrade"
+    "thaumcraft.MixinItemFocusTrade",
+    "thaumcraft.MixinItemFocusWarding"
   ],
   "client": [
     "serverutilities.MixinMessageUpdateTabName"

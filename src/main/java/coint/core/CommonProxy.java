@@ -134,8 +134,7 @@ public class CommonProxy {
         PermissionAPI.registerNode(
             CointSUPermissions.TPL_TO_PROTECTED,
             DefaultPermissionLevel.OP,
-            "Teleport to protected players via /tpl (e.g. admins)"
-        );
+            "Teleport to protected players via /tpl (e.g. admins)");
 
         moduleManager.init();
     }

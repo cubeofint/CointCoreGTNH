@@ -68,8 +68,7 @@ public abstract class MixinItemFocusTrade {
             && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, 0)) {
 
             player.addChatMessage(
-                new ChatComponentText(
-                    EnumChatFormatting.RED + "Вы не можете использовать фокус жезла в чужом привате!"));
+                new ChatComponentText(EnumChatFormatting.RED + "Ты не состоишь в команде, действие заблокировано"));
             cir.setReturnValue(true);
         }
     }

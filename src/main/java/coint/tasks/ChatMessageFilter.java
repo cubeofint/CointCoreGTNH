@@ -1,12 +1,12 @@
 package coint.tasks;
 
+import net.minecraft.util.ChatComponentTranslation;
 import net.minecraftforge.event.ServerChatEvent;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import net.minecraft.util.ChatComponentTranslation;
 
 /**
  * Suppresses vanilla "joined the game" and "left the game" messages.
@@ -20,7 +20,7 @@ public class ChatMessageFilter {
     public void onServerChat(ServerChatEvent event) {
         // Check if this is a system message (from server, not from a player)
         if (event.component instanceof ChatComponentTranslation) {
-            @SuppressWarnings({"cast", "RedundantCast"})
+            @SuppressWarnings({ "cast", "RedundantCast" })
             ChatComponentTranslation trans = (ChatComponentTranslation) event.component;
             String key = trans.getKey();
 
