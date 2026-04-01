@@ -12,6 +12,7 @@
     "minecraft.MixinCommandMessage",
     "minecraft.MixinEntityLivingBase",
     "minecraft.MixinEntityPlayer",
+    "dreamcraft.MixinLoginHandler",
     "serverutilities.MixinCmdHome",
     "serverutilities.MixinCmdSetHome",
     "serverutilities.MixinServerUtilitiesTeamData",

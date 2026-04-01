@@ -98,7 +98,7 @@ public class MixinItemFocusBasic {
 
         if (world.isRemote) return;
 
-        if (ClaimedChunks.isActive() && ClaimedChunks.blockBlockEditing(player, blockX, blockY, blockZ, 0)) {
+        if (ClaimedChunks.isActive() && ClaimedChunks.blockBlockEditing(player, blockX, blockY, blockZ, 1)) {
             player.addChatMessage(
                 new ChatComponentText(EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
             cir.setReturnValue(wandstack);
@@ -127,7 +127,7 @@ public class MixinItemFocusBasic {
 
         if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
             && ClaimedChunks.isActive()
-            && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, 0)) {
+            && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, mop.sideHit)) {
             player.addChatMessage(
                 new ChatComponentText(
                     EnumChatFormatting.RED + "Вы не можете использовать фокус жезла в чужом привате!"));
@@ -135,5 +135,26 @@ public class MixinItemFocusBasic {
         }
 
         return focus.onFocusRightClick(wandstack, world, player, mop);
+    }
+
+    /**
+     * Перехватывает любой правый клик жезлом (включая фокусы и IWandable) и проверяет,
+     * находится ли целевой блок в привате. Если да — блокирует вызов (возвращает wandstack,
+     * как и в других инджектах), виз не расходуется.
+     */
+    @Inject(method = "onItemRightClick", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cointcore$guardAnyWandRightClick(ItemStack wandstack, World world, EntityPlayer player,
+        CallbackInfoReturnable<ItemStack> cir) {
+        if (world.isRemote || !ClaimedChunks.isActive()) {
+            return;
+        }
+
+        MovingObjectPosition mop = player.rayTrace(5.0D, 1.0F);
+        if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
+            && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, mop.sideHit)) {
+            player.addChatMessage(
+                new ChatComponentText(EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
+            cir.setReturnValue(wandstack);
+        }
     }
 }
