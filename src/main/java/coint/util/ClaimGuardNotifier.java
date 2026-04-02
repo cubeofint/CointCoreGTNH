@@ -11,7 +11,7 @@ import net.minecraft.util.EnumChatFormatting;
  */
 public final class ClaimGuardNotifier {
 
-    public static final String DENY_MESSAGE = "Вы не можете использовать жезл в чужом привате!";
+    public static final String DENY_MESSAGE = "Действие запрещено в чужом привате!";
 
     private static final String LAST_NOTIFY_TICK_KEY = "cointcore.claimDenyLastTick";
     private static final long NOTIFY_COOLDOWN_TICKS = 4L;

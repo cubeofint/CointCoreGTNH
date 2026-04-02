@@ -56,6 +56,9 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".dreamcraft.")) {
             return isClassAvailable(targetClassName);
         }
+        if (mixinClassName.contains(".mattermanipulator.")) {
+            return isClassAvailable(targetClassName);
+        }
 
         return true;
     }
