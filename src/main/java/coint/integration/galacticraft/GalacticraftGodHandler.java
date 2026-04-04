@@ -3,6 +3,8 @@ package coint.integration.galacticraft;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import micdoodle8.mods.galacticraft.api.event.oxygen.GCCoreOxygenSuffocationEvent;
 import serverutils.lib.util.NBTUtils;
@@ -26,10 +28,11 @@ import serverutils.lib.util.NBTUtils;
  * {@code MixinGCPlayerHandler}, since GC provides no
  * Forge event for the thermal system.
  */
+@EventBusSubscriber
 public class GalacticraftGodHandler {
 
     @SubscribeEvent
-    public void onOxygenSuffocation(GCCoreOxygenSuffocationEvent.Pre event) {
+    public static void onOxygenSuffocation(GCCoreOxygenSuffocationEvent.Pre event) {
         if (!(event.entityLiving instanceof EntityPlayerMP player)) {
             return;
         }
