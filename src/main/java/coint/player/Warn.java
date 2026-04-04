@@ -1,4 +1,4 @@
-package coint.commands.warn;
+package coint.player;
 
 import java.time.Instant;
 
