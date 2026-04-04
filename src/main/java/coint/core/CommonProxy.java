@@ -13,6 +13,7 @@ import coint.events.KeepInventoryHandler;
 import coint.integration.serverutilities.*;
 import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
+import coint.tasks.ChatMessageFilter;
 import coint.tasks.CleanupTask;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.event.*;
