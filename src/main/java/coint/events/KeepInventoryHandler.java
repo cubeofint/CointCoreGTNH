@@ -1,4 +1,4 @@
-package coint.tasks;
+package coint.events;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -13,6 +13,8 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerDropsEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -35,6 +37,7 @@ import serverutils.lib.util.permission.PermissionAPI;
  * <li>{@link PlayerEvent.Clone} (wasDeath=true) — восстанавливаем всё состояние</li>
  * </ol>
  */
+@EventBusSubscriber
 public class KeepInventoryHandler {
 
     public static final String PERMISSION = "cointcore.keepinventory";
@@ -77,14 +80,14 @@ public class KeepInventoryHandler {
         }
     }
 
-    private final Map<UUID, SavedData> saved = new ConcurrentHashMap<>();
+    private static final Map<UUID, SavedData> saved = new ConcurrentHashMap<>();
 
     // =========================================================================
     // Шаг 1 — сохранение
     // =========================================================================
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public void onPlayerDeath(LivingDeathEvent event) {
+    public static void onPlayerDeath(LivingDeathEvent event) {
         if (!(event.entity instanceof EntityPlayer player)) return;
         if (player.worldObj.isRemote) return;
         if (!PermissionAPI.hasPermission(player, PERMISSION)) return;
@@ -119,7 +122,7 @@ public class KeepInventoryHandler {
     // =========================================================================
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public void onPlayerDrop(PlayerDropsEvent event) {
+    public static void onPlayerDrop(PlayerDropsEvent event) {
         if (saved.containsKey(event.entityPlayer.getUniqueID())) {
             event.setCanceled(true);
         }
@@ -130,7 +133,7 @@ public class KeepInventoryHandler {
     // =========================================================================
 
     @SubscribeEvent
-    public void onPlayerClone(PlayerEvent.Clone event) {
+    public static void onPlayerClone(PlayerEvent.Clone event) {
         if (!event.wasDeath) return;
 
         UUID uuid = event.original.getUniqueID();
