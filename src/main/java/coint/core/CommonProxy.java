@@ -1,11 +1,8 @@
 package coint.core;
 
-import net.minecraftforge.common.MinecraftForge;
-
 import coint.CointCore;
 import coint.Tags;
 import coint.commands.*;
-import coint.commands.chat.ChatSplitHandler;
 import coint.commands.chat.CommandLocalSpy;
 import coint.commands.dm.CommandDmSpy;
 import coint.commands.dm.DmLogger;
@@ -13,7 +10,6 @@ import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
 import coint.config.CointConfig;
 import coint.events.KeepInventoryHandler;
-import coint.integration.galacticraft.GalacticraftGodHandler;
 import coint.integration.serverutilities.*;
 import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
@@ -38,22 +34,6 @@ public class CommonProxy {
     public void preInit(FMLPreInitializationEvent event) {
         // Initialize configuration
         CointConfig.init(event.getSuggestedConfigurationFile());
-
-        MinecraftForge.EVENT_BUS.register(new CointRankConfigs());
-        // MinecraftForge.EVENT_BUS.register(new KeepInventoryHandler());
-        MinecraftForge.EVENT_BUS.register(new ChatSplitHandler());
-        // MinecraftForge.EVENT_BUS.register(new ChatMessageFilter());
-        // MinecraftForge.EVENT_BUS.register(new TBanHandler());
-        // FMLCommonHandler.instance().bus().register(new TBanFMLHandler());
-        MinecraftForge.EVENT_BUS.register(new GalacticraftGodHandler());
-
-        // Guard /fly, /god, /tpl "target another player" variants.
-        // Must be registered here (not inside SUIntegration.register) because
-        // moduleManager.postInit() is never invoked and SUIntegration.register()
-        // would therefore never run.
-        if (Loader.isModLoaded(SUIntegration.MOD_ID)) {
-            MinecraftForge.EVENT_BUS.register(new CointCommandGuard());
-        }
 
         CointCore.LOG.info(CointConfig.greeting);
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);

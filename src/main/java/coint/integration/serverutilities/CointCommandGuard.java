@@ -8,6 +8,8 @@ import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.event.CommandEvent;
 
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.command.CmdFly;
 import serverutils.command.CmdGod;
@@ -32,10 +34,11 @@ import serverutils.lib.util.permission.PermissionAPI;
  * {@code processCommand}, making it a reliable and framework-correct
  * interception point that does not depend on bytecode method names.
  */
+@EventBusSubscriber
 public class CointCommandGuard {
 
     @SubscribeEvent
-    public void onCommand(CommandEvent event) {
+    public static void onCommand(CommandEvent event) {
         if (!(event.sender instanceof EntityPlayerMP player)) return;
 
         final String[] args = event.parameters;
