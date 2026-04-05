@@ -3,10 +3,9 @@ package coint.tasks;
 import net.minecraft.entity.boss.IBossDisplayData;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
+import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
-import net.minecraftforge.event.world.BlockEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
@@ -17,13 +16,9 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 @EventBusSubscriber
 public class DropHandler {
 
-    @SubscribeEvent
-    public static void onBlockDrop(BlockEvent.HarvestDropsEvent event) {
-        if (!event.world.isRemote) {
-            for (ItemStack drop : event.drops) {
-                if (drop != null) ItemUtil.setDropTag(drop);
-            }
-        }
+    // @SubscribeEvent
+    public static void onItemToss(ItemTossEvent event) {
+        if (event.entityItem != null) ItemUtil.setDropTag(event.entityItem.getEntityItem());
     }
 
     @SubscribeEvent

@@ -1,4 +1,4 @@
-package coint.commands.mute;
+package coint.player;
 
 import net.minecraft.command.ICommandSender;
 

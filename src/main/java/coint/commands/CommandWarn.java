@@ -8,7 +8,6 @@ import java.util.List;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
@@ -17,8 +16,8 @@ import net.minecraft.util.EnumChatFormatting;
 
 import com.google.common.base.Joiner;
 
-import coint.commands.warn.PlayerWarnsData;
-import coint.commands.warn.Warn;
+import coint.player.CointPlayer;
+import coint.player.Warn;
 import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -74,12 +73,7 @@ public class CommandWarn extends CommandBase {
 
         String sub = args[0].toLowerCase();
         String playerName = args[1].toLowerCase();
-
-        ForgePlayer player = Universe.get()
-            .getPlayer(playerName);
-        if (player == null) {
-            throw new PlayerNotFoundException();
-        }
+        CointPlayer player = CointPlayer.get(playerName);
 
         switch (sub) {
             case "add": {
@@ -90,24 +84,20 @@ public class CommandWarn extends CommandBase {
                 String reason = Joiner.on(" ")
                     .join(Arrays.copyOfRange(args, 2, args.length));
                 reason = reason.replaceAll("^['\"]|['\"]$", "");
-                Warn warn = new Warn(sender, reason);
+
+                player.warn(sender, reason);
 
                 if (player.isOnline()) {
-                    EntityPlayer entityPlayer = player.getPlayer();
-                    PlayerWarnsData warnsData = PlayerWarnsData.get(entityPlayer);
-                    warnsData.add(warn);
-
-                    entityPlayer.addChatMessage(
-                        new ChatComponentText(
-                            EnumChatFormatting.RED + "Вам выдано предупреждение от "
-                                + EnumChatFormatting.GOLD
-                                + sender.getCommandSenderName()
-                                + EnumChatFormatting.RED
-                                + " по причине: "
-                                + EnumChatFormatting.YELLOW
-                                + reason));
-                } else {
-                    PlayerWarnsData.addOffline(player.getId(), warn);
+                    player.getPlayer()
+                        .addChatMessage(
+                            new ChatComponentText(
+                                EnumChatFormatting.RED + "Вам выдано предупреждение от "
+                                    + EnumChatFormatting.GOLD
+                                    + sender.getCommandSenderName()
+                                    + EnumChatFormatting.RED
+                                    + " по причине: "
+                                    + EnumChatFormatting.YELLOW
+                                    + reason));
                 }
 
                 // Broadcast to all players
@@ -130,14 +120,7 @@ public class CommandWarn extends CommandBase {
                 break;
             }
             case "get": {
-                List<Warn> warns;
-
-                if (player.isOnline()) {
-                    PlayerWarnsData warnsData = PlayerWarnsData.get(player.getPlayer());
-                    warns = warnsData.get();
-                } else {
-                    warns = PlayerWarnsData.getOffline(player.getId());
-                }
+                List<Warn> warns = player.getWarns();
 
                 if (warns == null) {
                     warns = new java.util.ArrayList<>();
@@ -170,24 +153,16 @@ public class CommandWarn extends CommandBase {
                     throw new WrongUsageException(getCommandUsage(sender));
                 }
                 int i = parseInt(sender, args[2]) - 1;
+                if (i < 0 || i > player.getWarns()
+                    .size()) throw new IllegalArgumentException("Wrong warn index");
 
-                if (player.isOnline()) {
-                    PlayerWarnsData warnsData = PlayerWarnsData.get(player.getPlayer());
-                    warnsData.remove(i);
-                } else {
-                    PlayerWarnsData.removeOffline(player.getId(), i);
-                }
+                player.unwarn(i);
 
                 sender.addChatMessage(new ChatComponentText("Варн №" + (i + 1) + " снят с игрока " + playerName));
                 break;
             }
             case "clear": {
-                if (player.isOnline()) {
-                    PlayerWarnsData.get(player.getPlayer())
-                        .clear();
-                } else {
-                    PlayerWarnsData.clearOffline(player.getId());
-                }
+                player.unwarn(-1);
 
                 sender.addChatMessage(new ChatComponentText(playerName + "'s warns cleared"));
                 break;
