@@ -1,4 +1,4 @@
-package coint.commands.chat;
+package coint.commands.spy;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;

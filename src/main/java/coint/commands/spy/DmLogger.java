@@ -1,4 +1,4 @@
-package coint.commands.dm;
+package coint.commands.spy;
 
 import java.io.File;
 import java.io.FileWriter;

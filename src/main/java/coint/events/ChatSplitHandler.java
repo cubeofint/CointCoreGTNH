@@ -1,4 +1,4 @@
-package coint.commands.chat;
+package coint.events;
 
 import java.util.List;
 
@@ -11,6 +11,7 @@ import net.minecraftforge.event.ServerChatEvent;
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointCore;
+import coint.commands.spy.LocalSpyRegistry;
 import coint.config.CointConfig;
 import coint.integration.nilcord.NilcordBridge;
 import cpw.mods.fml.common.eventhandler.EventPriority;

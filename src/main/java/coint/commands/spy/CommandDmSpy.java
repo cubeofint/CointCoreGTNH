@@ -1,4 +1,4 @@
-package coint.commands.dm;
+package coint.commands.spy;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
@@ -54,10 +54,10 @@ public class CommandDmSpy extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
-        boolean enabled = SocialSpyRegistry.toggle(sender.getCommandSenderName());
+        boolean enabled = PersonalSpyRegistry.toggle(sender.getCommandSenderName());
 
         ChatComponentText msg = new ChatComponentText(
-            SocialSpyRegistry.SPY_PREFIX
+            PersonalSpyRegistry.SPY_PREFIX
                 + (enabled ? EnumChatFormatting.GREEN + "Включён — вы видите личную переписку игроков."
                     : EnumChatFormatting.RED + "Выключен."));
         sender.addChatMessage(msg);

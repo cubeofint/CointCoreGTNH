@@ -1,4 +1,4 @@
-package coint.commands.chat;
+package coint.commands.spy;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -9,12 +9,13 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
 import coint.config.CointConfig;
+import coint.events.ChatSplitHandler;
 
 /**
  * Tracks which administrators have local-chat spy mode enabled and routes spy copies to them.
  *
  * <p>
- * Works analogously to {@link coint.commands.dm.SocialSpyRegistry} for DMs, but covers
+ * Works analogously to {@link PersonalSpyRegistry} for DMs, but covers
  * <em>local</em> chat messages sent via {@link ChatSplitHandler}.
  *
  * <p>
@@ -56,6 +57,13 @@ public final class LocalSpyRegistry {
         }
         SPIES.add(playerName);
         return true;
+    }
+
+    public static ChatComponentText toggleWithMessage(String player) {
+        return new ChatComponentText(
+            LocalSpyRegistry.SPY_PREFIX
+                + (toggle(player) ? EnumChatFormatting.GREEN + "Включён — вы видите локальные сообщения всех игроков."
+                    : EnumChatFormatting.RED + "Выключен."));
     }
 
     /** Returns {@code true} if the player currently has local-spy mode on. */

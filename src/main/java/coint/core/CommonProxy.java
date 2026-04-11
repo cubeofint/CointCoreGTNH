@@ -11,15 +11,14 @@ import coint.commands.CommandNightVision;
 import coint.commands.CommandReload;
 import coint.commands.CommandRepair;
 import coint.commands.CommandReply;
+import coint.commands.CommandSpy;
 import coint.commands.CommandSync;
 import coint.commands.CommandTBan;
 import coint.commands.CommandTRank;
 import coint.commands.CommandTpAlias;
 import coint.commands.CommandUnmute;
 import coint.commands.CommandWarn;
-import coint.commands.chat.CommandLocalSpy;
-import coint.commands.dm.CommandDmSpy;
-import coint.commands.dm.DmLogger;
+import coint.commands.spy.DmLogger;
 import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
 import coint.config.CointConfig;
@@ -138,8 +137,8 @@ public class CommonProxy {
         event.registerServerCommand(new CommandTRank());
         event.registerServerCommand(new CommandReload());
         event.registerServerCommand(new CommandReply());
-        event.registerServerCommand(new CommandDmSpy());
-        event.registerServerCommand(new CommandLocalSpy());
+        // event.registerServerCommand(new CommandDmSpy());
+        event.registerServerCommand(new CommandSpy());
         event.registerServerCommand(new CommandCleanup());
         CointCore.LOG.debug("Registered server commands");
     }

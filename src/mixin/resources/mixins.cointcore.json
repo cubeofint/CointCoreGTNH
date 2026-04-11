@@ -12,7 +12,6 @@
     "minecraft.MixinCommandMessage",
     "minecraft.MixinEntityLivingBase",
     "minecraft.MixinEntityPlayer",
-    "dreamcraft.MixinLoginHandler",
     "mattermanipulator.MixinAbstractBuildable",
     "serverutilities.MixinCmdHome",
     "serverutilities.MixinCmdSetHome",

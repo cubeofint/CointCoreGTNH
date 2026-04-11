@@ -20,15 +20,20 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 @EventBusSubscriber
 public class BehaviorHandler {
 
-    @SubscribeEvent(priority = EventPriority.LOW)
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onEntityJoin(EntityJoinWorldEvent event) {
         if (event.entity instanceof EntityPlayerMP ep && !event.entity.worldObj.isRemote) {
-            CointPlayer player = CointPlayer.get(ep.getCommandSenderName());
-            if (player.isBanned()) {
-                CointCore.LOG.info("Kicking banned player {}", ep.getDisplayName());
-                ep.playerNetServerHandler.kickPlayerFromServer(player.getBanMessage());
-                event.setCanceled(true);
+            try {
+                CointPlayer player = CointPlayer.get(ep.getCommandSenderName());
+                if (player.isBanned()) {
+                    CointCore.LOG.info("Kicking banned player {}", ep.getDisplayName());
+                    ep.playerNetServerHandler.kickPlayerFromServer(player.getBanMessage());
+                    event.setCanceled(true);
+                }
+            } catch (Exception e) {
+                CointCore.LOG.error(e);
             }
+
         }
     }
 

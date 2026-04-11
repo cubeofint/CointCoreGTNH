@@ -1,4 +1,4 @@
-package coint.commands.dm;
+package coint.commands.spy;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,18 +19,18 @@ import net.minecraft.util.IChatComponent;
  * <p>
  * Thread-safe: uses a {@link ConcurrentHashMap}-backed set.
  */
-public final class SocialSpyRegistry {
+public final class PersonalSpyRegistry {
 
     private static final Set<String> SPIES = ConcurrentHashMap.newKeySet();
 
     /** In-game prefix shown before every spy-copy message. */
-    static final String SPY_PREFIX = EnumChatFormatting.DARK_GRAY + "["
+    public static final String SPY_PREFIX = EnumChatFormatting.DARK_GRAY + "["
         + EnumChatFormatting.GOLD
         + "SPY"
         + EnumChatFormatting.DARK_GRAY
         + "] ";
 
-    private SocialSpyRegistry() {}
+    private PersonalSpyRegistry() {}
 
     /**
      * Toggles spy mode for {@code playerName}.
@@ -43,6 +43,13 @@ public final class SocialSpyRegistry {
         }
         SPIES.add(playerName);
         return true;
+    }
+
+    public static ChatComponentText toggleWithMessage(String player) {
+        return new ChatComponentText(
+            PersonalSpyRegistry.SPY_PREFIX
+                + (toggle(player) ? EnumChatFormatting.GREEN + "Включён — вы видите личную переписку игроков."
+                    : EnumChatFormatting.RED + "Выключен."));
     }
 
     /** Returns {@code true} if the player currently has spy mode on. */
