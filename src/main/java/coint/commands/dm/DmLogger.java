@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter;
 import coint.CointCore;
 
 /**
- * Writes all DM traffic ({@code /tell}, {@code /msg}, {@code /w}, {@code /m}, {@code /reply})
+ * Writes all DM traffic ({@code /tell}, {@code /msg}, {@code /w}, {@code /reply})
  * to a dedicated {@code logs/dm-chat.log} file, separate from the main server log.
  *
  * <p>

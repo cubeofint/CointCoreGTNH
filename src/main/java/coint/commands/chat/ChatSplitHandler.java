@@ -8,6 +8,8 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.event.ServerChatEvent;
 
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+
 import coint.CointCore;
 import coint.config.CointConfig;
 import coint.integration.nilcord.NilcordBridge;
@@ -43,10 +45,11 @@ import serverutils.ranks.Ranks;
  * Приоритет {@code NORMAL} — мьют ({@code MuteChatHandler}, {@code HIGHEST}) проверяется раньше
  * и отменяет событие до того, как этот хэндлер начнёт обработку.
  */
+@EventBusSubscriber
 public class ChatSplitHandler {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
-    public void onServerChat(ServerChatEvent event) {
+    public static void onServerChat(ServerChatEvent event) {
         if (!CointConfig.chatSplitEnabled) {
             return;
         }
@@ -189,7 +192,7 @@ public class ChatSplitHandler {
     // Send helpers
     // ------------------------------------------------------------------
 
-    private void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
+    private static void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
         String colorCode = getTextColorCode(sender);
         String formatted = String.format(CointConfig.globalChatFormat, senderName, colorCode + text);
         ChatComponentText component = new ChatComponentText(formatted);
@@ -205,7 +208,7 @@ public class ChatSplitHandler {
         CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
     }
 
-    private void sendLocal(EntityPlayerMP sender, String senderName, String text) {
+    private static void sendLocal(EntityPlayerMP sender, String senderName, String text) {
         String colorCode = getTextColorCode(sender);
         String formatted = String.format(CointConfig.localChatFormat, senderName, colorCode + text);
         ChatComponentText component = new ChatComponentText(formatted);

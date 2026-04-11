@@ -1,4 +1,4 @@
-package coint.commands.tban;
+package coint.player;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
