@@ -59,6 +59,9 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".mattermanipulator.")) {
             return isClassAvailable(targetClassName);
         }
+        if (mixinClassName.contains(".forestry.")) {
+            return isClassAvailable(targetClassName);
+        }
 
         return true;
     }

@@ -204,7 +204,7 @@ public class CommandKit extends CommandBase {
 
         switch (sub) {
             case "create": {
-                if (lacksPermission(player, PERM_KIT_EDIT)) {
+                if (lacksEditPermission(player)) {
                     throw new CommandException("commands.generic.permission");
                 }
                 long cooldownTicks = parseCooldown(sender, args);
@@ -231,12 +231,26 @@ public class CommandKit extends CommandBase {
                     return;
                 }
 
-                if (isOnCooldown(sender, player, kit)) {
+                if (!canFitAll(player, kit.getItems())) {
+                    sendError(sender, "Инвентарь полон, набор не получен");
                     return;
                 }
 
-                if (!canFitAll(player, kit.getItems())) {
-                    sendError(sender, "Инвентарь полон, набор не получен");
+                // Учет количественного лимита (покупки кита).
+                // Если баланс > 0 — выдаём немедленно, без ожидания кулдауна, но обновляем таймштамп
+                // так, чтобы после "отбора" всех купленных единиц кулдаун считался от последнего claim.
+                int balance = KitManager.getKitBalance(player, name);
+                if (balance > 0) {
+                    for (ItemStack stack : kit.getItems()) {
+                        giveItem(player, stack.copy());
+                    }
+                    KitManager.setKitBalance(player, name, balance - 1);
+                    markKitUsedNow(player, kit);
+                    sendSuccess(sender, "Набор получен: " + name);
+                    return;
+                }
+
+                if (isOnCooldown(sender, player, kit)) {
                     return;
                 }
 
@@ -262,7 +276,7 @@ public class CommandKit extends CommandBase {
                 return;
             }
             case "delete": {
-                if (lacksPermission(player, PERM_KIT_EDIT)) {
+                if (lacksEditPermission(player)) {
                     throw new CommandException("commands.generic.permission");
                 }
                 KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), name);
@@ -422,8 +436,8 @@ public class CommandKit extends CommandBase {
         }
     }
 
-    private boolean lacksPermission(EntityPlayer player, String node) {
-        return !PermissionAPI.hasPermission(player, node);
+    private boolean lacksEditPermission(EntityPlayer player) {
+        return !PermissionAPI.hasPermission(player, PERM_KIT_EDIT);
     }
 
     private long parseCooldown(ICommandSender sender, String[] args) {
@@ -462,6 +476,22 @@ public class CommandKit extends CommandBase {
         kitsTag.setLong(kit.getName(), now);
         persisted.setTag(TAG_KIT_COOLDOWNS, kitsTag);
         return false;
+    }
+
+    /**
+     * Обновляет "последнее использование" кита, чтобы кулдаун после сгорания баланса
+     * считался от последнего фактического claim'а.
+     */
+    private void markKitUsedNow(EntityPlayer player, KitDefinition kit) {
+        if (kit.getCooldownTicks() <= 0) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        NBTTagCompound persisted = NBTUtils.getPersistedData(player, true);
+        NBTTagCompound kitsTag = persisted.getCompoundTag(TAG_KIT_COOLDOWNS);
+        kitsTag.setLong(kit.getName(), now);
+        persisted.setTag(TAG_KIT_COOLDOWNS, kitsTag);
     }
 
     private void registerKitPermission(String name) {

@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "minVersion": "0.7.8",
+  "package": "coint.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "coint.mixin.thaumcraft.MixinItemFocusBasic",
+    "coint.mixin.thaumcraft.MixinItemFocusPortableHole",
+    "coint.mixin.thaumcraft.MixinItemFocusTrade",
+    "coint.mixin.thaumcraft.MixinItemFocusWarding",
+    "coint.mixin.serverutilities.MixinCmdFly",
+    "coint.mixin.serverutilities.MixinCmdGod",
+    "coint.mixin.serverutilities.MixinCmdTplast",
+    "coint.mixin.serverutilities.MixinMessageUpdateTabName",
+    "coint.mixin.minecraft.MixinCommandMessage",
+    "coint.mixin.dreamcraft.MixinLoginHandler",
+    "coint.mixin.mattermanipulator.MixinAbstractBuildable"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
