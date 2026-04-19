@@ -41,6 +41,9 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".betterquesting.")) {
             return isClassAvailable(targetClassName);
         }
+        if (mixinClassName.contains(".backpackmod.")) {
+            return isClassAvailable(targetClassName);
+        }
         if (mixinClassName.contains(".galacticraft.")) {
             return isClassAvailable(targetClassName);
         }
@@ -60,6 +63,9 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
             return isClassAvailable(targetClassName);
         }
         if (mixinClassName.contains(".forestry.")) {
+            return isClassAvailable(targetClassName);
+        }
+        if (mixinClassName.contains(".bloodmagic.")) {
             return isClassAvailable(targetClassName);
         }
 

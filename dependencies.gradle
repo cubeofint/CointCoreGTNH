@@ -42,6 +42,19 @@ dependencies {
 
     compileOnly("com.github.GTNewHorizons:Galacticraft:3.3.13-GTNH:dev")
 
+    /** Для разрешения целей миксинов Blood Magic (main + IDE для общего модуля). */
+    compileOnly("com.github.GTNewHorizons:BloodMagic:1.7.16-pre:dev")
+
+    /** Класс {@code de.eydamos.backpack.inventory.container.ContainerAdvanced} (main + IDE). */
+    compileOnly("com.github.GTNewHorizons:AdventureBackpack2:1.4.18-GTNH:dev") { transitive = false }
+
+    /**
+     * Source set {@code mixin} имеет отдельный classpath: {@code compileOnly} сюда не попадает.
+     * Без этого IntelliJ не видит сигнатуры целей миксинов (ошибки «Cannot resolve method»).
+     */
+    mixinCompileOnly("com.github.GTNewHorizons:BloodMagic:1.7.16-pre:dev")
+    mixinCompileOnly("com.github.GTNewHorizons:AdventureBackpack2:1.4.18-GTNH:dev") { transitive = false }
+
     api("thaumcraft:Thaumcraft:1.7.10-4.2.3.5:dev")
     runtimeOnly("com.github.GTNewHorizons:Baubles-Expanded:2.1.19-GTNH:dev")
 }

@@ -8,6 +8,10 @@
   "compatibilityLevel": "JAVA_8",
   "mixins": [
     "betterquesting.MixinPartyInstance",
+    "backpackmod.MixinContainerAdvancedAudit",
+    "backpackmod.MixinEntityPlayerBackpackAudit",
+    "backpackmod.MixinNetHandlerPlayServerBackpackAudit",
+    "bloodmagic.MixinBoundToolsClaimGuard",
     "galacticraft.MixinGCPlayerHandler",
     "minecraft.MixinCommandMessage",
     "minecraft.MixinEntityLivingBase",

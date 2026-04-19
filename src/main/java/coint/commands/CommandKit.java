@@ -14,46 +14,38 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
-import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
 
 import coint.commands.kit.KitDefinition;
 import coint.commands.kit.KitManager;
-import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
-import serverutils.lib.math.Ticks;
-import serverutils.lib.util.NBTUtils;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 
 public class CommandKit extends CommandBase {
 
     private static final Pattern KIT_NAME = Pattern.compile("^[a-z0-9_-]{1,32}$");
-    private static final String TAG_KIT_COOLDOWNS = "cointcore_kit_cooldowns";
 
     private static final String PERM_KIT_EDIT = "cointcore.command.kit.edit";
+    /** Право на /kit add и /kit set (остаток использований). */
     private static final String PERM_KIT_RESET = "cointcore.command.kit.reset";
+    /**
+     * Доступ ко всем наборам с безлимитным maxClaims (типично для администраторов).
+     * Отдельные наборы по-прежнему можно узко выдавать через {@code cointcore.kit.<name>}.
+     */
+    public static final String PERM_KIT_ALL = "cointcore.kit.all";
 
-    public CommandKit(MinecraftServer server) {
-        // PermissionAPI.registerNode("cointcore.command.kit.claim", DefaultPermissionLevel.NONE, "CointCore kit
-        // claim");
-        // PermissionAPI.registerNode("cointcore.command.kit.list", DefaultPermissionLevel.NONE, "CointCore kit list");
+    public CommandKit() {
         PermissionAPI.registerNode(PERM_KIT_EDIT, DefaultPermissionLevel.OP, "CointCore kit create and delete");
-        PermissionAPI.registerNode(PERM_KIT_RESET, DefaultPermissionLevel.OP, "CointCore kit reset cooldown");
-
-        if (server != null) {
-            for (String name : KitManager.getKitNames(server)) {
-                PermissionAPI
-                    .registerNode("cointcore.kit." + name, DefaultPermissionLevel.NONE, "CointCore kit: " + name);
-            }
-        }
+        PermissionAPI.registerNode(PERM_KIT_RESET, DefaultPermissionLevel.OP, "CointCore kit add and set claims");
+        PermissionAPI
+            .registerNode(PERM_KIT_ALL, DefaultPermissionLevel.NONE, "CointCore kit: access all unlimited kits");
     }
 
     @Override
@@ -69,7 +61,7 @@ public class CommandKit extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         if (!(sender instanceof EntityPlayerMP)) {
-            return "/kit <create|claim|list|delete|reset>";
+            return "/kit <create|claim|list|delete|add|set>";
         }
         ForgePlayer player = Universe.get()
             .getPlayer(sender);
@@ -78,11 +70,12 @@ public class CommandKit extends CommandBase {
         parts.add("/kit list");
 
         if (PermissionAPI.hasPermission(player.getPlayer(), PERM_KIT_EDIT)) {
-            parts.add("/kit create <name> [cooldown]");
+            parts.add("/kit create <name> [maxClaims]");
             parts.add("/kit delete <name>");
         }
         if (PermissionAPI.hasPermission(player.getPlayer(), PERM_KIT_RESET)) {
-            parts.add("/kit reset <name> <player>");
+            parts.add("/kit add <name> <player> <amount>");
+            parts.add("/kit set <name> <player> <amount>");
         }
         return String.join(" | ", parts);
     }
@@ -90,24 +83,30 @@ public class CommandKit extends CommandBase {
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
-            List<String> subs = java.util.Arrays.asList("claim", "list");
+            List<String> subs = new ArrayList<>(java.util.Arrays.asList("claim", "list"));
             if (sender instanceof EntityPlayerMP player) {
                 if (PermissionAPI.hasPermission(player, PERM_KIT_EDIT)) {
                     subs.add("create");
                     subs.add("delete");
                 }
-                if (PermissionAPI.hasPermission(player, PERM_KIT_RESET)) subs.add("reset");
+                if (PermissionAPI.hasPermission(player, PERM_KIT_RESET)) {
+                    subs.add("add");
+                    subs.add("set");
+                }
             } else {
-                subs.addAll(java.util.Arrays.asList("create", "delete", "reset"));
+                subs.addAll(java.util.Arrays.asList("create", "delete", "add", "set"));
             }
             return getListOfStringsMatchingLastWord(args, subs.toArray(new String[0]));
         }
         if (args.length == 2 && "claim".equalsIgnoreCase(args[0])) {
-            // For claim: show only kits the player has permission to use
             if (sender instanceof EntityPlayerMP player) {
                 List<String> accessible = new ArrayList<>();
                 for (String n : KitManager.getKitNames(MinecraftServer.getServer())) {
-                    if (PermissionAPI.hasPermission(player, "cointcore.kit." + n)) {
+                    KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), n);
+                    if (kit == null) {
+                        continue;
+                    }
+                    if (canClaimKitNow(player, n, kit)) {
                         accessible.add(n);
                     }
                 }
@@ -115,11 +114,12 @@ public class CommandKit extends CommandBase {
             }
         }
         if (args.length == 2 && ("create".equalsIgnoreCase(args[0]) || "delete".equalsIgnoreCase(args[0])
-            || "reset".equalsIgnoreCase(args[0]))) {
+            || "add".equalsIgnoreCase(args[0])
+            || "set".equalsIgnoreCase(args[0]))) {
             Collection<String> names = KitManager.getKitNames(MinecraftServer.getServer());
             return getListOfStringsMatchingLastWord(args, names.toArray(new String[0]));
         }
-        if (args.length == 3 && "reset".equalsIgnoreCase(args[0])) {
+        if (args.length == 3 && ("add".equalsIgnoreCase(args[0]) || "set".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(
                 args,
                 MinecraftServer.getServer()
@@ -136,22 +136,30 @@ public class CommandKit extends CommandBase {
 
         String sub = args[0].toLowerCase();
 
-        if ("reset".equals(sub)) {
+        if ("add".equals(sub) || "set".equals(sub)) {
             if (sender instanceof EntityPlayer player && !PermissionAPI.hasPermission(player, PERM_KIT_RESET)) {
                 throw new CommandException("commands.generic.permission");
             }
-            if (args.length < 3) {
-                throw new WrongUsageException("/kit reset <kitName> <player>");
+            if (args.length < 4) {
+                throw new WrongUsageException("/kit " + sub + " <kitName> <player> <amount>");
             }
+
             String kitName = args[1].toLowerCase();
             if (!KIT_NAME.matcher(kitName)
                 .matches()) {
                 sendError(sender, "Некорректное имя набора");
                 return;
             }
+
             KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), kitName);
             if (kit == null) {
                 sendError(sender, "Набор не найден: " + kitName);
+                return;
+            }
+
+            int amount = parseAmountAllowingSuffix(args[3]);
+            if (amount < 0) {
+                sendError(sender, "Некорректный формат amount (нужны цифры, например 12 или 12mo)");
                 return;
             }
 
@@ -162,28 +170,56 @@ public class CommandKit extends CommandBase {
                 return;
             }
 
-            if (target.isOnline()) {
-                // Онлайн: работаем напрямую с entityData в памяти игрока.
-                // setPlayerNBT() вызывает readEntityFromNBT(), который НЕ восстанавливает
-                // entityData/PERSISTED_NBT_TAG — поэтому кулдаун там не сбросится.
-                EntityPlayerMP onlinePlayer = target.getPlayer();
-                NBTTagCompound persisted = NBTUtils.getPersistedData(onlinePlayer, true);
-                NBTTagCompound kitsTag = persisted.getCompoundTag(TAG_KIT_COOLDOWNS);
-                kitsTag.removeTag(kitName);
-                persisted.setTag(TAG_KIT_COOLDOWNS, kitsTag);
-            } else {
-                // Оффлайн: читаем .dat файл, правим, пишем обратно.
-                NBTTagCompound playerNBT = target.getPlayerNBT();
-                NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
-                NBTTagCompound kitsTag = persisted.getCompoundTag(TAG_KIT_COOLDOWNS);
-                kitsTag.removeTag(kitName);
-                persisted.setTag(TAG_KIT_COOLDOWNS, kitsTag);
-                playerNBT.setTag(EntityPlayer.PERSISTED_NBT_TAG, persisted);
-                target.setPlayerNBT(playerNBT);
+            int maxClaims = kit.getMaxClaims();
+            String status = target.isOnline() ? "" : " (оффлайн)";
+
+            if (maxClaims < 0) {
+                int currentRemaining = KitManager.getKitBonusRemaining(target, kitName);
+                int newRemaining;
+                if ("add".equals(sub)) {
+                    newRemaining = currentRemaining + amount;
+                } else {
+                    newRemaining = amount;
+                }
+                KitManager.setKitBonusRemaining(target, kitName, newRemaining);
+                sendSuccess(
+                    sender,
+                    "Бонусные получения набора " + kitName
+                        + " для "
+                        + target.getName()
+                        + status
+                        + ": "
+                        + currentRemaining
+                        + " -> "
+                        + newRemaining);
+                return;
             }
 
-            String status = target.isOnline() ? "" : " (оффлайн)";
-            sendSuccess(sender, "Кулдаун набора " + kitName + " сброшен для " + target.getName() + status);
+            int currentClaims = KitManager.getKitClaimCount(target, kitName);
+            int currentRemaining = Math.max(0, maxClaims - currentClaims);
+            int newRemaining;
+            if ("add".equals(sub)) {
+                newRemaining = Math.min(maxClaims, currentRemaining + amount);
+            } else {
+                newRemaining = Math.min(maxClaims, amount);
+            }
+
+            int newClaims = Math.max(0, maxClaims - newRemaining);
+            KitManager.setKitClaimCount(target, kitName, newClaims);
+
+            sendSuccess(
+                sender,
+                "Остаток использований " + kitName
+                    + " для "
+                    + target.getName()
+                    + status
+                    + ": "
+                    + currentRemaining
+                    + " -> "
+                    + newRemaining
+                    + " (макс "
+                    + maxClaims
+                    + ")");
             return;
         }
 
@@ -207,8 +243,8 @@ public class CommandKit extends CommandBase {
                 if (lacksEditPermission(player)) {
                     throw new CommandException("commands.generic.permission");
                 }
-                long cooldownTicks = parseCooldown(sender, args);
-                if (cooldownTicks < 0) {
+                int maxClaims = parseMaxClaims(sender, args);
+                if (maxClaims < -1) {
                     return;
                 }
 
@@ -218,9 +254,8 @@ public class CommandKit extends CommandBase {
                     return;
                 }
 
-                KitDefinition kit = new KitDefinition(name, items, cooldownTicks);
+                KitDefinition kit = new KitDefinition(name, items, maxClaims);
                 KitManager.putKit(MinecraftServer.getServer(), kit);
-                registerKitPermission(name);
                 sendSuccess(sender, "Набор сохранен: " + name);
                 return;
             }
@@ -236,21 +271,45 @@ public class CommandKit extends CommandBase {
                     return;
                 }
 
-                // Учет количественного лимита (покупки кита).
-                // Если баланс > 0 — выдаём немедленно, без ожидания кулдауна, но обновляем таймштамп
-                // так, чтобы после "отбора" всех купленных единиц кулдаун считался от последнего claim.
-                int balance = KitManager.getKitBalance(player, name);
-                if (balance > 0) {
+                if (kit.getMaxClaims() < 0) {
+                    int bonus = KitManager.getKitBonusRemaining(player, name);
+                    if (bonus > 0) {
+                        for (ItemStack stack : kit.getItems()) {
+                            giveItem(player, stack.copy());
+                        }
+                        KitManager.setKitBonusRemaining(player, name, bonus - 1);
+                        sendSuccess(sender, "Набор получен: " + name);
+                        return;
+                    }
+                }
+
+                if (hasRemainingClaims(player, name, kit)) {
+                    int claims = KitManager.getKitClaimCount(player, name);
                     for (ItemStack stack : kit.getItems()) {
                         giveItem(player, stack.copy());
                     }
-                    KitManager.setKitBalance(player, name, balance - 1);
-                    markKitUsedNow(player, kit);
+                    KitManager.setKitClaimCount(player, name, claims + 1);
                     sendSuccess(sender, "Набор получен: " + name);
                     return;
                 }
 
-                if (isOnCooldown(sender, player, kit)) {
+                if (!hasKitRankAccess(player, name, kit)) {
+                    sendError(sender, "У вас нет доступа к набору: " + name);
+                    return;
+                }
+
+                int maxClaims = kit.getMaxClaims();
+                if (maxClaims > 0) {
+                    int claims = KitManager.getKitClaimCount(player, name);
+                    if (claims >= maxClaims) {
+                        sendError(sender, "Лимит использований исчерпан (" + claims + "/" + maxClaims + ")");
+                        return;
+                    }
+                    for (ItemStack stack : kit.getItems()) {
+                        giveItem(player, stack.copy());
+                    }
+                    KitManager.setKitClaimCount(player, name, claims + 1);
+                    sendSuccess(sender, "Набор получен: " + name);
                     return;
                 }
 
@@ -262,17 +321,30 @@ public class CommandKit extends CommandBase {
             }
             case "list": {
                 Collection<String> allNames = KitManager.getKitNames(MinecraftServer.getServer());
-                List<String> accessible = new ArrayList<>();
+                List<String> lines = new ArrayList<>();
                 for (String kitName : allNames) {
-                    if (PermissionAPI.hasPermission(player, "cointcore.kit." + kitName)) {
-                        accessible.add(kitName);
+                    KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), kitName);
+                    if (kit == null) {
+                        continue;
                     }
+                    if (!canClaimKitNow(player, kitName, kit)) {
+                        continue;
+                    }
+                    int claims = KitManager.getKitClaimCount(player, kitName);
+                    String usage = formatListSuffix(player, kitName, kit, claims);
+                    lines.add("- " + kitName + (usage.isEmpty() ? "" : " " + usage));
                 }
-                if (accessible.isEmpty()) {
+                if (lines.isEmpty()) {
                     sendError(sender, "Нет доступных наборов");
                     return;
                 }
-                sendSuccess(sender, "Доступные наборы: " + String.join(", ", accessible));
+                sender.addChatMessage(new ChatComponentText(EnumChatFormatting.GOLD + "Наборы:"));
+                for (String line : lines) {
+                    ChatComponentText msg = new ChatComponentText(line);
+                    msg.getChatStyle()
+                        .setColor(EnumChatFormatting.GREEN);
+                    sender.addChatMessage(msg);
+                }
                 return;
             }
             case "delete": {
@@ -310,18 +382,8 @@ public class CommandKit extends CommandBase {
     }
 
     private IInventory getTargetInventory(EntityPlayer player) {
-        float yaw = player.rotationYaw;
-        float pitch = player.rotationPitch;
-        float yawRad = (float) Math.toRadians(-yaw) - (float) Math.PI;
-        float pitchRad = (float) Math.toRadians(-pitch);
-
-        double cosPitch = MathHelper.cos(pitchRad);
-        double sinPitch = MathHelper.sin(pitchRad);
-        double cosYaw = MathHelper.cos(yawRad);
-        double sinYaw = MathHelper.sin(yawRad);
-
         Vec3 start = Vec3.createVectorHelper(player.posX, player.posY + player.getEyeHeight(), player.posZ);
-        Vec3 look = Vec3.createVectorHelper(sinYaw * cosPitch, sinPitch, cosYaw * cosPitch);
+        Vec3 look = player.getLook(1.0F);
         Vec3 end = start.addVector(look.xCoord * 5.0D, look.yCoord * 5.0D, look.zCoord * 5.0D);
         MovingObjectPosition hit = player.worldObj.rayTraceBlocks(start, end);
         if (hit == null || hit.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) {
@@ -440,62 +502,101 @@ public class CommandKit extends CommandBase {
         return !PermissionAPI.hasPermission(player, PERM_KIT_EDIT);
     }
 
-    private long parseCooldown(ICommandSender sender, String[] args) {
-        if (args.length < 3) {
-            return 0L;
-        }
-
-        try {
-            return Ticks.get(args[2])
-                .ticks();
-        } catch (Exception ex) {
-            sendError(sender, "Некорректный формат кулдауна");
-            return -1L;
-        }
-    }
-
-    private boolean isOnCooldown(ICommandSender sender, EntityPlayer player, KitDefinition kit) {
-        long cooldownTicks = kit.getCooldownTicks();
-        if (cooldownTicks <= 0) {
-            return false;
-        }
-
-        NBTTagCompound persisted = NBTUtils.getPersistedData(player, true);
-        NBTTagCompound kitsTag = persisted.getCompoundTag(TAG_KIT_COOLDOWNS);
-        long lastUse = kitsTag.getLong(kit.getName());
-        long now = System.currentTimeMillis();
-        long elapsed = now - lastUse;
-        long cooldownMs = Ticks.get(cooldownTicks)
-            .millis();
-        if (lastUse > 0 && elapsed < cooldownMs) {
-            long remainingMs = cooldownMs - elapsed + 999L;
-            sendError(sender, "Набор будет доступен через " + TimeUtil.formatDuration(remainingMs));
+    /**
+     * Ранговый доступ: глобально {@link #PERM_KIT_ALL} только для безлимитных наборов,
+     * либо точечно {@code cointcore.kit.<name>} для любого набора.
+     */
+    private boolean hasKitRankAccess(EntityPlayer player, String kitName, KitDefinition kit) {
+        if (PermissionAPI.hasPermission(player, "cointcore.kit." + kitName)) {
             return true;
         }
+        if (kit.getMaxClaims() >= 0) {
+            return false;
+        }
+        return PermissionAPI.hasPermission(player, PERM_KIT_ALL);
+    }
 
-        kitsTag.setLong(kit.getName(), now);
-        persisted.setTag(TAG_KIT_COOLDOWNS, kitsTag);
-        return false;
+    private boolean hasRemainingClaims(EntityPlayer player, String kitName, KitDefinition kit) {
+        int maxClaims = kit.getMaxClaims();
+        if (maxClaims <= 0) {
+            return false;
+        }
+        int claims = KitManager.getKitClaimCount(player, kitName);
+        return claims < maxClaims;
     }
 
     /**
-     * Обновляет "последнее использование" кита, чтобы кулдаун после сгорания баланса
-     * считался от последнего фактического claim'а.
+     * Набор можно получить сейчас: безлимит — только с ранговым доступом; лимит — пока не исчерпан лимит
+     * получений (согласовано с ветками {@code claim}).
      */
-    private void markKitUsedNow(EntityPlayer player, KitDefinition kit) {
-        if (kit.getCooldownTicks() <= 0) {
-            return;
+    private boolean canClaimKitNow(EntityPlayer player, String kitName, KitDefinition kit) {
+        int maxClaims = kit.getMaxClaims();
+        if (maxClaims < 0) {
+            if (KitManager.getKitBonusRemaining(player, kitName) > 0) {
+                return true;
+            }
+            return hasKitRankAccess(player, kitName, kit);
         }
-
-        long now = System.currentTimeMillis();
-        NBTTagCompound persisted = NBTUtils.getPersistedData(player, true);
-        NBTTagCompound kitsTag = persisted.getCompoundTag(TAG_KIT_COOLDOWNS);
-        kitsTag.setLong(kit.getName(), now);
-        persisted.setTag(TAG_KIT_COOLDOWNS, kitsTag);
+        int claims = KitManager.getKitClaimCount(player, kitName);
+        return claims < maxClaims;
     }
 
-    private void registerKitPermission(String name) {
-        PermissionAPI.registerNode("cointcore.kit." + name, DefaultPermissionLevel.NONE, "CointCore kit: " + name);
+    /** Лимит: (использовано/всего); безлимит: пусто или (n) — остаток бонусных выдач. */
+    private String formatListSuffix(EntityPlayer player, String kitName, KitDefinition kit, int claims) {
+        int maxClaims = kit.getMaxClaims();
+        if (maxClaims < 0) {
+            int bonus = KitManager.getKitBonusRemaining(player, kitName);
+            return bonus > 0 ? "(" + bonus + ")" : "";
+        }
+        return "(" + claims + "/" + maxClaims + ")";
+    }
+
+    /**
+     * Число из последнего аргумента {@code add}/{@code set}: учитываются только цифры ({@code 12mo} → 12).
+     *
+     * @return значение или {@code -1}, если цифр нет или число не помещается в {@code int}
+     */
+    private static int parseAmountAllowingSuffix(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return -1;
+        }
+        StringBuilder digits = new StringBuilder();
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c >= '0' && c <= '9') {
+                digits.append(c);
+            }
+        }
+        String digitsStr = digits.toString();
+        if (digitsStr.isEmpty()) {
+            return -1;
+        }
+        try {
+            long v = Long.parseLong(digitsStr);
+            if (v > Integer.MAX_VALUE) {
+                return -1;
+            }
+            return (int) v;
+        } catch (NumberFormatException ex) {
+            return -1;
+        }
+    }
+
+    private int parseMaxClaims(ICommandSender sender, String[] args) {
+        if (args.length < 3) {
+            return -1;
+        }
+        try {
+            int value = Integer.parseInt(args[2]);
+            if (value == 0 || value < -1) {
+                sendError(sender, "maxClaims должен быть -1 (без лимита) или положительным числом");
+                return -2;
+            }
+            return value;
+        } catch (NumberFormatException ex) {
+            sendError(sender, "Некорректный формат maxClaims");
+            return -2;
+        }
     }
 
     private void sendSuccess(ICommandSender sender, String message) {

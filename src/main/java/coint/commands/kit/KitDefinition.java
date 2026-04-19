@@ -10,12 +10,12 @@ public class KitDefinition {
 
     private final String name;
     private final List<ItemStack> items;
-    private final long cooldownTicks;
+    private final int maxClaims;
 
-    public KitDefinition(String name, List<ItemStack> items, long cooldownTicks) {
+    public KitDefinition(String name, List<ItemStack> items, int maxClaims) {
         this.name = name;
         this.items = new ArrayList<>(items);
-        this.cooldownTicks = cooldownTicks;
+        this.maxClaims = maxClaims;
     }
 
     public String getName() {
@@ -26,7 +26,7 @@ public class KitDefinition {
         return Collections.unmodifiableList(items);
     }
 
-    public long getCooldownTicks() {
-        return cooldownTicks;
+    public int getMaxClaims() {
+        return maxClaims;
     }
 }

@@ -18,17 +18,16 @@ import net.minecraft.server.MinecraftServer;
 
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.util.NBTUtils;
-import serverutils.lib.util.permission.DefaultPermissionLevel;
-import serverutils.lib.util.permission.PermissionAPI;
 
 public final class KitManager {
 
     private static final String KIT_FILE = "cointcore/kits.dat";
     private static final String TAG_KITS = "kits";
     private static final String TAG_ITEMS = "items";
-    private static final String TAG_COOLDOWN_TICKS = "cooldownTicks";
-
-    public static final String TAG_KIT_BALANCE = "cointcore_kit_balance";
+    private static final String TAG_MAX_CLAIMS = "maxClaims";
+    public static final String TAG_KIT_CLAIM_COUNT = "cointcore_kit_claim_count";
+    /** Остаток выданных «покупных» получений для безлимитных наборов (maxClaims == -1). */
+    public static final String TAG_KIT_BONUS_REMAINING = "cointcore_kit_bonus_remaining";
 
     private static final Map<String, KitDefinition> KITS = new LinkedHashMap<>();
     private static boolean loaded = false;
@@ -94,12 +93,6 @@ public final class KitManager {
         loadIfNeeded(server);
         KITS.put(kit.getName(), kit);
         save(server);
-
-        // Автоматически регистрируем право доступа при создании набора
-        PermissionAPI.registerNode(
-            "cointcore.kit." + kit.getName(),
-            DefaultPermissionLevel.NONE,
-            "CointCore kit: " + kit.getName());
     }
 
     public static synchronized KitDefinition getKit(MinecraftServer server, String name) {
@@ -129,8 +122,8 @@ public final class KitManager {
                 items.add(stack);
             }
         }
-        long cooldownTicks = kitTag.hasKey(TAG_COOLDOWN_TICKS) ? kitTag.getLong(TAG_COOLDOWN_TICKS) : 0L;
-        return new KitDefinition(name, items, cooldownTicks);
+        int maxClaims = kitTag.hasKey(TAG_MAX_CLAIMS) ? kitTag.getInteger(TAG_MAX_CLAIMS) : -1;
+        return new KitDefinition(name, items, maxClaims);
     }
 
     private static NBTTagCompound writeKit(KitDefinition kit) {
@@ -145,81 +138,97 @@ public final class KitManager {
             list.appendTag(itemTag);
         }
         kitTag.setTag(TAG_ITEMS, list);
-        kitTag.setLong(TAG_COOLDOWN_TICKS, kit.getCooldownTicks());
+        kitTag.setInteger(TAG_MAX_CLAIMS, kit.getMaxClaims());
         return kitTag;
     }
 
-    public static int getKitBalance(EntityPlayer player, String kitName) {
+    public static int getKitClaimCount(EntityPlayer player, String kitName) {
         NBTTagCompound persisted = NBTUtils.getPersistedData(player, true);
-        NBTTagCompound balanceTag = persisted.getCompoundTag(TAG_KIT_BALANCE);
-        return balanceTag.hasKey(kitName) ? balanceTag.getInteger(kitName) : -1;
+        NBTTagCompound countTag = persisted.getCompoundTag(TAG_KIT_CLAIM_COUNT);
+        return countTag.hasKey(kitName) ? countTag.getInteger(kitName) : 0;
     }
 
-    public static void setKitBalance(EntityPlayer player, String kitName, int amount) {
+    public static void setKitClaimCount(EntityPlayer player, String kitName, int amount) {
         NBTTagCompound persisted = NBTUtils.getPersistedData(player, true);
-        NBTTagCompound balanceTag = persisted.getCompoundTag(TAG_KIT_BALANCE);
-        if (amount < 0) {
-            balanceTag.removeTag(kitName);
+        NBTTagCompound countTag = persisted.getCompoundTag(TAG_KIT_CLAIM_COUNT);
+        if (amount <= 0) {
+            countTag.removeTag(kitName);
         } else {
-            balanceTag.setInteger(kitName, amount);
+            countTag.setInteger(kitName, amount);
         }
-        persisted.setTag(TAG_KIT_BALANCE, balanceTag);
+        persisted.setTag(TAG_KIT_CLAIM_COUNT, countTag);
     }
 
-    /** @deprecated Используйте вариант с ForgePlayer */
-    @Deprecated
-    public static void addKitBalance(EntityPlayer player, String kitName, int amount) {
-        int current = getKitBalance(player, kitName);
-        setKitBalance(player, kitName, current < 0 ? amount : current + amount);
-    }
-
-    /** @deprecated Устаревший метод, оставлен для обратной совместимости */
-    @Deprecated
-    @SuppressWarnings("unused")
-    public static boolean consumeKitUse(EntityPlayer player, String kitName) {
-        int balance = getKitBalance(player, kitName);
-        if (balance == 0) {
-            return false;
-        }
-        if (balance > 0) {
-            setKitBalance(player, kitName, balance - 1);
-        }
-        return true;
-    }
-
-    public static int getKitBalance(ForgePlayer player, String kitName) {
+    public static int getKitClaimCount(ForgePlayer player, String kitName) {
         if (player.isOnline()) {
-            return getKitBalance(player.getPlayer(), kitName);
+            return getKitClaimCount(player.getPlayer(), kitName);
         }
         NBTTagCompound playerNBT = player.getPlayerNBT();
         NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
-        NBTTagCompound balanceTag = persisted.getCompoundTag(TAG_KIT_BALANCE);
-        return balanceTag.hasKey(kitName) ? balanceTag.getInteger(kitName) : -1;
+        NBTTagCompound countTag = persisted.getCompoundTag(TAG_KIT_CLAIM_COUNT);
+        return countTag.hasKey(kitName) ? countTag.getInteger(kitName) : 0;
     }
 
-    public static void setKitBalance(ForgePlayer player, String kitName, int amount) {
+    public static void setKitClaimCount(ForgePlayer player, String kitName, int amount) {
         if (player.isOnline()) {
-            setKitBalance(player.getPlayer(), kitName, amount);
+            setKitClaimCount(player.getPlayer(), kitName, amount);
             return;
         }
         NBTTagCompound playerNBT = player.getPlayerNBT();
         NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
-        NBTTagCompound balanceTag = persisted.getCompoundTag(TAG_KIT_BALANCE);
-        if (amount < 0) {
-            balanceTag.removeTag(kitName);
+        NBTTagCompound countTag = persisted.getCompoundTag(TAG_KIT_CLAIM_COUNT);
+        if (amount <= 0) {
+            countTag.removeTag(kitName);
         } else {
-            balanceTag.setInteger(kitName, amount);
+            countTag.setInteger(kitName, amount);
         }
-        persisted.setTag(TAG_KIT_BALANCE, balanceTag);
+        persisted.setTag(TAG_KIT_CLAIM_COUNT, countTag);
         playerNBT.setTag(EntityPlayer.PERSISTED_NBT_TAG, persisted);
         player.setPlayerNBT(playerNBT);
     }
 
-    /** @deprecated Устаревший метод, оставлен для обратной совместимости */
-    @Deprecated
-    @SuppressWarnings("unused")
-    public static void addKitBalance(ForgePlayer player, String kitName, int amount) {
-        int current = getKitBalance(player, kitName);
-        setKitBalance(player, kitName, current < 0 ? amount : current + amount);
+    public static int getKitBonusRemaining(EntityPlayer player, String kitName) {
+        NBTTagCompound persisted = NBTUtils.getPersistedData(player, true);
+        NBTTagCompound tag = persisted.getCompoundTag(TAG_KIT_BONUS_REMAINING);
+        return tag.hasKey(kitName) ? tag.getInteger(kitName) : 0;
+    }
+
+    public static void setKitBonusRemaining(EntityPlayer player, String kitName, int amount) {
+        NBTTagCompound persisted = NBTUtils.getPersistedData(player, true);
+        NBTTagCompound tag = persisted.getCompoundTag(TAG_KIT_BONUS_REMAINING);
+        if (amount <= 0) {
+            tag.removeTag(kitName);
+        } else {
+            tag.setInteger(kitName, amount);
+        }
+        persisted.setTag(TAG_KIT_BONUS_REMAINING, tag);
+    }
+
+    public static int getKitBonusRemaining(ForgePlayer player, String kitName) {
+        if (player.isOnline()) {
+            return getKitBonusRemaining(player.getPlayer(), kitName);
+        }
+        NBTTagCompound playerNBT = player.getPlayerNBT();
+        NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+        NBTTagCompound tag = persisted.getCompoundTag(TAG_KIT_BONUS_REMAINING);
+        return tag.hasKey(kitName) ? tag.getInteger(kitName) : 0;
+    }
+
+    public static void setKitBonusRemaining(ForgePlayer player, String kitName, int amount) {
+        if (player.isOnline()) {
+            setKitBonusRemaining(player.getPlayer(), kitName, amount);
+            return;
+        }
+        NBTTagCompound playerNBT = player.getPlayerNBT();
+        NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+        NBTTagCompound tag = persisted.getCompoundTag(TAG_KIT_BONUS_REMAINING);
+        if (amount <= 0) {
+            tag.removeTag(kitName);
+        } else {
+            tag.setInteger(kitName, amount);
+        }
+        persisted.setTag(TAG_KIT_BONUS_REMAINING, tag);
+        playerNBT.setTag(EntityPlayer.PERSISTED_NBT_TAG, persisted);
+        player.setPlayerNBT(playerNBT);
     }
 }

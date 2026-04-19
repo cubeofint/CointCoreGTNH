@@ -1,5 +1,6 @@
 package coint.commands;
 
+import java.util.Calendar;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,11 +26,12 @@ import serverutils.ranks.Ranks;
  *
  * <pre>
  * /trank give   &lt;player&gt; &lt;rank&gt; &lt;duration&gt;   — give a rank for a limited time
+ * /trank extend &lt;player&gt; &lt;rank&gt; &lt;duration&gt; — продлить активную запись с конечным сроком; иначе как {@code give} (RCON / сайт)
  * /trank remove &lt;player&gt; &lt;rank&gt;              — manually revoke a temp rank
  * /trank list  [player]                       — list active temp ranks
  * </pre>
  *
- * Duration format: {@code 30s}, {@code 10m}, {@code 2h}, {@code 7d}.
+ * Duration format: {@code 30s}, {@code 10m} (minutes), {@code 2h}, {@code 7d}, {@code 1mo} (calendar months).
  * Permission: {@code cointcore.command.trank} (default: OP)
  */
 public class CommandTRank extends CommandBase {
@@ -46,7 +48,7 @@ public class CommandTRank extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/trank give <player> <rank> <duration> | /trank remove <player> <rank> | /trank list [player]";
+        return "/trank give <player> <rank> <duration> | /trank extend <player> <rank> <duration> | /trank remove <player> <rank> | /trank list [player]";
     }
 
     @Override
@@ -60,9 +62,9 @@ public class CommandTRank extends CommandBase {
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, "give", "remove", "list");
+            return getListOfStringsMatchingLastWord(args, "give", "extend", "remove", "list");
         }
-        if (args.length == 2 && !args[0].equals("list")) {
+        if (args.length == 2 && !"list".equals(args[0])) {
             return getListOfStringsMatchingLastWord(
                 args,
                 Universe.get()
@@ -71,7 +73,7 @@ public class CommandTRank extends CommandBase {
                     .map(ForgePlayer::getName)
                     .toArray(String[]::new));
         }
-        if (args.length == 3 && args[0].equals("give")) {
+        if (args.length == 3 && ("give".equals(args[0]) || "extend".equals(args[0]))) {
             Ranks ranks = Ranks.INSTANCE;
             if (ranks != null) {
                 return getListOfStringsMatchingLastWord(
@@ -95,6 +97,7 @@ public class CommandTRank extends CommandBase {
 
         switch (args[0].toLowerCase()) {
             case "give" -> cmdGive(sender, args);
+            case "extend" -> cmdExtend(sender, args);
             case "remove" -> cmdRemove(sender, args);
             case "list" -> cmdList(sender, args);
             default -> throw new WrongUsageException(getCommandUsage(sender));
@@ -132,6 +135,59 @@ public class CommandTRank extends CommandBase {
         }
 
         String durStr = durationMs < 0 ? "навсегда" : "на " + TimeUtil.formatDuration(durationMs);
+        sender.addChatMessage(
+            new ChatComponentText(
+                EnumChatFormatting.GREEN + "Ранг §e" + rankId + "§a выдан §e" + fp.getName() + "§a " + durStr));
+    }
+
+    /**
+     * /trank extend — если есть активная запись с конечным сроком, продлевает её; иначе выполняет ту же логику, что
+     * {@link #cmdGive}.
+     */
+    private void cmdExtend(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length < 4) {
+            throw new WrongUsageException("/trank extend <player> <rank> <duration>");
+        }
+
+        ForgePlayer fp = resolvePlayer(args[1]);
+        String rankId = args[2];
+        long durationMs = parseDuration(args[3]);
+        if (durationMs < 0) {
+            throw new CommandException("Для продления укажите конечную длительность (не perm/навсегда)");
+        }
+
+        if (Ranks.INSTANCE == null || Ranks.INSTANCE.getRank(rankId) == null) {
+            throw new CommandException("Ранг §e" + rankId + "§r не найден в ServerUtilities");
+        }
+
+        UUID uuid = fp.getProfile()
+            .getId();
+        TempRankManager mgr = TempRankManager.get();
+
+        if (mgr.findActiveTimedEntry(uuid, rankId) != null) {
+            try {
+                mgr.extend(uuid, fp.getName(), rankId, durationMs, sender.getCommandSenderName());
+            } catch (IllegalArgumentException e) {
+                throw new CommandException(e.getMessage());
+            }
+            sender.addChatMessage(
+                new ChatComponentText(
+                    EnumChatFormatting.GREEN + "Срок ранга §e"
+                        + rankId
+                        + "§a для §e"
+                        + fp.getName()
+                        + "§a продлён на "
+                        + TimeUtil.formatDuration(durationMs)));
+            return;
+        }
+
+        try {
+            mgr.grant(uuid, fp.getName(), rankId, durationMs, sender.getCommandSenderName());
+        } catch (Exception e) {
+            throw new CommandException(e.getMessage());
+        }
+
+        String durStr = "на " + TimeUtil.formatDuration(durationMs);
         sender.addChatMessage(
             new ChatComponentText(
                 EnumChatFormatting.GREEN + "Ранг §e" + rankId + "§a выдан §e" + fp.getName() + "§a " + durStr));
@@ -232,22 +288,54 @@ public class CommandTRank extends CommandBase {
     }
 
     /**
-     * Parses duration strings: {@code 30s}, {@code 10m}, {@code 2h}, {@code 7d}.
+     * Разница во времени от «сейчас» до даты через {@code months} календарных месяцев
+     * (учёт 28/29/30/31 дня, високосных лет и т.д. — через {@link Calendar#add(int, int)}).
+     */
+    private static long millisForCalendarMonths(long months) throws WrongUsageException {
+        if (months <= 0) {
+            throw new WrongUsageException("Число месяцев должно быть положительным");
+        }
+        if (months > Integer.MAX_VALUE) {
+            throw new WrongUsageException("Слишком большое число месяцев");
+        }
+        Calendar cal = Calendar.getInstance();
+        long start = cal.getTimeInMillis();
+        cal.add(Calendar.MONTH, (int) months);
+        return cal.getTimeInMillis() - start;
+    }
+
+    /**
+     * Parses duration strings: {@code 30s}, {@code 10m} (minutes), {@code 2h}, {@code 7d}, {@code 1mo}…{@code 12mo}
+     * (calendar months).
      *
      * @return milliseconds, or {@code -1} for "perm"
      */
     private static long parseDuration(String raw) throws WrongUsageException {
-        String s = raw.toLowerCase();
-        if (s.equals("perm") || s.equals("permanent") || s.equals("навсегда")) return -1;
-        if (s.length() < 2) throw new WrongUsageException("Неверный формат времени. Используйте: 30s, 10m, 2h, 7d");
+        String s = raw.toLowerCase()
+            .trim();
+        if (s.equals("perm") || s.equals("permanent") || s.equals("навсегда")) {
+            return -1;
+        }
+        if (s.length() < 2) {
+            throw new WrongUsageException(
+                "Неверный формат времени. Примеры: 30s, 10m (минуты), 2h, 7d, 1mo (календарные месяцы)");
+        }
         try {
+            if (s.endsWith("mo")) {
+                if (s.length() < 3) {
+                    throw new WrongUsageException("Укажите число перед mo, например: 1mo, 3mo, 12mo");
+                }
+                long months = Long.parseLong(s.substring(0, s.length() - 2));
+                return millisForCalendarMonths(months);
+            }
             long value = Long.parseLong(s.substring(0, s.length() - 1));
             return switch (s.charAt(s.length() - 1)) {
                 case 's' -> value * 1_000L;
                 case 'm' -> value * 60_000L;
                 case 'h' -> value * 3_600_000L;
                 case 'd' -> value * 86_400_000L;
-                default -> throw new WrongUsageException("Неверный суффикс времени. Используйте: s, m, h, d");
+                default -> throw new WrongUsageException(
+                    "Неверный суффикс. Используйте: s, m (минуты), h, d, mo (календарные месяцы)");
             };
         } catch (NumberFormatException e) {
             throw new WrongUsageException("Неверный формат времени: " + raw);

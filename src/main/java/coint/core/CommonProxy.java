@@ -127,7 +127,7 @@ public class CommonProxy {
         event.registerServerCommand(new CommandRepair());
         event.registerServerCommand(new CommandHeal());
         event.registerServerCommand(new CommandFeed());
-        event.registerServerCommand(new CommandKit(event.getServer()));
+        event.registerServerCommand(new CommandKit());
         event.registerServerCommand(new CommandNightVision());
         event.registerServerCommand(new CommandTpAlias());
         event.registerServerCommand(new CommandWarn());
