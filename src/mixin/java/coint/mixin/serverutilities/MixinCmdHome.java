@@ -31,7 +31,6 @@ public class MixinCmdHome {
     @Redirect(
         method = "processCommand(Lnet/minecraft/command/ICommandSender;[Ljava/lang/String;)V",
         at = @At(value = "INVOKE", target = "Lserverutils/lib/config/ConfigValue;getInt()I"))
-    @SuppressWarnings("unused")
     private int cointcore$withBonusHomesDisplay(ConfigValue v, ICommandSender sender, String[] args) {
         int base = v.getInt();
         ForgePlayer player = Universe.get()

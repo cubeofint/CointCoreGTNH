@@ -222,16 +222,8 @@ public class ChatSplitHandler {
 
         int recipients = 0;
         for (EntityPlayerMP p : players) {
-            if (CointConfig.sameDimensionOnly && p.dimension != senderDim) {
+            if (p.dimension != senderDim || p == sender || sender.getDistanceSqToEntity(p) > radiusSq) {
                 continue;
-            }
-            if (p != sender) {
-                double dx = p.posX - sender.posX;
-                double dy = p.posY - sender.posY;
-                double dz = p.posZ - sender.posZ;
-                if (dx * dx + dy * dy + dz * dz > radiusSq) {
-                    continue;
-                }
             }
             p.addChatMessage(component);
             recipients++;
