@@ -1,4 +1,4 @@
-package coint.tasks;
+package coint.events;
 
 import net.minecraft.entity.boss.IBossDisplayData;
 import net.minecraft.entity.item.EntityItem;

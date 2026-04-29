@@ -12,13 +12,14 @@ import net.minecraftforge.common.util.Constants;
 import coint.CointCore;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
+import serverutils.lib.util.NBTUtils;
 
 public class CointPlayer {
 
-    private static final String NBT_DATA = CointCore.MOD_ID + "data";
-    private static final String NBT_WARN = CointCore.MOD_ID + "warns";
-    private static final String NBT_MUTE = CointCore.MOD_ID + "mute";
-    private static final String NBT_BAN = CointCore.MOD_ID + "ban";
+    private static final String NBT_DATA = CointCore.MOD_ID + ".data";
+    private static final String NBT_WARN = "warns";
+    private static final String NBT_MUTE = "mute";
+    private static final String NBT_BAN = "ban";
 
     ForgePlayer player;
 
@@ -29,12 +30,12 @@ public class CointPlayer {
     private CointPlayer(ForgePlayer player) {
         this.player = player;
 
-        NBTTagCompound nbt = player.getPlayerNBT()
+        NBTTagCompound nbt = NBTUtils.getPersistedData(getPlayer(), true)
             .getCompoundTag(NBT_DATA);
 
+        warns = new LinkedList<>();
         if (nbt.hasKey(NBT_WARN, Constants.NBT.TAG_LIST)) {
             NBTTagList nbtWarns = nbt.getTagList(NBT_WARN, Constants.NBT.TAG_COMPOUND);
-            warns = new LinkedList<>();
             for (int i = 0; i < nbtWarns.tagCount(); i++) {
                 NBTTagCompound nbtWarn = nbtWarns.getCompoundTagAt(i);
                 Warn warn = new Warn();
@@ -93,9 +94,9 @@ public class CointPlayer {
             nbt.setTag(NBT_BAN, nbtBan);
         }
 
-        NBTTagCompound base = player.getPlayerNBT();
+        NBTTagCompound base = NBTUtils.getPersistedData(getPlayer(), true);
         base.setTag(NBT_DATA, nbt);
-        player.setPlayerNBT(base);
+        // player.setPlayerNBT(base);
     }
 
     public static CointPlayer get(CharSequence nameOrId) {

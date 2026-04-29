@@ -1,11 +1,18 @@
 package coint.events;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.event.ClickEvent;
+import net.minecraft.event.HoverEvent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.IChatComponent;
 import net.minecraftforge.event.ServerChatEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
@@ -49,6 +56,81 @@ import serverutils.ranks.Ranks;
 @EventBusSubscriber
 public class ChatSplitHandler {
 
+    public static final Pattern URL_PATTERN = Pattern
+        .compile("((https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])", Pattern.CASE_INSENSITIVE);
+
+    public List<IChatComponent> processAndSplit(String input) {
+        List<IChatComponent> lines = new ArrayList<>();
+        ChatComponentText currentLine = new ChatComponentText("");
+        int currentLength = 0;
+
+        // Разрезаем на слова, сохраняя пробелы
+        String[] parts = input.split("(?<=\\s)|(?=\\s)");
+
+        for (String part : parts) {
+            Matcher matcher = URL_PATTERN.matcher(part);
+
+            if (matcher.matches()) {
+                String domain = "[" + getDomainName(part) + "]";
+                int partLen = domain.length();
+
+                if (currentLength + partLen > 100) {
+                    lines.add(currentLine);
+                    currentLine = new ChatComponentText("");
+                    currentLength = 0;
+                }
+
+                ChatComponentText linkComp = new ChatComponentText(domain);
+                linkComp.setChatStyle(
+                    new ChatStyle().setColor(EnumChatFormatting.AQUA)
+                        .setUnderlined(true)
+                        .setChatClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, part))
+                        .setChatHoverEvent(
+                            new HoverEvent(
+                                HoverEvent.Action.SHOW_TEXT,
+                                new ChatComponentText("Осторожно! Ссылка на сторонний сайт."))));
+
+                currentLine.appendSibling(linkComp);
+                currentLength += partLen;
+            } else {
+                if (currentLength + part.length() > 100) {
+                    if (part.length() > 100) {
+                        String sub = part.substring(0, 100 - currentLength);
+                        currentLine.appendSibling(new ChatComponentText(sub));
+                        lines.add(currentLine);
+                        currentLine = new ChatComponentText(part.substring(100 - currentLength));
+                        currentLength = currentLine.getUnformattedText()
+                            .length();
+                    } else {
+                        lines.add(currentLine);
+                        currentLine = new ChatComponentText(part);
+                        currentLength = part.length();
+                    }
+                } else {
+                    currentLine.appendSibling(new ChatComponentText(part));
+                    currentLength += part.length();
+                }
+            }
+        }
+
+        if (currentLength > 0) {
+            lines.add(currentLine);
+        }
+
+        return lines;
+    }
+
+    private String getDomainName(String url) {
+        try {
+            java.net.URI uri = new java.net.URI(url);
+            String domain = uri.getHost();
+            if (domain == null) return url;
+            return domain.startsWith("www.") ? domain.substring(4) : domain;
+        } catch (Exception e) {
+            return url;
+        }
+    }
+
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onServerChat(ServerChatEvent event) {
         if (!CointConfig.chatSplitEnabled) {
@@ -66,7 +148,7 @@ public class ChatSplitHandler {
         String rawMessage = event.message;
 
         String prefix = CointConfig.globalChatPrefix;
-        boolean isGlobal = prefix != null && !prefix.isEmpty() && rawMessage.startsWith(prefix);
+        boolean isGlobal = prefix != null && !prefix.isEmpty() && event.message.startsWith(prefix);
 
         String text = isGlobal ? rawMessage.substring(prefix.length())
             .trim() : rawMessage;
@@ -222,7 +304,7 @@ public class ChatSplitHandler {
 
         int recipients = 0;
         for (EntityPlayerMP p : players) {
-            if (p.dimension != senderDim || p == sender || sender.getDistanceSqToEntity(p) > radiusSq) {
+            if (p.dimension != senderDim || sender.getDistanceSqToEntity(p) > radiusSq) {
                 continue;
             }
             p.addChatMessage(component);
