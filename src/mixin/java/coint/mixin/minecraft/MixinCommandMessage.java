@@ -20,8 +20,8 @@ import org.spongepowered.asm.mixin.Overwrite;
 
 import coint.commands.CommandReply;
 import coint.commands.ReplyTracker;
-import coint.commands.dm.DmLogger;
-import coint.commands.dm.SocialSpyRegistry;
+import coint.commands.spy.DmLogger;
+import coint.commands.spy.PersonalSpyRegistry;
 
 /**
  * Replaces the vanilla {@code /tell} / {@code /msg} / {@code /w} message format and adds
@@ -49,6 +49,9 @@ public class MixinCommandMessage {
     /**
      * Adds {@code "m"} to the command's alias list so that {@code /m} works alongside the
      * built-in {@code /w} and {@code /msg}.
+     * 
+     * @author mawlee
+     * @reason CointCore
      */
     @Overwrite
     public List<String> getCommandAliases() {
@@ -59,6 +62,9 @@ public class MixinCommandMessage {
      * Replaces the vanilla whisper format and routes it through the custom DM pipeline.
      * Replicates vanilla exception throwing for invalid invocations (too few args,
      * player not found, self-message) so the command dispatcher shows the correct errors.
+     * 
+     * @author mawlee
+     * @reason CointCore
      */
     @Overwrite
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
@@ -111,6 +117,6 @@ public class MixinCommandMessage {
 
         // Append to the dedicated DM log file and notify in-game spies.
         DmLogger.log("TELL", senderDisplay, targetDisplay, text.getUnformattedText());
-        SocialSpyRegistry.notifySpies(senderDisplay, targetDisplay, text);
+        PersonalSpyRegistry.notifySpies(senderDisplay, targetDisplay, text);
     }
 }

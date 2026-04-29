@@ -15,8 +15,8 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 
-import coint.commands.dm.DmLogger;
-import coint.commands.dm.SocialSpyRegistry;
+import coint.commands.spy.DmLogger;
+import coint.commands.spy.PersonalSpyRegistry;
 import serverutils.ranks.ICommandWithPermission;
 
 /**
@@ -145,6 +145,6 @@ public class CommandReply extends CommandBase {
 
         // Append to the dedicated DM log file and notify in-game spies.
         DmLogger.log("REPLY", senderDisplay, targetDisplay, text.getUnformattedText());
-        SocialSpyRegistry.notifySpies(senderDisplay, targetDisplay, text);
+        PersonalSpyRegistry.notifySpies(senderDisplay, targetDisplay, text);
     }
 }

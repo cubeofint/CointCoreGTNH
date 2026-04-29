@@ -3,6 +3,8 @@ package coint.integration.serverutilities;
 import java.util.Arrays;
 import java.util.List;
 
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.events.RegisterRankConfigEvent;
 import serverutils.lib.config.ConfigInt;
@@ -10,6 +12,7 @@ import serverutils.lib.config.ConfigStringEnum;
 import serverutils.lib.config.ConfigTimer;
 import serverutils.lib.math.Ticks;
 
+@EventBusSubscriber
 public final class CointRankConfigs {
 
     public static final String REPAIR_MODE = "cointcore.repair.level";
@@ -43,7 +46,7 @@ public final class CointRankConfigs {
     private static final List<String> REPAIR_MODES = Arrays.asList("inventory", "all");
 
     @SubscribeEvent
-    public void onRegisterRankConfigs(RegisterRankConfigEvent event) {
+    public static void onRegisterRankConfigs(RegisterRankConfigEvent event) {
         event.register(
             REPAIR_MODE,
             new ConfigStringEnum(REPAIR_MODES, "inventory"),

@@ -6,13 +6,14 @@ import java.lang.reflect.Method;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 import coint.CointCore;
+import coint.events.ChatSplitHandler;
 
 /**
  * Reflection-based bridge to Nilcord's Discord integration.
  *
  * <p>
  * {@link net.minecraftforge.event.ServerChatEvent} is canceled by
- * {@link coint.commands.chat.ChatSplitHandler} before Nilcord's own
+ * {@link ChatSplitHandler} before Nilcord's own
  * {@code MFEvents.onServerChat} handler can observe it (Nilcord registers with
  * the default {@code receiveCanceled = false}). This class bypasses the event
  * pipeline entirely and calls {@code EventListener.playerChatMessage()} directly

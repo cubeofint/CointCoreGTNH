@@ -33,6 +33,9 @@ public class CointCore {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
+        boolean dbg = Boolean.getBoolean("cointcore.debug.forestryBackpackThrow");
+        // WARN, чтобы было видно даже если INFO скрыт/уходит только в файл.
+        LOG.warn("[CointCore] debug flag cointcore.debug.forestryBackpackThrow={}", dbg);
         proxy.preInit(event);
     }
 

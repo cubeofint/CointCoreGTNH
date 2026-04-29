@@ -5,18 +5,15 @@ import java.util.List;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
 import com.google.common.base.Joiner;
 
-import coint.commands.tban.PlayerTBanData;
-import coint.commands.tban.TBan;
+import coint.player.CointPlayer;
 import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -71,15 +68,10 @@ public class CommandTBan extends CommandBase {
         }
 
         String playerName = args[0].toLowerCase();
-
-        ForgePlayer player = Universe.get()
-            .getPlayer(playerName);
-        if (player == null) {
-            throw new PlayerNotFoundException();
-        }
+        CointPlayer player = CointPlayer.get(playerName);
 
         if (args[1].equals("remove")) {
-            PlayerTBanData.setOffline(player.getId(), null);
+            player.unban();
             return;
         }
 
@@ -88,22 +80,9 @@ public class CommandTBan extends CommandBase {
             .join(Arrays.copyOfRange(args, 2, args.length));
         reason = reason.replaceAll("^['\"]|['\"]$", "");
 
-        tban(sender, player, durationMs, reason);
-    }
-
-    private void tban(ICommandSender sender, ForgePlayer player, long durationMs, String reason) {
-        TBan tban = new TBan(sender, reason, durationMs);
-
+        player.ban(sender, reason, durationMs);
         if (player.isOnline()) {
-            EntityPlayerMP entityPlayer = player.getPlayer();
-            PlayerTBanData tbanData = PlayerTBanData.get(entityPlayer);
-            if (tbanData != null) {
-                tbanData.set(tban);
-            }
-
-            entityPlayer.playerNetServerHandler.kickPlayerFromServer(tban.getBanMessage());
-        } else {
-            PlayerTBanData.setOffline(player.getId(), tban);
+            player.getPlayer().playerNetServerHandler.kickPlayerFromServer(player.getBanMessage());
         }
 
         ChatComponentText message = new ChatComponentText(

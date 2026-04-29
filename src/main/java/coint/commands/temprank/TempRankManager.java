@@ -108,6 +108,51 @@ public class TempRankManager {
     }
 
     /**
+     * Увеличивает срок действия существующей **активной** записи (не истёкшей, не «навсегда»):
+     * новая дата окончания = текущая {@code expiresAt} + {@code durationMs}.
+     * Ранг в ServerUtilities не трогается — он уже выдан.
+     *
+     * @param durationMs строго положительная длительность в миллисекундах
+     * @throws IllegalArgumentException если записи нет, ранг бессрочный или длительность неверна
+     */
+    public void extend(UUID playerUuid, String playerName, String rankId, long durationMs, String issuer) {
+        if (durationMs <= 0) {
+            throw new IllegalArgumentException("Длительность продления должна быть положительной");
+        }
+        validateRankExists(rankId);
+
+        TempRankEntry found = null;
+        for (TempRankEntry e : entries) {
+            if (e.playerUuid.equals(playerUuid) && e.rankId.equals(rankId) && !e.isExpired()) {
+                found = e;
+                break;
+            }
+        }
+        if (found == null) {
+            throw new IllegalArgumentException(
+                "У игрока нет активной временной записи для ранга «" + rankId + "» (или срок уже истёк)");
+        }
+        if (found.expiresAt < 0) {
+            throw new IllegalArgumentException("Бессрочную запись нельзя продлить по времени");
+        }
+
+        long newExpiresAt = found.expiresAt + durationMs;
+        String name = playerName != null && !playerName.isEmpty() ? playerName : found.playerName;
+        entries.removeIf(e -> e.playerUuid.equals(playerUuid) && e.rankId.equals(rankId));
+        entries.add(new TempRankEntry(playerUuid, name, rankId, newExpiresAt, issuer));
+        save();
+
+        LOG.info(
+            "[TempRank] Extended '{}' for {} ({}): +{} ms, new expiry epoch {}, by {}",
+            rankId,
+            name,
+            playerUuid,
+            durationMs,
+            newExpiresAt,
+            issuer);
+    }
+
+    /**
      * Manually revoke {@code rankId} from {@code playerUuid}.
      * Silently does nothing if the entry is not tracked.
      */
@@ -189,6 +234,21 @@ public class TempRankManager {
         }
         if (changed) save();
         LOG.info("[TempRank] Restored {} active temp-rank entries", entries.size());
+    }
+
+    /**
+     * Активная запись с **конечным** сроком (не истекла, не «навсегда») — такую можно продлить через
+     * {@link #extend(UUID, String, String, long, String)}.
+     *
+     * @return запись или {@code null}, если продлевать нечего (нет записи, истекла, или {@code expiresAt == -1})
+     */
+    public TempRankEntry findActiveTimedEntry(UUID playerUuid, String rankId) {
+        for (TempRankEntry e : entries) {
+            if (e.playerUuid.equals(playerUuid) && e.rankId.equals(rankId) && !e.isExpired() && e.expiresAt > 0) {
+                return e;
+            }
+        }
+        return null;
     }
 
     /** Returns all active entries for a specific player. */

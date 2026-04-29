@@ -4,13 +4,11 @@ import java.util.List;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.EnumChatFormatting;
 
-import coint.commands.mute.PlayerMuteData;
+import coint.player.CointPlayer;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -62,21 +60,8 @@ public class CommandUnmute extends CommandBase {
         }
 
         String playerName = args[0].toLowerCase();
-
-        ForgePlayer player = Universe.get()
-            .getPlayer(playerName);
-        if (player == null) {
-            throw new PlayerNotFoundException();
-        }
-
-        if (player.isOnline()) {
-            EntityPlayer entityPlayer = player.getPlayer();
-            PlayerMuteData muteData = PlayerMuteData.get(entityPlayer);
-            muteData.clear();
-
-            entityPlayer
-                .addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "Ваш мут был снят администратором"));
-        }
+        CointPlayer player = CointPlayer.get(playerName);
+        player.unmute();
 
         sender.addChatMessage(new ChatComponentText("Вытащили кляп у " + player.getName()));
     }

@@ -123,7 +123,7 @@ src/mixin/
 1. Создайте класс, реализующий `IModule`
 2. Зарегистрируйте в `CommonProxy.registerModules()`
 
-См. [документацию](docs/ARCHITECTURE.md) для подробностей.
+См. [docs/FAQ.md](docs/FAQ.md) и другие материалы в `docs/`.
 
 ## Лицензия
 

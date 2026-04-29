@@ -5,7 +5,6 @@ import java.util.List;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
@@ -14,8 +13,7 @@ import net.minecraft.util.EnumChatFormatting;
 
 import com.google.common.base.Joiner;
 
-import coint.commands.mute.Mute;
-import coint.commands.mute.PlayerMuteData;
+import coint.player.CointPlayer;
 import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -70,42 +68,14 @@ public class CommandMute extends CommandBase {
         }
 
         String playerName = args[0].toLowerCase();
-
-        ForgePlayer player = Universe.get()
-            .getPlayer(playerName);
-        if (player == null) {
-            throw new PlayerNotFoundException();
-        }
+        CointPlayer player = CointPlayer.get(playerName);
 
         long durationMs = parseTimeToMs(args[1]);
         String reason = Joiner.on(" ")
             .join(Arrays.copyOfRange(args, 2, args.length));
         reason = reason.replaceAll("^['\"]|['\"]$", "");
 
-        mute(sender, player, durationMs, reason);
-    }
-
-    private void mute(ICommandSender sender, ForgePlayer player, long durationMs, String reason) {
-        Mute mute = new Mute(sender, reason, durationMs);
-
-        if (player.isOnline()) {
-            EntityPlayer entityPlayer = player.getPlayer();
-            PlayerMuteData muteData = PlayerMuteData.get(entityPlayer);
-            muteData.set(mute);
-
-            entityPlayer.addChatMessage(
-                new ChatComponentText(
-                    EnumChatFormatting.RED + "Вам выдан мут от "
-                        + EnumChatFormatting.GOLD
-                        + sender.getCommandSenderName()
-                        + EnumChatFormatting.RED
-                        + " на "
-                        + TimeUtil.formatDuration(durationMs)
-                        + EnumChatFormatting.RED
-                        + " по причине: "
-                        + EnumChatFormatting.YELLOW
-                        + reason));
-        }
+        player.mute(sender, reason, durationMs);
 
         ChatComponentText message = new ChatComponentText(
             EnumChatFormatting.GOLD + sender.getCommandSenderName()

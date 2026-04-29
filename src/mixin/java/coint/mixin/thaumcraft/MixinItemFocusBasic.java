@@ -1,11 +1,11 @@
 package coint.mixin.thaumcraft;
 
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
+import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
+import coint.util.ClaimGuardNotifier;
 import serverutils.data.ClaimedChunks;
 import thaumcraft.api.wands.ItemFocusBasic;
 import thaumcraft.common.items.wands.ItemWandCasting;
@@ -98,9 +99,8 @@ public class MixinItemFocusBasic {
 
         if (world.isRemote) return;
 
-        if (ClaimedChunks.isActive() && ClaimedChunks.blockBlockEditing(player, blockX, blockY, blockZ, 0)) {
-            player.addChatMessage(
-                new ChatComponentText(EnumChatFormatting.RED + "Вы не можете использовать жезл в чужом привате!"));
+        if (ClaimedChunks.isActive() && ClaimedChunks.blockBlockEditing(player, blockX, blockY, blockZ, 1)) {
+            ClaimGuardNotifier.notifyDenied(player);
             cir.setReturnValue(wandstack);
         }
     }
@@ -127,13 +127,108 @@ public class MixinItemFocusBasic {
 
         if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
             && ClaimedChunks.isActive()
-            && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, 0)) {
-            player.addChatMessage(
-                new ChatComponentText(
-                    EnumChatFormatting.RED + "Вы не можете использовать фокус жезла в чужом привате!"));
+            && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, mop.sideHit)) {
+            ClaimGuardNotifier.notifyDenied(player);
             return null;
         }
 
         return focus.onFocusRightClick(wandstack, world, player, mop);
+    }
+
+    /**
+     * Перехватывает любой правый клик жезлом (включая фокусы и IWandable) и проверяет,
+     * находится ли целевой блок в привате. Если да — блокирует вызов (возвращает wandstack,
+     * как и в других инджектах), виз не расходуется.
+     */
+    @Inject(method = "onItemRightClick", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cointcore$guardAnyWandRightClick(ItemStack wandstack, World world, EntityPlayer player,
+        CallbackInfoReturnable<ItemStack> cir) {
+        if (world.isRemote || !ClaimedChunks.isActive()) {
+            return;
+        }
+
+        MovingObjectPosition mop = player.rayTrace(5.0D, 1.0F);
+        if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
+            && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, mop.sideHit)) {
+            ClaimGuardNotifier.notifyDenied(player);
+            cir.setReturnValue(wandstack);
+        }
+    }
+
+    /**
+     * Перехватывает общий left-click путь для фокусов (onEntitySwing) в ItemWandCasting.
+     * Это закрывает обходы для фокусов, которые выполняют действие по взмаху/левому клику.
+     */
+    @Inject(
+        method = "onEntitySwing(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/item/ItemStack;)Z",
+        at = @At("HEAD"),
+        cancellable = true,
+        remap = false,
+        require = 0)
+    private void cointcore$guardAnyFocusSwing(EntityLivingBase entityLiving, ItemStack stack,
+        CallbackInfoReturnable<Boolean> cir) {
+        if (!(entityLiving instanceof EntityPlayer)) {
+            return;
+        }
+
+        cointcore$guardAnyFocusSwingPlayer((EntityPlayer) entityLiving, cir);
+    }
+
+    @Unique
+    private static void cointcore$guardAnyFocusSwingPlayer(EntityPlayer player, CallbackInfoReturnable<Boolean> cir) {
+        World world = player.worldObj;
+        if (world == null || world.isRemote || !ClaimedChunks.isActive()) {
+            return;
+        }
+
+        MovingObjectPosition mop = cointcore$rayTraceFromEyes(player, world);
+        if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK
+            && ClaimedChunks.blockBlockEditing(player, mop.blockX, mop.blockY, mop.blockZ, mop.sideHit)) {
+            ClaimGuardNotifier.notifyDenied(player);
+            cir.setReturnValue(true);
+        }
+    }
+
+    // ── Block-click path (onItemUseFirst) ───────────────────────────
+
+    /**
+     * Перехватывает первый вызов onItemUse (включая onItemUseFirst) и проверяет,
+     * находится ли целевой блок в привате. Если да — блокирует вызов, предотвращая
+     * установку блока или изменение NBT (возвращает true, чтобы остановить дальнейшую
+     * обработку клика жезлом).
+     */
+    @Inject(method = "onItemUseFirst", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cointcore$guardWandUseFirst(ItemStack wandstack, EntityPlayer player, World world, int x, int y, int z,
+        int side, float hitX, float hitY, float hitZ, CallbackInfoReturnable<Boolean> cir) {
+        if (cointcore$denyClaimedBlockUse(player, world, x, y, z, side)) {
+            // Returning true prevents downstream wand handling for this click path.
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Unique
+    private static boolean cointcore$denyClaimedBlockUse(EntityPlayer player, World world, int x, int y, int z,
+        int side) {
+        if (world == null || world.isRemote || player == null || !ClaimedChunks.isActive()) {
+            return false;
+        }
+        if (ClaimedChunks.blockBlockEditing(player, x, y, z, side)) {
+            ClaimGuardNotifier.notifyDenied(player);
+            return true;
+        }
+        return false;
+    }
+
+    @Unique
+    private static MovingObjectPosition cointcore$rayTraceFromEyes(EntityPlayer player, World world) {
+        if (player == null || world == null) {
+            return null;
+        }
+
+        Vec3 start = Vec3.createVectorHelper(player.posX, player.posY + player.getEyeHeight(), player.posZ);
+        Vec3 look = player.getLook(1.0F);
+        Vec3 end = start.addVector(look.xCoord * 5.0D, look.yCoord * 5.0D, look.zCoord * 5.0D);
+
+        return world.rayTraceBlocks(start, end);
     }
 }

@@ -2,3 +2,6 @@
 plugins {
     id "com.gtnewhorizons.gtnhconvention"
 }
+tasks.named("build"){
+    dependsOn("spotlessApply")
+}
