@@ -26,6 +26,10 @@ public abstract class MixinItemInventoryUidFix {
     @Unique
     private static final String KEY_UID = "UID";
 
+    /**
+     * @author mawlee
+     * @reason fix backpack duplication
+     */
     @Overwrite
     private static boolean isSameItemInventory(ItemStack base, ItemStack comparison) {
         if (base == null || comparison == null) {
