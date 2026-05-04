@@ -45,7 +45,7 @@ public class CommandKit extends CommandBase {
         PermissionAPI.registerNode(PERM_KIT_EDIT, DefaultPermissionLevel.OP, "CointCore kit create and delete");
         PermissionAPI.registerNode(PERM_KIT_RESET, DefaultPermissionLevel.OP, "CointCore kit add and set claims");
         PermissionAPI
-            .registerNode(PERM_KIT_ALL, DefaultPermissionLevel.NONE, "CointCore kit: access all unlimited kits");
+            .registerNode(PERM_KIT_ALL, DefaultPermissionLevel.OP, "CointCore kit: access all unlimited kits");
     }
 
     @Override
@@ -266,6 +266,11 @@ public class CommandKit extends CommandBase {
                     return;
                 }
 
+                if (!hasKitRankAccess(player, name, kit)) {
+                    sendError(sender, "У вас нет доступа к набору: " + name);
+                    return;
+                }
+
                 if (!canFitAll(player, kit.getItems())) {
                     sendError(sender, "Инвентарь полон, набор не получен");
                     return;
@@ -290,11 +295,6 @@ public class CommandKit extends CommandBase {
                     }
                     KitManager.setKitClaimCount(player, name, claims + 1);
                     sendSuccess(sender, "Набор получен: " + name);
-                    return;
-                }
-
-                if (!hasKitRankAccess(player, name, kit)) {
-                    sendError(sender, "У вас нет доступа к набору: " + name);
                     return;
                 }
 
