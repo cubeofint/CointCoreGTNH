@@ -2,6 +2,7 @@ package coint.core;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.concurrent.ScheduledExecutorService;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
@@ -81,7 +82,7 @@ public class ChatWSClient extends WebSocketClient {
                 try {
                     Thread.sleep(5000);
                     CointCore.LOG.info("Hub ws reconnection attempt {}", attempts + 1);
-                    if (inst.connectBlocking()) {
+                    if (inst.reconnectBlocking()) {
                         CointCore.LOG.info("Hub ws reconnected");
                         return;
                     }
