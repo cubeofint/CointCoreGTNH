@@ -34,8 +34,8 @@ public class ChatWSClient extends WebSocketClient {
         inst.connect();
     }
 
-    public static void send(String sender, String text) {
-        String msg = gson.toJson(new WSMessage(sender, text));
+    public static void send(String sender, String senderFormatted, String text) {
+        String msg = gson.toJson(new WSMessage(sender, senderFormatted, text));
         inst.send(msg);
     }
 
@@ -48,7 +48,7 @@ public class ChatWSClient extends WebSocketClient {
 
     @Override
     public void onOpen(ServerHandshake handshakedata) {
-        String greeting = gson.toJson(new WSMessage("server", "greeting"));
+        String greeting = gson.toJson(new WSMessage("server", "server", "greeting"));
         inst.send(greeting);
 
         CointCore.LOG.info("Hub WS connection established");
@@ -73,10 +73,6 @@ public class ChatWSClient extends WebSocketClient {
     @Override
     public void onClose(int code, String reason, boolean remote) {
         CointCore.LOG.info("Hub WS connection closed{}: {} {}", remote ? " from remote" : "", code, reason);
-
-        if (remote) {
-            return;
-        }
 
         new Thread(() -> {
             int attempts = 0;
@@ -107,11 +103,13 @@ public class ChatWSClient extends WebSocketClient {
 
         public String server;
         public String sender;
+        public String senderFormatted;
         public String text;
 
-        public WSMessage(String sender, String text) {
+        public WSMessage(String sender, String senderFormatted, String text) {
             this.server = CointConfig.thisServer;
             this.sender = sender;
+            this.senderFormatted = senderFormatted;
             this.text = text;
         }
     }

@@ -286,7 +286,11 @@ public class ChatSplitHandler {
 
         // Forward to Discord via Nilcord (no-op if Nilcord is not installed).
         // NilcordBridge.forwardGlobalChat(sender, text);
-        ChatWSClient.send(senderName, text);
+        ChatWSClient.send(
+            sender.getGameProfile()
+                .getName(),
+            senderName,
+            text);
 
         CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
     }
