@@ -37,7 +37,7 @@ public class CointConfig {
     public static boolean notifyEnabled = false;
     public static String apiUrl = "";
     public static int apiTimeout = 10000;
-    public static String wsHubUrl = "ws://localhost/gtnh-chat:5665";
+    public static String wsHubUrl = "ws://localhost:5665/gtnh-chat";
     public static String thisServer = "S";
 
     // Debug settings

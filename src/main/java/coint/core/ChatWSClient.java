@@ -41,13 +41,13 @@ public class ChatWSClient extends WebSocketClient {
 
     public ChatWSClient(URI serverUri) {
         super(serverUri);
+
+        gson = new Gson();
+        server = MinecraftServer.getServer();
     }
 
     @Override
     public void onOpen(ServerHandshake handshakedata) {
-        gson = new Gson();
-        server = MinecraftServer.getServer();
-
         String greeting = gson.toJson(new WSMessage("server", "greeting"));
         inst.send(greeting);
 
@@ -62,9 +62,9 @@ public class ChatWSClient extends WebSocketClient {
 
         WSMessage msg = gson.fromJson(message, WSMessage.class);
 
-        IChatComponent c = new ChatComponentText(EnumChatFormatting.GREEN + "[" + msg.server + "] ")
-            .appendText(msg.sender + ": ")
-            .appendText(msg.text);
+        IChatComponent c = new ChatComponentText(
+            EnumChatFormatting.GREEN + "[" + msg.server + "] " + EnumChatFormatting.RESET).appendText(msg.sender + ": ")
+                .appendText(msg.text);
 
         server.getConfigurationManager()
             .sendChatMsg(c);
@@ -72,8 +72,6 @@ public class ChatWSClient extends WebSocketClient {
 
     @Override
     public void onClose(int code, String reason, boolean remote) {
-        gson = null;
-        server = null;
         CointCore.LOG.info("Hub WS connection closed{}: {} {}", remote ? " from remote" : "", code, reason);
 
         if (remote) {
