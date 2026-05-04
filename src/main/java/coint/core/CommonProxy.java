@@ -2,22 +2,7 @@ package coint.core;
 
 import coint.CointCore;
 import coint.Tags;
-import coint.commands.CommandCleanup;
-import coint.commands.CommandFeed;
-import coint.commands.CommandHeal;
-import coint.commands.CommandKit;
-import coint.commands.CommandMute;
-import coint.commands.CommandNightVision;
-import coint.commands.CommandReload;
-import coint.commands.CommandRepair;
-import coint.commands.CommandReply;
-import coint.commands.CommandSpy;
-import coint.commands.CommandSync;
-import coint.commands.CommandTBan;
-import coint.commands.CommandTRank;
-import coint.commands.CommandTpAlias;
-import coint.commands.CommandUnmute;
-import coint.commands.CommandWarn;
+import coint.commands.CmdRegistry;
 import coint.commands.spy.DmLogger;
 import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
@@ -121,28 +106,8 @@ public class CommonProxy {
      */
     public void serverStarting(FMLServerStartingEvent event) {
         ChatWSClient.init();
-
+        CmdRegistry.register(event);
         moduleManager.serverStarting();
-
-        // Register commands
-        event.registerServerCommand(new CommandSync());
-        event.registerServerCommand(new CommandRepair());
-        event.registerServerCommand(new CommandHeal());
-        event.registerServerCommand(new CommandFeed());
-        event.registerServerCommand(new CommandKit());
-        event.registerServerCommand(new CommandNightVision());
-        event.registerServerCommand(new CommandTpAlias());
-        event.registerServerCommand(new CommandWarn());
-        event.registerServerCommand(new CommandMute());
-        event.registerServerCommand(new CommandUnmute());
-        event.registerServerCommand(new CommandTBan());
-        event.registerServerCommand(new CommandTRank());
-        event.registerServerCommand(new CommandReload());
-        event.registerServerCommand(new CommandReply());
-        // event.registerServerCommand(new CommandDmSpy());
-        event.registerServerCommand(new CommandSpy());
-        event.registerServerCommand(new CommandCleanup());
-        CointCore.LOG.debug("Registered server commands");
     }
 
     @SuppressWarnings("unused")
