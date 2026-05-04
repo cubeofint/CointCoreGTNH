@@ -81,7 +81,7 @@ public class ChatWSClient extends WebSocketClient {
                 try {
                     Thread.sleep(5000);
                     CointCore.LOG.info("Hub ws reconnection attempt {}", attempts + 1);
-                    if (inst.connectBlocking()) {
+                    if (inst.reconnectBlocking()) {
                         CointCore.LOG.info("Hub ws reconnected");
                         return;
                     }
