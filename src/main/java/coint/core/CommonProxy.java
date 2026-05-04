@@ -2,22 +2,7 @@ package coint.core;
 
 import coint.CointCore;
 import coint.Tags;
-import coint.commands.CommandCleanup;
-import coint.commands.CommandFeed;
-import coint.commands.CommandHeal;
-import coint.commands.CommandKit;
-import coint.commands.CommandMute;
-import coint.commands.CommandNightVision;
-import coint.commands.CommandReload;
-import coint.commands.CommandRepair;
-import coint.commands.CommandReply;
-import coint.commands.CommandSpy;
-import coint.commands.CommandSync;
-import coint.commands.CommandTBan;
-import coint.commands.CommandTRank;
-import coint.commands.CommandTpAlias;
-import coint.commands.CommandUnmute;
-import coint.commands.CommandWarn;
+import coint.commands.*;
 import coint.commands.spy.DmLogger;
 import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
@@ -30,13 +15,7 @@ import coint.module.epochsync.EpochRegistry;
 import coint.module.epochsync.EpochSyncModule;
 import coint.tasks.CleanupTask;
 import cpw.mods.fml.common.Loader;
-import cpw.mods.fml.common.event.FMLInitializationEvent;
-import cpw.mods.fml.common.event.FMLPostInitializationEvent;
-import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
-import cpw.mods.fml.common.event.FMLServerStartedEvent;
-import cpw.mods.fml.common.event.FMLServerStartingEvent;
-import cpw.mods.fml.common.event.FMLServerStoppingEvent;
+import cpw.mods.fml.common.event.*;
 import serverutils.ServerUtilitiesConfig;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -120,6 +99,8 @@ public class CommonProxy {
      * Called when server is starting
      */
     public void serverStarting(FMLServerStartingEvent event) {
+        ChatWSClient.init();
+
         moduleManager.serverStarting();
 
         // Register commands

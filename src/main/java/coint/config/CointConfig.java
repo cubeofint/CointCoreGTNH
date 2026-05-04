@@ -37,6 +37,8 @@ public class CointConfig {
     public static boolean notifyEnabled = false;
     public static String apiUrl = "";
     public static int apiTimeout = 10000;
+    public static String wsHubUrl = "ws://localhost/gtnh-chat:5665";
+    public static String thisServer = "S";
 
     // Debug settings
     public static boolean debugMode = false;
@@ -121,6 +123,9 @@ public class CointConfig {
                 "Base URL for external API (leave empty to use API_URL env variable)");
             apiTimeout = config
                 .getInt("timeout", CATEGORY_API, apiTimeout, 1000, 60000, "API request timeout in milliseconds");
+            wsHubUrl = config.getString("wsHubUrl", CATEGORY_API, wsHubUrl, "Websocket Hub Url");
+            thisServer = config
+                .getString("thisServer", CATEGORY_API, thisServer, "Name of this server displayed in chats");
 
             // Debug
             config.addCustomCategoryComment(CATEGORY_DEBUG, "Debug settings");
