@@ -45,7 +45,7 @@ public class CommandKit extends CommandBase {
         PermissionAPI.registerNode(PERM_KIT_EDIT, DefaultPermissionLevel.OP, "CointCore kit create and delete");
         PermissionAPI.registerNode(PERM_KIT_RESET, DefaultPermissionLevel.OP, "CointCore kit add and set claims");
         PermissionAPI
-            .registerNode(PERM_KIT_ALL, DefaultPermissionLevel.NONE, "CointCore kit: access all unlimited kits");
+            .registerNode(PERM_KIT_ALL, DefaultPermissionLevel.OP, "CointCore kit: access all unlimited kits");
     }
 
     @Override
