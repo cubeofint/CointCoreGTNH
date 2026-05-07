@@ -31,7 +31,7 @@ public class BehaviorHandler {
                     event.setCanceled(true);
                 }
             } catch (Exception e) {
-                CointCore.LOG.error(e);
+                CointCore.LOG.error(e.getMessage());
             }
 
         }

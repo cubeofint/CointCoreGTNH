@@ -20,7 +20,7 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 import coint.CointCore;
 import coint.commands.spy.LocalSpyRegistry;
 import coint.config.CointConfig;
-import coint.integration.nilcord.NilcordBridge;
+import coint.core.ChatWSClient;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.ServerUtilitiesPermissions;
@@ -277,18 +277,22 @@ public class ChatSplitHandler {
 
     private static void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
         String colorCode = getTextColorCode(sender);
-        String formatted = String.format(CointConfig.globalChatFormat, senderName, colorCode + text);
+        String formatted = String.format(CointConfig.globalChatFormat, senderName, text.replaceAll("\\b", colorCode));
         ChatComponentText component = new ChatComponentText(formatted);
 
-        List<EntityPlayerMP> players = MinecraftServer.getServer()
-            .getConfigurationManager().playerEntityList;
-        for (EntityPlayerMP p : players) {
-            p.addChatMessage(component);
-        }
+        MinecraftServer.getServer()
+            .getConfigurationManager()
+            .sendChatMsg(component);
 
         // Forward to Discord via Nilcord (no-op if Nilcord is not installed).
-        NilcordBridge.forwardGlobalChat(sender, text);
-        CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
+        // NilcordBridge.forwardGlobalChat(sender, text);
+        ChatWSClient.send(
+            sender.getGameProfile()
+                .getName(),
+            senderName,
+            text);
+
+        // CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
     }
 
     private static void sendLocal(EntityPlayerMP sender, String senderName, String text) {

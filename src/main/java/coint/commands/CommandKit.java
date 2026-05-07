@@ -266,11 +266,6 @@ public class CommandKit extends CommandBase {
                     return;
                 }
 
-                if (!hasKitRankAccess(player, name, kit)) {
-                    sendError(sender, "У вас нет доступа к набору: " + name);
-                    return;
-                }
-
                 if (!canFitAll(player, kit.getItems())) {
                     sendError(sender, "Инвентарь полон, набор не получен");
                     return;
@@ -295,6 +290,11 @@ public class CommandKit extends CommandBase {
                     }
                     KitManager.setKitClaimCount(player, name, claims + 1);
                     sendSuccess(sender, "Набор получен: " + name);
+                    return;
+                }
+
+                if (!hasKitRankAccess(player, name, kit)) {
+                    sendError(sender, "У вас нет доступа к набору: " + name);
                     return;
                 }
 
