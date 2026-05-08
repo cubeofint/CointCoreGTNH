@@ -1,11 +1,14 @@
 package coint.mixin.bloodmagic;
 
+import java.util.Objects;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -20,24 +23,46 @@ import serverutils.data.ClaimedChunks;
  * mining. We keep vanilla Blood Magic behavior, but deny deletion in foreign
  * claimed chunks via explicit ServerUtilities checks.
  */
-@Pseudo
 @Mixin(
     targets = { "WayofTime.alchemicalWizardry.common.items.BoundPickaxe",
         "WayofTime.alchemicalWizardry.common.items.BoundShovel", "WayofTime.alchemicalWizardry.common.items.BoundAxe" },
     remap = false)
 public abstract class MixinBoundToolsClaimGuard {
 
+    @Unique
+    private static final Logger COINT_LOGGER = LogManager.getLogger("cointcore-mixin");
+    @Unique
+    private static boolean cointcore$loggedFirstIntercept = false;
+
     @Redirect(
         method = "onItemRightClick(Lnet/minecraft/item/ItemStack;Lnet/minecraft/world/World;Lnet/minecraft/entity/player/EntityPlayer;)Lnet/minecraft/item/ItemStack;",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;setBlockToAir(III)Z"),
         remap = false,
-        require = 0)
+        require = 1)
+    @SuppressWarnings("null")
     private boolean cointcore$guardAoEBreak(World world, int x, int y, int z, ItemStack stack, World methodWorld,
         EntityPlayer player) {
         if (world == null || player == null) {
             return false;
         }
-        if (!world.isRemote && ClaimedChunks.isActive() && cointcore$isClaimDenied(player, x, y, z)) {
+        if (!cointcore$loggedFirstIntercept) {
+            cointcore$loggedFirstIntercept = true;
+            COINT_LOGGER.info(
+                "[MixinDebug] bloodmagic redirect active: worldRemote={}, player={}, pos=({}, {}, {})",
+                world.isRemote,
+                player.getCommandSenderName(),
+                x,
+                y,
+                z);
+        }
+        EntityPlayer safePlayer = Objects.requireNonNull(player, "player");
+        if (!world.isRemote && ClaimedChunks.isActive() && cointcore$isClaimDenied(safePlayer, x, y, z)) {
+            COINT_LOGGER.info(
+                "[MixinDebug] bloodmagic denied by claim check: player={}, pos=({}, {}, {})",
+                safePlayer.getCommandSenderName(),
+                x,
+                y,
+                z);
             return false;
         }
         if (world.isRemote) {

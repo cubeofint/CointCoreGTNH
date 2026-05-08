@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.lib.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
@@ -20,6 +22,9 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
  * classpath: if the target cannot be loaded the mixin must not be applied anyway.
  */
 public class CointMixinPlugin implements IMixinConfigPlugin {
+
+    private static final Logger LOGGER = LogManager.getLogger("cointcore-mixin");
+    private static final String BLOODMAGIC_MIXIN_PREFIX = "coint.mixin.bloodmagic.";
 
     @Override
     public void onLoad(String mixinPackage) {}
@@ -66,7 +71,11 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
             return isClassAvailable(targetClassName);
         }
         if (mixinClassName.contains(".bloodmagic.")) {
-            return isClassAvailable(targetClassName);
+            LOGGER.info(
+                "[MixinDebug] shouldApplyMixin bloodmagic mixin={}, target={}, forced=true",
+                mixinClassName,
+                targetClassName);
+            return true;
         }
 
         return true;
@@ -82,10 +91,26 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
     }
 
     @Override
-    public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
+    public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
+        if (mixinClassName != null && mixinClassName.startsWith(BLOODMAGIC_MIXIN_PREFIX)) {
+            LOGGER.info(
+                "[MixinDebug] preApply bloodmagic mixin={}, target={}, info={}",
+                mixinClassName,
+                targetClassName,
+                mixinInfo == null ? "null" : mixinInfo.getName());
+        }
+    }
 
     @Override
-    public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
+    public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
+        if (mixinClassName != null && mixinClassName.startsWith(BLOODMAGIC_MIXIN_PREFIX)) {
+            LOGGER.info(
+                "[MixinDebug] postApply bloodmagic mixin={}, target={}, info={}",
+                mixinClassName,
+                targetClassName,
+                mixinInfo == null ? "null" : mixinInfo.getName());
+        }
+    }
 
     /**
      * Returns {@code true} if {@code className} is present on the classpath.
