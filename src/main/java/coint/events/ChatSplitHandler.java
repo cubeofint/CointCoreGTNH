@@ -292,7 +292,7 @@ public class ChatSplitHandler {
             senderName,
             text);
 
-        // CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
+        CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
     }
 
     private static void sendLocal(EntityPlayerMP sender, String senderName, String text) {

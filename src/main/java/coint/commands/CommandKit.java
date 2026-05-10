@@ -35,17 +35,10 @@ public class CommandKit extends CommandBase {
     private static final String PERM_KIT_EDIT = "cointcore.command.kit.edit";
     /** Право на /kit add и /kit set (остаток использований). */
     private static final String PERM_KIT_RESET = "cointcore.command.kit.reset";
-    /**
-     * Доступ ко всем наборам с безлимитным maxClaims (типично для администраторов).
-     * Отдельные наборы по-прежнему можно узко выдавать через {@code cointcore.kit.<name>}.
-     */
-    public static final String PERM_KIT_ALL = "cointcore.kit.all";
 
     public CommandKit() {
         PermissionAPI.registerNode(PERM_KIT_EDIT, DefaultPermissionLevel.OP, "CointCore kit create and delete");
         PermissionAPI.registerNode(PERM_KIT_RESET, DefaultPermissionLevel.OP, "CointCore kit add and set claims");
-        PermissionAPI
-            .registerNode(PERM_KIT_ALL, DefaultPermissionLevel.OP, "CointCore kit: access all unlimited kits");
     }
 
     @Override
@@ -281,6 +274,8 @@ public class CommandKit extends CommandBase {
                         sendSuccess(sender, "Набор получен: " + name);
                         return;
                     }
+                    sendError(sender, "Нет доступных получений набора: " + name);
+                    return;
                 }
 
                 if (hasRemainingClaims(player, name, kit)) {
@@ -292,31 +287,9 @@ public class CommandKit extends CommandBase {
                     sendSuccess(sender, "Набор получен: " + name);
                     return;
                 }
-
-                if (!hasKitRankAccess(player, name, kit)) {
-                    sendError(sender, "У вас нет доступа к набору: " + name);
-                    return;
-                }
-
                 int maxClaims = kit.getMaxClaims();
-                if (maxClaims > 0) {
-                    int claims = KitManager.getKitClaimCount(player, name);
-                    if (claims >= maxClaims) {
-                        sendError(sender, "Лимит использований исчерпан (" + claims + "/" + maxClaims + ")");
-                        return;
-                    }
-                    for (ItemStack stack : kit.getItems()) {
-                        giveItem(player, stack.copy());
-                    }
-                    KitManager.setKitClaimCount(player, name, claims + 1);
-                    sendSuccess(sender, "Набор получен: " + name);
-                    return;
-                }
-
-                for (ItemStack stack : kit.getItems()) {
-                    giveItem(player, stack.copy());
-                }
-                sendSuccess(sender, "Набор получен: " + name);
+                int claims = KitManager.getKitClaimCount(player, name);
+                sendError(sender, "Лимит использований исчерпан (" + claims + "/" + maxClaims + ")");
                 return;
             }
             case "list": {
@@ -502,20 +475,6 @@ public class CommandKit extends CommandBase {
         return !PermissionAPI.hasPermission(player, PERM_KIT_EDIT);
     }
 
-    /**
-     * Ранговый доступ: глобально {@link #PERM_KIT_ALL} только для безлимитных наборов,
-     * либо точечно {@code cointcore.kit.<name>} для любого набора.
-     */
-    private boolean hasKitRankAccess(EntityPlayer player, String kitName, KitDefinition kit) {
-        if (PermissionAPI.hasPermission(player, "cointcore.kit." + kitName)) {
-            return true;
-        }
-        if (kit.getMaxClaims() >= 0) {
-            return false;
-        }
-        return PermissionAPI.hasPermission(player, PERM_KIT_ALL);
-    }
-
     private boolean hasRemainingClaims(EntityPlayer player, String kitName, KitDefinition kit) {
         int maxClaims = kit.getMaxClaims();
         if (maxClaims <= 0) {
@@ -526,16 +485,13 @@ public class CommandKit extends CommandBase {
     }
 
     /**
-     * Набор можно получить сейчас: безлимит — только с ранговым доступом; лимит — пока не исчерпан лимит
-     * получений (согласовано с ветками {@code claim}).
+     * Набор можно получить сейчас: безлимит — только при наличии бонусных получений; лимит — пока не исчерпан
+     * персональный лимит получений (согласовано с ветками {@code claim}).
      */
     private boolean canClaimKitNow(EntityPlayer player, String kitName, KitDefinition kit) {
         int maxClaims = kit.getMaxClaims();
         if (maxClaims < 0) {
-            if (KitManager.getKitBonusRemaining(player, kitName) > 0) {
-                return true;
-            }
-            return hasKitRankAccess(player, kitName, kit);
+            return KitManager.getKitBonusRemaining(player, kitName) > 0;
         }
         int claims = KitManager.getKitClaimCount(player, kitName);
         return claims < maxClaims;
