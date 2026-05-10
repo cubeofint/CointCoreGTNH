@@ -33,11 +33,14 @@ public class CointConfig {
     public static boolean syncNewPartyMembers = true;
     public static boolean autoParseRewardCommands = true;
 
-    // API settings
+    // API + WebSocket hub (все ключи пишутся в cointcore.cfg → секция [api])
     public static boolean notifyEnabled = false;
     public static String apiUrl = "";
     public static int apiTimeout = 10000;
+    /** Если false — к хабу не подключаемся, исходящие/входящие WS и /hub не ломают сервер. */
+    public static boolean wsHubEnabled = true;
     public static String wsHubUrl = "ws://localhost:5665/gtnh-chat";
+    /** Имя этого сервера в JSON сообщений хаба (поле server) и в префиксе входящего чата [server]. */
     public static String thisServer = "S";
 
     // Debug settings
@@ -113,8 +116,10 @@ public class CointConfig {
                 autoParseRewardCommands,
                 "Automatically parse /ranks add commands from quest rewards (no manual quest ID mapping needed)");
 
-            // API
-            config.addCustomCategoryComment(CATEGORY_API, "External API settings");
+            // API + WebSocket hub (секция [api] в cointcore.cfg)
+            config.addCustomCategoryComment(
+                CATEGORY_API,
+                "HTTP: enable, url, timeout. WebSocket hub: wsHubEnabled, wsHubUrl, thisServer — межсерверный релей глобального чата.");
             notifyEnabled = config.getBoolean("enable", CATEGORY_API, false, "Enable api notify");
             apiUrl = config.getString(
                 "url",
@@ -123,9 +128,21 @@ public class CointConfig {
                 "Base URL for external API (leave empty to use API_URL env variable)");
             apiTimeout = config
                 .getInt("timeout", CATEGORY_API, apiTimeout, 1000, 60000, "API request timeout in milliseconds");
-            wsHubUrl = config.getString("wsHubUrl", CATEGORY_API, wsHubUrl, "Websocket Hub Url");
-            thisServer = config
-                .getString("thisServer", CATEGORY_API, thisServer, "Name of this server displayed in chats");
+            wsHubEnabled = config.getBoolean(
+                "wsHubEnabled",
+                CATEGORY_API,
+                wsHubEnabled,
+                "Подключаться к WebSocket-хабу. false — без подключения, без ошибок в чате/логах от релея");
+            wsHubUrl = config.getString(
+                "wsHubUrl",
+                CATEGORY_API,
+                wsHubUrl,
+                "URL хаба (ws:// или wss://), путь как у сервера-хаба, напр. ws://host:5665/gtnh-chat");
+            thisServer = config.getString(
+                "thisServer",
+                CATEGORY_API,
+                thisServer,
+                "Короткое имя этого сервера в JSON (поле server) и в виде [имя] во входящих сообщениях с хаба");
 
             // Debug
             config.addCustomCategoryComment(CATEGORY_DEBUG, "Debug settings");
