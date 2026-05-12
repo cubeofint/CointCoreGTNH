@@ -1,15 +1,68 @@
-
-name: Build and test
+name: Build & Release
 
 on:
-  pull_request:
-    branches: [ master, main ]
   push:
-    branches: [ master, main ]
+    branches:
+      - master   # автоматический запуск при merge в master
+  workflow_dispatch:   # ручной запуск
+    inputs:
+      version:
+        description: 'Release version (например 1.5.1)'
+        required: false
+        default: ''
 
-permissions: write-all
+permissions:
+  contents: write
 
 jobs:
-  build-and-test:
-    uses: GTNewHorizons/GTNH-Actions-Workflows/.github/workflows/build-and-test.yml@master
-    secrets: inherit
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: build/libs/*.jar
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            # Ручной запуск: используем введённую версию
+            NEW_TAG="v${{ github.event.inputs.version }}"
+          else
+            # Автоматический запуск: берём последний тег и увеличиваем patch
+            LAST_TAG=$(git describe --tags --abbrev=0)
+            VERSION=${LAST_TAG#v}
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            PATCH=$((PATCH + 1))
+            NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git tag -a "${{ steps.version.outputs.new_tag }}" -m "Release ${{ steps.version.outputs.new_tag }}"
+          git push origin "${{ steps.version.outputs.new_tag }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.new_tag }}
+          name: Release ${{ steps.version.outputs.new_tag }}
+          files: build/libs/*.jar
