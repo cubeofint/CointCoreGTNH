@@ -32,11 +32,10 @@ import serverutils.ranks.Ranks;
  * Разделяет игровой чат на <b>локальный</b> и <b>глобальный</b>.
  *
  * <ul>
- * <li>Сообщение, начинающееся с {@link CointConfig#globalChatPrefix} (по умолчанию {@code !}),
+ * <li>Сообщение, начинающееся с {@link coint.config.CointConfig.Chat#prefix} (по умолчанию {@code !}),
  * рассылается всем онлайн-игрокам во всех измерениях.</li>
  * <li>Любое другое сообщение рассылается только тем игрокам, которые находятся
- * в пределах {@link CointConfig#localChatRadius} блоков (и, если
- * {@link CointConfig#sameDimensionOnly} включён, в том же измерении).</li>
+ * в пределах {@link coint.config.CointConfig.Chat#radius} блоков и в том же измерении.</li>
  * </ul>
  *
  * <p>
@@ -133,7 +132,7 @@ public class ChatSplitHandler {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onServerChat(ServerChatEvent event) {
-        if (!CointConfig.chatSplitEnabled) {
+        if (!CointConfig.chat.splitEnabled) {
             return;
         }
 
@@ -147,7 +146,7 @@ public class ChatSplitHandler {
         EntityPlayerMP sender = event.player;
         String rawMessage = event.message;
 
-        String prefix = CointConfig.globalChatPrefix;
+        String prefix = CointConfig.chat.prefix;
         boolean isGlobal = prefix != null && !prefix.isEmpty() && event.message.startsWith(prefix);
 
         String text = isGlobal ? rawMessage.substring(prefix.length())
@@ -275,32 +274,29 @@ public class ChatSplitHandler {
     // Send helpers
     // ------------------------------------------------------------------
 
+    // TODO: Extract Chat interactions to other package (may be util)
     private static void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
         String colorCode = getTextColorCode(sender);
-        String formatted = String.format(CointConfig.globalChatFormat, senderName, text.replaceAll("\\b", colorCode));
+        String formatted = String.format(CointConfig.chat.globalFormat, senderName, text.replaceAll("\\b", colorCode));
         ChatComponentText component = new ChatComponentText(formatted);
 
         MinecraftServer.getServer()
             .getConfigurationManager()
             .sendChatMsg(component);
 
-        // Forward to Discord via Nilcord (no-op if Nilcord is not installed).
-        // NilcordBridge.forwardGlobalChat(sender, text);
         ChatWSClient.send(
             sender.getGameProfile()
                 .getName(),
             senderName,
             text);
-
-        CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
     }
 
     private static void sendLocal(EntityPlayerMP sender, String senderName, String text) {
         String colorCode = getTextColorCode(sender);
-        String formatted = String.format(CointConfig.localChatFormat, senderName, colorCode + text);
+        String formatted = String.format(CointConfig.chat.localFormat, senderName, text.replaceAll("\\b", colorCode));
         ChatComponentText component = new ChatComponentText(formatted);
 
-        double radiusSq = CointConfig.localChatRadius * CointConfig.localChatRadius;
+        double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
         int senderDim = sender.dimension;
 
         List<EntityPlayerMP> players = MinecraftServer.getServer()
@@ -316,7 +312,7 @@ public class ChatSplitHandler {
         }
 
         CointCore.LOG
-            .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.localChatRadius, senderName, text, recipients);
+            .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.chat.radius, senderName, text, recipients);
 
         // Notify admins who have /localspy enabled and were out of range.
         LocalSpyRegistry.notifySpies(sender, senderName, text);

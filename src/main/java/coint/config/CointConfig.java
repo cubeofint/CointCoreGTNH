@@ -1,230 +1,138 @@
 package coint.config;
 
-import java.io.File;
+import java.net.URI;
+import java.net.URISyntaxException;
 
-import net.minecraftforge.common.config.Configuration;
+import com.gtnewhorizon.gtnhlib.config.Config;
+import com.gtnewhorizon.gtnhlib.config.ConfigException;
+import com.gtnewhorizon.gtnhlib.config.ConfigurationManager;
 
 import coint.CointCore;
 
 /**
  * Configuration handler for CointCore.
  */
+@Config(modid = CointCore.MOD_ID, category = "")
 public class CointConfig {
 
-    // Categories
-    public static final String CATEGORY_GENERAL = "general";
-    public static final String CATEGORY_EPOCHSYNC = "epochsync";
-    public static final String CATEGORY_API = "api";
-    public static final String CATEGORY_DEBUG = "debug";
-    public static final String CATEGORY_TASKS = "tasks";
-    public static final String CATEGORY_CHAT = "chat";
-    public static final String CATEGORY_LIMITER = "limiter";
-    public static final String CATEGORY_LOGIN_MESSAGE = "login_message";
+    public static void load() throws ConfigException {
+        ConfigurationManager.registerConfig(CointConfig.class);
+    }
 
-    private static Configuration config;
+    public static final General general = new General();
+    public static final Epochs epochs = new Epochs();
+    public static final Api api = new Api();
+    public static final MobLimiter limiter = new MobLimiter();
+    public static final Chat chat = new Chat();
 
-    // General settings
-    public static String greeting = "Hello from CointCore!";
+    public static class General {
 
-    // EpochSync settings
-    public static boolean epochSyncEnabled = true;
-    public static boolean autoSyncOnQuestComplete = true;
-    public static boolean partySyncEnabled = true;
-    public static boolean syncNewPartyMembers = true;
-    public static boolean autoParseRewardCommands = true;
+        @Config.Comment("Enable cleanup")
+        @Config.DefaultBoolean(true)
+        public boolean cleanupEnabled;
+    }
 
-    // API settings
-    public static boolean notifyEnabled = false;
-    public static String apiUrl = "";
-    public static int apiTimeout = 10000;
-    public static String wsHubUrl = "ws://localhost:5665/gtnh-chat";
-    public static String thisServer = "S";
+    public static class Epochs {
 
-    // Debug settings
-    public static boolean debugMode = false;
-    public static boolean verboseLogging = false;
+        @Config.Comment("Enable epoch synchronization module")
+        @Config.DefaultBoolean(true)
+        public boolean enabled;
 
-    // Cleanup task settings
-    public static boolean cleanupEnabled = true;
+        @Config.Comment("Automatically sync rank when a quest is completed")
+        @Config.DefaultBoolean(true)
+        public boolean syncOnQuestComplete;
 
-    // Mob limiter
-    public static boolean limiterEnabled = true;
-    public static int limiterChunkCup = 20;
-    public static int limiterPassiveCup = 20;
-    public static int limiterHostileCup = 20;
+        @Config.Comment("Sync ranks to all party members when a quest is completed")
+        @Config.DefaultBoolean(true)
+        public boolean partySync;
 
-    // Chat split settings
-    public static boolean chatSplitEnabled = true;
-    public static double localChatRadius = 100.0;
-    public static String globalChatPrefix = "!";
-    public static boolean sameDimensionOnly = true;
-    public static String localChatFormat = "§7[Лок] %s§r§7: §f%s";
-    public static String globalChatFormat = "§a[Глоб] %s§r§7: §f%s";
+        @Config.Comment("Sync ranks to new players when they join a party")
+        @Config.DefaultBoolean(true)
+        public boolean syncNewPartyMembers;
+    }
 
-    // Login message override settings (NewHorizonsCoreMod LoginHandler)
-    public static boolean loginMessageOverrideEnabled = false;
-    public static String[] loginMessageLines = new String[] {
-        "&6&m-----------------------------------------------------", "&fWelcome to our server, %player%!",
-        "&7Configure these lines in cointcore.cfg -> [login_message]" };
+    @Config.Comment("only for local web api")
+    public static class Api {
 
-    /**
-     * Initialize and load configuration
-     */
-    public static void init(File configFile) {
-        if (config == null) {
-            config = new Configuration(configFile);
-            loadConfig();
+        @Config.Comment("[WIP] Enable sending player epoch updates")
+        @Config.DefaultBoolean(false)
+        public boolean notifyEnabled;
+
+        @Config.Comment("Enable player to server binding")
+        @Config.DefaultBoolean(false)
+        public boolean bindingEnabled;
+
+        @Config.Comment("API host")
+        @Config.DefaultString("localhost:5665")
+        public String host;
+
+        @Config.Comment("Server Tag in chat")
+        @Config.DefaultString("S")
+        public String serverTag;
+
+        public URI getChatWs() throws URISyntaxException {
+            return new URI("ws://" + host + "/gtnh-chat");
+        }
+
+        public URI buildUri(String ep) throws URISyntaxException {
+            return new URI("http://" + host + "/gtnh" + ep);
         }
     }
 
-    /**
-     * Load configuration values
-     */
-    public static void loadConfig() {
-        try {
-            config.load();
+    public static class MobLimiter {
 
-            // General
-            config.addCustomCategoryComment(CATEGORY_GENERAL, "General CointCore settings");
-            greeting = config.getString("greeting", CATEGORY_GENERAL, greeting, "Greeting message shown on startup");
+        @Config.Comment("Enable mob limiter")
+        @Config.DefaultBoolean(true)
+        public boolean enabled;
 
-            // EpochSync
-            config.addCustomCategoryComment(CATEGORY_EPOCHSYNC, "Epoch synchronization settings");
-            epochSyncEnabled = config
-                .getBoolean("enabled", CATEGORY_EPOCHSYNC, epochSyncEnabled, "Enable epoch synchronization module");
-            autoSyncOnQuestComplete = config.getBoolean(
-                "autoSyncOnQuestComplete",
-                CATEGORY_EPOCHSYNC,
-                autoSyncOnQuestComplete,
-                "Automatically sync rank when a quest is completed");
-            partySyncEnabled = config.getBoolean(
-                "partySyncEnabled",
-                CATEGORY_EPOCHSYNC,
-                partySyncEnabled,
-                "Sync ranks to all party members when a quest is completed");
-            syncNewPartyMembers = config.getBoolean(
-                "syncNewPartyMembers",
-                CATEGORY_EPOCHSYNC,
-                syncNewPartyMembers,
-                "Sync ranks to new players when they join a party");
-            autoParseRewardCommands = config.getBoolean(
-                "autoParseRewardCommands",
-                CATEGORY_EPOCHSYNC,
-                autoParseRewardCommands,
-                "Automatically parse /ranks add commands from quest rewards (no manual quest ID mapping needed)");
+        @Config.Comment("General chunk mobs cup")
+        @Config.DefaultInt(20)
+        @Config.RangeInt(min = 0, max = 50)
+        public int chunkCup;
 
-            // API
-            config.addCustomCategoryComment(CATEGORY_API, "External API settings");
-            notifyEnabled = config.getBoolean("enable", CATEGORY_API, false, "Enable api notify");
-            apiUrl = config.getString(
-                "url",
-                CATEGORY_API,
-                apiUrl,
-                "Base URL for external API (leave empty to use API_URL env variable)");
-            apiTimeout = config
-                .getInt("timeout", CATEGORY_API, apiTimeout, 1000, 60000, "API request timeout in milliseconds");
-            wsHubUrl = config.getString("wsHubUrl", CATEGORY_API, wsHubUrl, "Websocket Hub Url");
-            thisServer = config
-                .getString("thisServer", CATEGORY_API, thisServer, "Name of this server displayed in chats");
+        @Config.Comment("Passive mobs cup")
+        @Config.DefaultInt(20)
+        @Config.RangeInt(min = 0, max = 50)
+        public int passiveCup;
 
-            // Debug
-            config.addCustomCategoryComment(CATEGORY_DEBUG, "Debug settings");
-            debugMode = config.getBoolean("debugMode", CATEGORY_DEBUG, debugMode, "Enable debug mode");
-            verboseLogging = config
-                .getBoolean("verboseLogging", CATEGORY_DEBUG, verboseLogging, "Enable verbose logging");
+        @Config.Comment("Hostile mobs cup")
+        @Config.DefaultInt(20)
+        @Config.RangeInt(min = 0, max = 50)
+        public int hostileCup;
 
-            // Tasks
-            config.addCustomCategoryComment(CATEGORY_TASKS, "tasks settings");
-            cleanupEnabled = config.getBoolean(
-                "cleanupEnabled",
-                CATEGORY_TASKS,
-                cleanupEnabled,
-                "Enable cleanup task (server utilities config)");
-
-            // Tasks
-            config.addCustomCategoryComment(CATEGORY_LIMITER, "limiter settings");
-            limiterEnabled = config
-                .getBoolean("limiterEnabled", CATEGORY_LIMITER, limiterEnabled, "Enable Mob Limiter");
-            limiterChunkCup = config
-                .getInt("limiterChunkCup", CATEGORY_LIMITER, limiterChunkCup, 0, 50, "All mobs chunk limit");
-            limiterHostileCup = config
-                .getInt("limiterHostileCup", CATEGORY_LIMITER, limiterHostileCup, 0, 50, "Hostile mob limit");
-            limiterPassiveCup = config
-                .getInt("limiterPassiveCup", CATEGORY_LIMITER, limiterPassiveCup, 0, 50, "Passive mob limit");
-
-            // Chat split
-            config.addCustomCategoryComment(CATEGORY_CHAT, "Local/global chat split settings");
-            chatSplitEnabled = config.getBoolean(
-                "enabled",
-                CATEGORY_CHAT,
-                chatSplitEnabled,
-                "Enable local/global chat split. Local chat is distance-limited; prefix a message with '!' to send globally.");
-            localChatRadius = config.getFloat(
-                "localRadius",
-                CATEGORY_CHAT,
-                (float) localChatRadius,
-                1f,
-                10000f,
-                "Radius (in blocks) within which local chat messages are visible");
-            globalChatPrefix = config.getString(
-                "globalPrefix",
-                CATEGORY_CHAT,
-                globalChatPrefix,
-                "Prefix character that switches a message to global chat (e.g. '!')");
-            sameDimensionOnly = config.getBoolean(
-                "sameDimensionOnly",
-                CATEGORY_CHAT,
-                sameDimensionOnly,
-                "If true, local chat is only visible to players in the same dimension");
-            localChatFormat = config.getString(
-                "localFormat",
-                CATEGORY_CHAT,
-                localChatFormat,
-                "Format string for local chat. %s placeholders: 1=player name, 2=message");
-            globalChatFormat = config.getString(
-                "globalFormat",
-                CATEGORY_CHAT,
-                globalChatFormat,
-                "Format string for global chat. %s placeholders: 1=player name, 2=message");
-
-            // Login message override
-            config.addCustomCategoryComment(
-                CATEGORY_LOGIN_MESSAGE,
-                "Overrides NewHorizonsCoreMod login welcome text. Open to LAN warning is kept original.");
-            loginMessageOverrideEnabled = config.getBoolean(
-                "enabled",
-                CATEGORY_LOGIN_MESSAGE,
-                loginMessageOverrideEnabled,
-                "Enable replacing NHCore login welcome lines with values from this category");
-            loginMessageLines = config.getStringList(
-                "lines",
-                CATEGORY_LOGIN_MESSAGE,
-                loginMessageLines,
-                "Custom welcome lines sent on PlayerLoggedInEvent. Supports placeholders: %player% and %mod_version%. Supports '&' color codes. http/https links are auto-detected and sent as clickable links.");
-
-        } catch (Exception e) {
-            CointCore.LOG.error("Error loading config: {}", e.getMessage());
-        } finally {
-            if (config.hasChanged()) {
-                config.save();
-            }
-        }
     }
 
-    /**
-     * Get the effective API URL (from config or environment variable)
-     */
-    public static String getEffectiveApiUrl() {
-        if (apiUrl != null && !apiUrl.isEmpty()) {
-            return apiUrl;
-        }
-        return System.getenv("API_URL");
-    }
+    // TODO: move to client mod
+    public static class Chat {
 
-    /**
-     * Get the configuration instance
-     */
-    public static Configuration getConfig() {
-        return config;
+        @Config.Comment("Enable chat splitting")
+        @Config.DefaultBoolean(true)
+        public boolean splitEnabled;
+
+        @Config.Comment("Radius of local chat")
+        @Config.DefaultInt(300)
+        @Config.RangeInt(min = 50, max = 10000)
+        public int radius;
+
+        @Config.Comment("Prefix for global chat")
+        @Config.DefaultString("!")
+        public String prefix;
+
+        @Config.Comment("Formatting of global chat")
+        @Config.DefaultString("§7[L] %s§r§7: §f%s")
+        public String localFormat;
+
+        @Config.Comment("Formatting of global chat")
+        @Config.DefaultString("§a[G] %s§r§7: §f%s")
+        public String globalFormat;
+
+        @Config.Comment("Enable login message")
+        @Config.DefaultBoolean(true)
+        public boolean loginMsgEnabled;
+
+        @Config.Comment("Formatting of global chat")
+        @Config.DefaultStringList({ "&6&m————————————————————————————————————————————",
+            "&fWelcome to our server, %player%!", "&7Configure these lines in cointcore.cfg -> [login_message]" })
+        public String[] loginMessageLines;
     }
 }

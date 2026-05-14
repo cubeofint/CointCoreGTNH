@@ -212,7 +212,7 @@ public class RanksManager {
         }
 
         // Notify external API
-        if (CointConfig.notifyEnabled) {
+        if (CointConfig.api.notifyEnabled) {
             notifyApiRankChange(playerId, rank);
         }
     }
@@ -220,12 +220,9 @@ public class RanksManager {
     /**
      * Notify external API about rank change
      */
+    // TODO: rework
     private void notifyApiRankChange(UUID playerId, String rank) {
-        String apiUrl = CointConfig.getEffectiveApiUrl();
-        if (apiUrl == null || apiUrl.isEmpty()) {
-            LOG.debug("API URL not configured, skipping notification");
-            return;
-        }
+        String apiUrl = null;
 
         JsonObject data = new JsonObject();
         data.addProperty("player_id", playerId.toString());
@@ -249,7 +246,7 @@ public class RanksManager {
             return;
         }
 
-        String apiUrl = CointConfig.getEffectiveApiUrl();
+        String apiUrl = null;
         if (apiUrl == null || apiUrl.isEmpty()) {
             LOG.warn("API URL not configured, cannot sync ranks");
             return;

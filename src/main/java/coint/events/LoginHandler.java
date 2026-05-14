@@ -27,9 +27,14 @@ public class LoginHandler {
 
     private static final Pattern COINTCORE_URL_PATTERN = Pattern.compile("https?://\\S+");
 
+    @EventBusSubscriber.Condition
+    public static boolean isEnabled() {
+        return CointConfig.chat.loginMsgEnabled;
+    }
+
     @SubscribeEvent
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
-        String[] lines = CointConfig.loginMessageLines;
+        String[] lines = CointConfig.chat.loginMessageLines;
         if (lines == null || lines.length == 0) {
             return;
         }

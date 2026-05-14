@@ -2,7 +2,6 @@ package coint.core;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.concurrent.ScheduledExecutorService;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
@@ -27,7 +26,7 @@ public class ChatWSClient extends WebSocketClient {
     public static void init() {
         URI uri = null;
         try {
-            uri = new URI(CointConfig.wsHubUrl);
+            uri = CointConfig.api.getChatWs();
         } catch (URISyntaxException e) {
             CointCore.LOG.error(e.getMessage());
         }
@@ -108,7 +107,7 @@ public class ChatWSClient extends WebSocketClient {
         public String text;
 
         public WSMessage(String sender, String senderFormatted, String text) {
-            this.server = CointConfig.thisServer;
+            this.server = CointConfig.api.serverTag;
             this.sender = sender;
             this.senderFormatted = senderFormatted;
             this.text = text;

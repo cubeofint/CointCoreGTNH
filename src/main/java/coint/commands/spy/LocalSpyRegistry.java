@@ -37,7 +37,9 @@ public final class LocalSpyRegistry {
 
     private static final Set<String> SPIES = ConcurrentHashMap.newKeySet();
 
-    /** Prefix shown before every spy-copy message. */
+    /**
+     * Prefix shown before every spy-copy message.
+     */
     public static final String SPY_PREFIX = EnumChatFormatting.DARK_GRAY + "["
         + EnumChatFormatting.LIGHT_PURPLE
         + "ЛОКАЛ"
@@ -66,12 +68,16 @@ public final class LocalSpyRegistry {
                     : EnumChatFormatting.RED + "Выключен."));
     }
 
-    /** Returns {@code true} if the player currently has local-spy mode on. */
+    /**
+     * Returns {@code true} if the player currently has local-spy mode on.
+     */
     public static boolean isEnabled(String playerName) {
         return SPIES.contains(playerName);
     }
 
-    /** Removes the entry; call on player disconnect to avoid stale state. */
+    /**
+     * Removes the entry; call on player disconnect to avoid stale state.
+     */
     public static void remove(String playerName) {
         SPIES.remove(playerName);
     }
@@ -91,20 +97,15 @@ public final class LocalSpyRegistry {
      * @param senderDisplay rank-formatted display name
      * @param text          raw message text (no colour codes from the local format string)
      */
+    // TODO?: rework with set of players (merge spy and receivers list?)
     public static void notifySpies(EntityPlayerMP sender, String senderDisplay, String text) {
         if (SPIES.isEmpty()) return;
 
-        double radiusSq = CointConfig.localChatRadius * CointConfig.localChatRadius;
+        double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
         int senderDim = sender.dimension;
 
         // Location suffix shown to spies — dimension + integer block coordinates.
-        String location = EnumChatFormatting.DARK_GRAY + "(dim:"
-            + senderDim
-            + " x:"
-            + (int) sender.posX
-            + " z:"
-            + (int) sender.posZ
-            + ")";
+        String location = EnumChatFormatting.DARK_GRAY + "(dim:" + senderDim + ")";
 
         for (EntityPlayerMP spy : MinecraftServer.getServer()
             .getConfigurationManager().playerEntityList) {
@@ -114,13 +115,8 @@ public final class LocalSpyRegistry {
             if (spy == sender) continue; // sender already sees their own text
 
             // Skip if the spy was already within range (they got the normal message).
-            if (!CointConfig.sameDimensionOnly || spy.dimension == senderDim) {
-                double dx = spy.posX - sender.posX;
-                double dy = spy.posY - sender.posY;
-                double dz = spy.posZ - sender.posZ;
-                if (dx * dx + dy * dy + dz * dz <= radiusSq) {
-                    continue;
-                }
+            if (spy.dimension == senderDim && sender.getDistanceSqToEntity(spy) <= radiusSq) {
+                continue;
             }
 
             ChatComponentText msg = new ChatComponentText(

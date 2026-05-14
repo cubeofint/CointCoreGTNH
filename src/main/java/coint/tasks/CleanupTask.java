@@ -45,6 +45,7 @@ public class CleanupTask extends Task {
     public void execute(Universe universe) {
         int removed = 0;
         for (World world : universe.server.worldServers) {
+            // TODO: check only dimensions from config
             for (Entity entity : new ArrayList<>(world.loadedEntityList)) {
                 if (shouldDespawn(entity)) {
                     entity.setDead();

@@ -75,7 +75,7 @@ public class EpochSyncModule implements IModule {
 
     @Override
     public boolean isEnabled() {
-        return CointConfig.epochSyncEnabled;
+        return CointConfig.epochs.enabled;
     }
 
     /**

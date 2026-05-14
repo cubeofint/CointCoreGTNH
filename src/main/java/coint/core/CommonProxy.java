@@ -1,5 +1,8 @@
 package coint.core;
 
+import com.gtnewhorizon.gtnhlib.config.ConfigException;
+import com.gtnewhorizon.gtnhlib.config.ConfigurationManager;
+
 import coint.CointCore;
 import coint.Tags;
 import coint.commands.CmdRegistry;
@@ -39,9 +42,13 @@ public class CommonProxy {
      */
     public void preInit(FMLPreInitializationEvent event) {
         // Initialize configuration
-        CointConfig.init(event.getSuggestedConfigurationFile());
+        // CointConfig.init(event.getSuggestedConfigurationFile());
+        try {
+            ConfigurationManager.registerConfig(CointConfig.class);
+        } catch (ConfigException e) {
+            throw new RuntimeException(e);
+        }
 
-        CointCore.LOG.info(CointConfig.greeting);
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);
 
         // Register modules
@@ -114,7 +121,7 @@ public class CommonProxy {
     public void serverStarted(FMLServerStartedEvent event) {
         if (!ServerUtilitiesConfig.tasks.cleanup.enabled) {
             Universe universe = Universe.get();
-            universe.scheduleTask(new CleanupTask(), CointConfig.cleanupEnabled);
+            universe.scheduleTask(new CleanupTask(), CointConfig.general.cleanupEnabled);
         }
         // Register epoch ranks into ServerUtilities now that both EpochRegistry and
         // Ranks.INSTANCE are guaranteed to be fully initialized.

@@ -43,7 +43,7 @@ public class BQIntegration implements IIntegration {
         CointCore.LOG.debug("Registered PartyEventListener");
 
         // Set up mixin callback for party join events
-        if (CointConfig.syncNewPartyMembers) {
+        if (CointConfig.epochs.syncNewPartyMembers) {
             PartyAccessor.setOnPlayerJoinPartyCallback((playerId, party) -> {
                 CointCore.LOG.debug("Mixin callback: player {} joined party", playerId);
                 partyEventListener.onPlayerJoinParty(playerId, party);

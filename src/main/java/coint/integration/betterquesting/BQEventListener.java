@@ -36,7 +36,7 @@ public class BQEventListener {
             return;
         }
 
-        if (!CointConfig.autoSyncOnQuestComplete) {
+        if (!CointConfig.epochs.syncOnQuestComplete) {
             LOG.debug("Auto sync on quest complete is disabled");
             return;
         }

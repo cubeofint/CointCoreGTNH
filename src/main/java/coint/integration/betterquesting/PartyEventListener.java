@@ -34,7 +34,7 @@ public class PartyEventListener {
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        if (!CointConfig.syncNewPartyMembers || !CointConfig.partySyncEnabled) {
+        if (!CointConfig.epochs.syncNewPartyMembers || !CointConfig.epochs.partySync) {
             return;
         }
 
@@ -107,7 +107,7 @@ public class PartyEventListener {
      * @param party    The party they joined
      */
     public void onPlayerJoinParty(UUID playerId, IParty party) {
-        if (!CointConfig.syncNewPartyMembers || !CointConfig.partySyncEnabled) {
+        if (!CointConfig.epochs.syncNewPartyMembers || !CointConfig.epochs.partySync) {
             LOG.debug("Party sync disabled, skipping sync for player {}", playerId);
             return;
         }

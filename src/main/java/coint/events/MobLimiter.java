@@ -21,7 +21,7 @@ public class MobLimiter {
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onMobSpawn(EntityJoinWorldEvent event) {
-        if (!CointConfig.limiterEnabled) return;
+        if (!CointConfig.limiter.enabled) return;
         if (event.entity instanceof EntityPlayer) return;
 
         int passive = 0;
@@ -37,22 +37,19 @@ public class MobLimiter {
                     continue;
                 }
 
-                if (isPassive(entity)) {
-                    passive++;
-                    continue;
+                if (isPassive(entity) && passive++ >= CointConfig.limiter.passiveCup) {
+                    event.setCanceled(true);
+                    return;
                 }
-                if (entity instanceof IMob) {
-                    hostile++;
+                if ((entity instanceof IMob) && hostile++ >= CointConfig.limiter.hostileCup) {
+                    event.setCanceled(true);
+                    return;
+                }
+                if (passive + hostile >= CointConfig.limiter.chunkCup) {
+                    event.setCanceled(true);
+                    return;
                 }
             }
-        }
-
-        if (isPassive(event.entity) && passive >= CointConfig.limiterPassiveCup) {
-            event.setCanceled(true);
-            return;
-        }
-        if (event.entity instanceof IMob && hostile >= CointConfig.limiterHostileCup) {
-            event.setCanceled(true);
         }
     }
 
