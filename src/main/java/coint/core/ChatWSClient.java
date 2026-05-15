@@ -24,48 +24,25 @@ public class ChatWSClient extends WebSocketClient {
     MinecraftServer server;
 
     public static void init() {
-        if (gson == null) {
-            gson = new Gson();
-        }
-        if (!CointConfig.wsHubEnabled) {
-            inst = null;
-            CointCore.LOG.info("[Hub WS] Отключено в cointcore.cfg (wsHubEnabled=false)");
-            return;
-        }
-
-        URI uri;
+        URI uri = null;
         try {
             uri = CointConfig.api.getChatWs();
         } catch (URISyntaxException e) {
-            CointCore.LOG.error("[Hub WS] Некорректный wsHubUrl: {}", e.getMessage());
-            inst = null;
-            return;
+            CointCore.LOG.error(e.getMessage());
         }
-
         inst = new ChatWSClient(uri);
         inst.connect();
     }
 
     public static void send(String sender, String senderFormatted, String text) {
-        if (!CointConfig.wsHubEnabled || inst == null) {
-            return;
-        }
-        if (gson == null) {
-            gson = new Gson();
-        }
-        if (!inst.isOpen()) {
-            return;
-        }
-        try {
-            String msg = gson.toJson(new WSMessage(sender, senderFormatted, text));
-            inst.send(msg);
-        } catch (Exception e) {
-            CointCore.LOG.warn("[Hub WS] Не удалось отправить сообщение: {}", e.getMessage());
-        }
+        String msg = gson.toJson(new WSMessage(sender, senderFormatted, text));
+        inst.send(msg);
     }
 
     public ChatWSClient(URI serverUri) {
         super(serverUri);
+
+        gson = new Gson();
         server = MinecraftServer.getServer();
     }
 
@@ -79,14 +56,11 @@ public class ChatWSClient extends WebSocketClient {
 
     @Override
     public void onMessage(String message) {
-        if (!CointConfig.wsHubEnabled || server == null) {
+        if (server == null) {
             return;
         }
 
         WSMessage msg = gson.fromJson(message, WSMessage.class);
-        if (msg == null) {
-            return;
-        }
 
         IChatComponent c = new ChatComponentText(
             EnumChatFormatting.GREEN + "[" + msg.server + "] " + EnumChatFormatting.RESET).appendText(msg.sender + ": ")
@@ -106,20 +80,13 @@ public class ChatWSClient extends WebSocketClient {
             while (attempts < 5) {
                 try {
                     Thread.sleep(5000);
-                    if (!CointConfig.wsHubEnabled) {
-                        CointCore.LOG.info("[Hub WS] Повторное подключение отменено (wsHubEnabled=false)");
-                        return;
-                    }
                     CointCore.LOG.info("Hub ws reconnection attempt {}", attempts + 1);
-                    if (inst != null && inst.reconnectBlocking()) {
+                    if (inst.reconnectBlocking()) {
                         CointCore.LOG.info("Hub ws reconnected");
                         return;
                     }
                 } catch (InterruptedException e) {
                     CointCore.LOG.info(e.getMessage());
-                    Thread.currentThread()
-                        .interrupt();
-                    return;
                 }
                 attempts++;
             }

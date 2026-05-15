@@ -7,7 +7,6 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
-import coint.config.CointConfig;
 import coint.core.ChatWSClient;
 
 public class CommandHub extends CommandBase {
@@ -35,12 +34,6 @@ public class CommandHub extends CommandBase {
 
         switch (args[0]) {
             case "reconnect": {
-                if (!CointConfig.wsHubEnabled) {
-                    sender.addChatMessage(
-                        new ChatComponentText(
-                            EnumChatFormatting.RED + "WebSocket-хаб отключён в cointcore.cfg (wsHubEnabled=false)"));
-                    return;
-                }
                 if (ChatWSClient.inst == null) {
                     ChatWSClient.init();
                     sender.addChatMessage(
