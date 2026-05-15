@@ -1,7 +1,6 @@
 package coint.core;
 
 import com.gtnewhorizon.gtnhlib.config.ConfigException;
-import com.gtnewhorizon.gtnhlib.config.ConfigurationManager;
 
 import coint.CointCore;
 import coint.Tags;
@@ -10,12 +9,10 @@ import coint.commands.spy.DmLogger;
 import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
 import coint.config.CointConfig;
+import coint.epochsync.EpochRegistry;
 import coint.events.KeepInventoryHandler;
 import coint.integration.serverutilities.CointSUPermissions;
 import coint.integration.serverutilities.RanksManager;
-import coint.integration.serverutilities.SUIntegration;
-import coint.module.epochsync.EpochRegistry;
-import coint.module.epochsync.EpochSyncModule;
 import coint.tasks.CleanupTask;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
@@ -35,8 +32,6 @@ import serverutils.lib.util.permission.PermissionAPI;
  */
 public class CommonProxy {
 
-    protected final ModuleManager moduleManager = new ModuleManager();
-
     /**
      * Called during FML preInit phase
      */
@@ -44,18 +39,12 @@ public class CommonProxy {
         // Initialize configuration
         // CointConfig.init(event.getSuggestedConfigurationFile());
         try {
-            ConfigurationManager.registerConfig(CointConfig.class);
+            CointConfig.load();
         } catch (ConfigException e) {
             throw new RuntimeException(e);
         }
 
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);
-
-        // Register modules
-        registerModules();
-
-        // PreInit modules
-        moduleManager.preInit();
     }
 
     /**
@@ -63,6 +52,7 @@ public class CommonProxy {
      */
     @SuppressWarnings("unused")
     public void init(FMLInitializationEvent event) {
+        // TODO: move to PermissionUtils
         PermissionAPI.registerNode(
             KeepInventoryHandler.PERMISSION,
             DefaultPermissionLevel.NONE,
@@ -91,8 +81,6 @@ public class CommonProxy {
             CointSUPermissions.TPL_TO_PROTECTED,
             DefaultPermissionLevel.OP,
             "Teleport to protected players via /tpl (e.g. admins)");
-
-        moduleManager.init();
     }
 
     /**
@@ -103,7 +91,6 @@ public class CommonProxy {
 
     public void serverAboutToStart(FMLServerAboutToStartEvent event) {
         EpochRegistry.init(event);
-        moduleManager.onAboutToStart();
         DmLogger.init(new java.io.File("."));
         CointCore.LOG.info("CointCore GTNH initialized successfully");
     }
@@ -114,7 +101,6 @@ public class CommonProxy {
     public void serverStarting(FMLServerStartingEvent event) {
         ChatWSClient.init();
         CmdRegistry.register(event);
-        moduleManager.serverStarting();
     }
 
     @SuppressWarnings("unused")
@@ -129,7 +115,7 @@ public class CommonProxy {
             .updateRanks();
 
         // Restore active temp-rank assignments and start the expiry checker.
-        if (Loader.isModLoaded(SUIntegration.MOD_ID)) {
+        if (Loader.isModLoaded("serverutilities")) {
             TempRankManager.reset(); // discard stale state from a previous session in this JVM
             TempRankManager.get()
                 .restoreAll();
@@ -141,20 +127,5 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void serverStopping(FMLServerStoppingEvent event) {
         DmLogger.close();
-    }
-
-    /**
-     * Register all modules
-     */
-    protected void registerModules() {
-        moduleManager.registerModule(new EpochSyncModule());
-    }
-
-    /**
-     * Get the module manager
-     */
-    @SuppressWarnings("unused")
-    public ModuleManager getModuleManager() {
-        return moduleManager;
     }
 }

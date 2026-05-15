@@ -9,11 +9,13 @@ import net.minecraft.util.EnumChatFormatting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+
 import betterquesting.api.events.QuestEvent;
 import coint.config.CointConfig;
+import coint.epochsync.EpochEntry;
+import coint.epochsync.EpochRegistry;
 import coint.integration.serverutilities.RanksManager;
-import coint.module.epochsync.EpochEntry;
-import coint.module.epochsync.EpochRegistry;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -24,20 +26,21 @@ import serverutils.lib.data.Universe;
  * Event listener for BetterQuesting quest completion events.
  * Handles automatic rank assignment for all party members.
  */
+@EventBusSubscriber
 public class BQEventListener {
 
     private static final Logger LOG = LogManager.getLogger(BQEventListener.class);
 
+    @EventBusSubscriber.Condition
+    public static boolean isEnabled() {
+        return CointConfig.epochs.syncOnQuestComplete;
+    }
+
     @SideOnly(Side.SERVER)
     @SubscribeEvent
-    public void onQuestComplete(QuestEvent event) {
+    public static void onQuestComplete(QuestEvent event) {
         if (event.getType() != QuestEvent.Type.COMPLETED || event.getQuestIDs()
             .isEmpty()) {
-            return;
-        }
-
-        if (!CointConfig.epochs.syncOnQuestComplete) {
-            LOG.debug("Auto sync on quest complete is disabled");
             return;
         }
 
@@ -52,7 +55,7 @@ public class BQEventListener {
     /**
      * Process a single quest completion, checking for rank rewards.
      */
-    private void processQuestCompletion(UUID playerId, UUID questID) {
+    private static void processQuestCompletion(UUID playerId, UUID questID) {
         LOG.debug("Processing quest completion: {}", questID);
 
         EpochEntry epoch = EpochRegistry.INST.getEpoch(questID);
@@ -69,7 +72,7 @@ public class BQEventListener {
     /**
      * Assign rank to a single player and broadcast the epoch-up message.
      */
-    private void assignRankToPlayer(UUID playerId, EpochEntry epoch) {
+    private static void assignRankToPlayer(UUID playerId, EpochEntry epoch) {
         try {
             RanksManager.get()
                 .setRank(playerId, epoch.rankName);

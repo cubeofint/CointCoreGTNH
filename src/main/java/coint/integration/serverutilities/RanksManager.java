@@ -12,8 +12,8 @@ import com.google.gson.JsonObject;
 
 import betterquesting.api.questing.party.IParty;
 import coint.config.CointConfig;
-import coint.module.epochsync.EpochEntry;
-import coint.module.epochsync.EpochRegistry;
+import coint.epochsync.EpochEntry;
+import coint.epochsync.EpochRegistry;
 import coint.util.HttpUtil;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.ranks.PlayerRank;

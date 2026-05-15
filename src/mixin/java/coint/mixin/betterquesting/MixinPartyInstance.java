@@ -10,7 +10,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import betterquesting.api.enums.EnumPartyStatus;
 import betterquesting.api.questing.party.IParty;
 import betterquesting.questing.party.PartyInstance;
-import coint.integration.betterquesting.PartyAccessor;
+import coint.config.CointConfig;
+import coint.integration.betterquesting.PartyEventListener;
 
 /**
  * Mixin for PartyInstance to intercept when players join a party.
@@ -23,7 +24,12 @@ public abstract class MixinPartyInstance implements IParty {
      */
     @Inject(method = "setStatus", at = @At("RETURN"))
     private void onSetStatus(UUID uuid, EnumPartyStatus priv, CallbackInfo ci) {
+        if (!CointConfig.epochs.syncNewPartyMembers || !CointConfig.epochs.partySync) {
+            return;
+        }
         // Notify the accessor about the status change
-        PartyAccessor.onPlayerStatusChange(uuid, (IParty) this, priv);
+        if (priv != null) {
+            PartyEventListener.syncToPartyEpoch(uuid, this);
+        }
     }
 }

@@ -1,4 +1,4 @@
-package coint.module.epochsync;
+package coint.epochsync;
 
 import java.util.ArrayList;
 import java.util.List;

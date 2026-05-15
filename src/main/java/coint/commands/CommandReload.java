@@ -10,8 +10,8 @@ import com.gtnewhorizon.gtnhlib.config.ConfigException;
 
 import coint.CointCore;
 import coint.config.CointConfig;
+import coint.epochsync.EpochRegistry;
 import coint.integration.serverutilities.RanksManager;
-import coint.module.epochsync.EpochRegistry;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 
