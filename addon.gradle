@@ -4,3 +4,17 @@
 tasks.withType(Jar).configureEach {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
+
+/**
+ * Source set {@code mixin} по умолчанию не наследует compileClasspath от {@code main},
+ * из‑за чего компиляция миксинов падает (нет net.minecraft.*, «Mixin has no targets»).
+ * Добавляем classpath и артефакты main, как в типичном GTNH-аддоне.
+ */
+afterEvaluate {
+    def mixin = sourceSets.findByName("mixin")
+    def main = sourceSets.findByName("main")
+    if (mixin != null && main != null) {
+        mixin.compileClasspath += main.compileClasspath
+        mixin.compileClasspath += main.output
+    }
+}

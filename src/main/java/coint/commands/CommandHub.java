@@ -4,7 +4,10 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.EnumChatFormatting;
 
+import coint.config.CointConfig;
 import coint.core.ChatWSClient;
 
 public class CommandHub extends CommandBase {
@@ -32,7 +35,23 @@ public class CommandHub extends CommandBase {
 
         switch (args[0]) {
             case "reconnect": {
+                if (!CointConfig.wsHubEnabled) {
+                    sender.addChatMessage(
+                        new ChatComponentText(
+                            EnumChatFormatting.RED + "WebSocket-хаб отключён в cointcore.cfg (wsHubEnabled=false)"));
+                    return;
+                }
+                if (ChatWSClient.inst == null) {
+                    ChatWSClient.init();
+                    sender.addChatMessage(
+                        new ChatComponentText(
+                            EnumChatFormatting.YELLOW
+                                + "Клиент хаба не был создан; вызван init (проверьте wsHubUrl и лог)"));
+                    return;
+                }
                 ChatWSClient.inst.reconnect();
+                sender.addChatMessage(
+                    new ChatComponentText(EnumChatFormatting.GREEN + "Запрошено переподключение к WebSocket-хабу"));
                 break;
             }
             case "":
