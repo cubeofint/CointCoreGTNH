@@ -58,6 +58,7 @@ public class ChatSplitHandler {
     public static final Pattern URL_PATTERN = Pattern
         .compile("((https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])", Pattern.CASE_INSENSITIVE);
 
+    @SuppressWarnings("unused")
     public List<IChatComponent> processAndSplit(String input) {
         List<IChatComponent> lines = new ArrayList<>();
         ChatComponentText currentLine = new ChatComponentText("");
@@ -277,7 +278,7 @@ public class ChatSplitHandler {
     // TODO: Extract Chat interactions to other package (may be util)
     private static void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
         String colorCode = getTextColorCode(sender);
-        String formatted = String.format(CointConfig.chat.globalFormat, senderName, text.replaceAll("\\b", colorCode));
+        String formatted = String.format(CointConfig.chat.globalFormat, senderName, text.replaceAll("(?<=^|\\s)", colorCode));
         ChatComponentText component = new ChatComponentText(formatted);
 
         MinecraftServer.getServer()
@@ -293,7 +294,7 @@ public class ChatSplitHandler {
 
     private static void sendLocal(EntityPlayerMP sender, String senderName, String text) {
         String colorCode = getTextColorCode(sender);
-        String formatted = String.format(CointConfig.chat.localFormat, senderName, text.replaceAll("\\b", colorCode));
+        String formatted = String.format(CointConfig.chat.localFormat, senderName, text.replaceAll("(?<=^|\\s)", colorCode));
         ChatComponentText component = new ChatComponentText(formatted);
 
         double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
