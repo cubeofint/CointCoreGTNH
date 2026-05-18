@@ -19,6 +19,10 @@ public class CointConfig {
         ConfigurationManager.registerConfig(CointConfig.class);
     }
 
+    public static void reload() {
+        ConfigurationManager.reloadConfig(CointConfig.class, "reload");
+    }
+
     public static final General general = new General();
     public static final Epochs epochs = new Epochs();
     public static final Api api = new Api();
@@ -68,6 +72,7 @@ public class CointConfig {
 
         @Config.Comment("Server Tag in chat")
         @Config.DefaultString("S")
+        @Config.Reloadable("reload")
         public String serverTag;
 
         public URI getChatWs() throws URISyntaxException {

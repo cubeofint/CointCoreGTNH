@@ -1,14 +1,11 @@
 package coint.commands;
 
 import net.minecraft.command.CommandBase;
-import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.ChatComponentText;
 
-import com.gtnewhorizon.gtnhlib.config.ConfigException;
-
-import coint.CointCore;
 import coint.config.CointConfig;
 import coint.epochsync.EpochRegistry;
 import coint.integration.serverutilities.RanksManager;
@@ -56,12 +53,8 @@ public class CommandReload extends CommandBase {
                 return;
             }
             case "config": {
-                try {
-                    CointConfig.load();
-                } catch (ConfigException e) {
-                    CointCore.LOG.error(e.getMessage());
-                    throw new CommandException("Error while reloading");
-                }
+                CointConfig.reload();
+                sender.addChatMessage(new ChatComponentText("Reloaded"));
                 return;
             }
             default: {

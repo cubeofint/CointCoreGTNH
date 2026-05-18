@@ -63,7 +63,8 @@ public class ChatWSClient extends WebSocketClient {
         WSMessage msg = gson.fromJson(message, WSMessage.class);
 
         IChatComponent c = new ChatComponentText(
-            EnumChatFormatting.GREEN + "[" + msg.server + "] " + EnumChatFormatting.RESET).appendText(msg.sender + ": ")
+            EnumChatFormatting.GREEN + "[" + msg.server + "] " + EnumChatFormatting.RESET)
+                .appendText(msg.senderFormatted + ": ")
                 .appendText(msg.text);
 
         server.getConfigurationManager()
