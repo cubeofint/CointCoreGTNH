@@ -37,8 +37,6 @@ public class CommonProxy {
      */
     @SuppressWarnings("unused")
     public void preInit(FMLPreInitializationEvent event) {
-        // Initialize configuration
-        // CointConfig.init(event.getSuggestedConfigurationFile());
         try {
             CointConfig.load();
         } catch (ConfigException e) {

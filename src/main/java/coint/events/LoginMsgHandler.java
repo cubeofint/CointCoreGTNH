@@ -23,7 +23,7 @@ import cpw.mods.fml.common.gameevent.PlayerEvent;
 import serverutils.lib.data.Universe;
 
 @EventBusSubscriber
-public class LoginHandler {
+public class LoginMsgHandler {
 
     private static final Pattern COINTCORE_URL_PATTERN = Pattern.compile("https?://\\S+");
 

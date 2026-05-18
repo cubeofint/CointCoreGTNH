@@ -278,7 +278,8 @@ public class ChatSplitHandler {
     // TODO: Extract Chat interactions to other package (may be util)
     private static void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
         String colorCode = getTextColorCode(sender);
-        String formatted = String.format(CointConfig.chat.globalFormat, senderName, text.replaceAll("(?<=^|\\s)", colorCode));
+        String formatted = String
+            .format(CointConfig.chat.globalFormat, senderName, text.replaceAll("(?<=^|\\s)", colorCode));
         ChatComponentText component = new ChatComponentText(formatted);
 
         MinecraftServer.getServer()
@@ -294,7 +295,8 @@ public class ChatSplitHandler {
 
     private static void sendLocal(EntityPlayerMP sender, String senderName, String text) {
         String colorCode = getTextColorCode(sender);
-        String formatted = String.format(CointConfig.chat.localFormat, senderName, text.replaceAll("(?<=^|\\s)", colorCode));
+        String formatted = String
+            .format(CointConfig.chat.localFormat, senderName, text.replaceAll("(?<=^|\\s)", colorCode));
         ChatComponentText component = new ChatComponentText(formatted);
 
         double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
