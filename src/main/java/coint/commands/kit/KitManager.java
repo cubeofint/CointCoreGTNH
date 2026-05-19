@@ -29,6 +29,12 @@ public final class KitManager {
     /** Остаток выданных «покупных» получений для безлимитных наборов (maxClaims == -1). */
     public static final String TAG_KIT_BONUS_REMAINING = "cointcore_kit_bonus_remaining";
 
+    /**
+     * Корень custom entity data в {@code playerdata/*.dat} — тот же уровень, что {@link EntityPlayer#getEntityData()}.
+     * Persisted-моды лежат в {@code ForgeData/PlayerPersisted}, а не в корневом {@code PlayerPersisted}.
+     */
+    private static final String TAG_FORGE_DATA = "ForgeData";
+
     private static final Map<String, KitDefinition> KITS = new LinkedHashMap<>();
     private static boolean loaded = false;
 
@@ -163,8 +169,7 @@ public final class KitManager {
         if (player.isOnline()) {
             return getKitClaimCount(player.getPlayer(), kitName);
         }
-        NBTTagCompound playerNBT = player.getPlayerNBT();
-        NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+        NBTTagCompound persisted = getOfflinePersisted(player, false);
         NBTTagCompound countTag = persisted.getCompoundTag(TAG_KIT_CLAIM_COUNT);
         return countTag.hasKey(kitName) ? countTag.getInteger(kitName) : 0;
     }
@@ -175,7 +180,7 @@ public final class KitManager {
             return;
         }
         NBTTagCompound playerNBT = player.getPlayerNBT();
-        NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+        NBTTagCompound persisted = prepareOfflinePersisted(playerNBT);
         NBTTagCompound countTag = persisted.getCompoundTag(TAG_KIT_CLAIM_COUNT);
         if (amount <= 0) {
             countTag.removeTag(kitName);
@@ -183,8 +188,7 @@ public final class KitManager {
             countTag.setInteger(kitName, amount);
         }
         persisted.setTag(TAG_KIT_CLAIM_COUNT, countTag);
-        playerNBT.setTag(EntityPlayer.PERSISTED_NBT_TAG, persisted);
-        player.setPlayerNBT(playerNBT);
+        writeOfflinePersisted(player, playerNBT, persisted);
     }
 
     public static int getKitBonusRemaining(EntityPlayer player, String kitName) {
@@ -208,8 +212,7 @@ public final class KitManager {
         if (player.isOnline()) {
             return getKitBonusRemaining(player.getPlayer(), kitName);
         }
-        NBTTagCompound playerNBT = player.getPlayerNBT();
-        NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+        NBTTagCompound persisted = getOfflinePersisted(player, false);
         NBTTagCompound tag = persisted.getCompoundTag(TAG_KIT_BONUS_REMAINING);
         return tag.hasKey(kitName) ? tag.getInteger(kitName) : 0;
     }
@@ -220,7 +223,7 @@ public final class KitManager {
             return;
         }
         NBTTagCompound playerNBT = player.getPlayerNBT();
-        NBTTagCompound persisted = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+        NBTTagCompound persisted = prepareOfflinePersisted(playerNBT);
         NBTTagCompound tag = persisted.getCompoundTag(TAG_KIT_BONUS_REMAINING);
         if (amount <= 0) {
             tag.removeTag(kitName);
@@ -228,7 +231,80 @@ public final class KitManager {
             tag.setInteger(kitName, amount);
         }
         persisted.setTag(TAG_KIT_BONUS_REMAINING, tag);
-        playerNBT.setTag(EntityPlayer.PERSISTED_NBT_TAG, persisted);
+        writeOfflinePersisted(player, playerNBT, persisted);
+    }
+
+    /**
+     * Persisted NBT для оффлайн-игрока: {@code ForgeData/PlayerPersisted}, как {@link NBTUtils#getPersistedData}.
+     * При чтении переносит kit-счётчики из ошибочной корневой {@code PlayerPersisted} (до фикса).
+     */
+    private static NBTTagCompound getOfflinePersisted(ForgePlayer player, boolean createIfMissing) {
+        NBTTagCompound playerNBT = player.getPlayerNBT();
+        NBTTagCompound persisted = getOfflinePersistedFromNbt(playerNBT, createIfMissing);
+        if (migrateLegacyPersisted(playerNBT, persisted)) {
+            writeOfflinePersisted(player, playerNBT, persisted);
+        }
+        return persisted;
+    }
+
+    private static NBTTagCompound prepareOfflinePersisted(NBTTagCompound playerNBT) {
+        NBTTagCompound persisted = getOfflinePersistedFromNbt(playerNBT, true);
+        migrateLegacyPersisted(playerNBT, persisted);
+        return persisted;
+    }
+
+    private static NBTTagCompound getOfflinePersistedFromNbt(NBTTagCompound playerNBT, boolean createIfMissing) {
+        NBTTagCompound forgeData = playerNBT.getCompoundTag(TAG_FORGE_DATA);
+        NBTTagCompound persisted = forgeData.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+        if (createIfMissing) {
+            forgeData.setTag(EntityPlayer.PERSISTED_NBT_TAG, persisted);
+            playerNBT.setTag(TAG_FORGE_DATA, forgeData);
+        }
+        return persisted;
+    }
+
+    private static void writeOfflinePersisted(ForgePlayer player, NBTTagCompound playerNBT, NBTTagCompound persisted) {
+        NBTTagCompound forgeData = playerNBT.getCompoundTag(TAG_FORGE_DATA);
+        forgeData.setTag(EntityPlayer.PERSISTED_NBT_TAG, persisted);
+        playerNBT.setTag(TAG_FORGE_DATA, forgeData);
+        if (playerNBT.hasKey(EntityPlayer.PERSISTED_NBT_TAG)) {
+            playerNBT.removeTag(EntityPlayer.PERSISTED_NBT_TAG);
+        }
         player.setPlayerNBT(playerNBT);
+    }
+
+    /** Перенос kit-тегов из корневой PlayerPersisted (старый баг) в ForgeData/PlayerPersisted. */
+    private static boolean migrateLegacyPersisted(NBTTagCompound playerNBT, NBTTagCompound persisted) {
+        if (!playerNBT.hasKey(EntityPlayer.PERSISTED_NBT_TAG)) {
+            return false;
+        }
+        NBTTagCompound legacy = playerNBT.getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+        boolean changed = mergeKitCounters(legacy, persisted, TAG_KIT_CLAIM_COUNT);
+        changed |= mergeKitCounters(legacy, persisted, TAG_KIT_BONUS_REMAINING);
+        if (legacy.hasNoTags()) {
+            playerNBT.removeTag(EntityPlayer.PERSISTED_NBT_TAG);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private static boolean mergeKitCounters(NBTTagCompound legacy, NBTTagCompound persisted, String tagKey) {
+        if (!legacy.hasKey(tagKey)) {
+            return false;
+        }
+        NBTTagCompound legacySub = legacy.getCompoundTag(tagKey);
+        NBTTagCompound persistedSub = persisted.getCompoundTag(tagKey);
+        boolean changed = false;
+        for (String kitName : legacySub.func_150296_c()) {
+            if (!persistedSub.hasKey(kitName)) {
+                persistedSub.setInteger(kitName, legacySub.getInteger(kitName));
+                changed = true;
+            }
+        }
+        if (changed) {
+            persisted.setTag(tagKey, persistedSub);
+        }
+        legacy.removeTag(tagKey);
+        return changed;
     }
 }
