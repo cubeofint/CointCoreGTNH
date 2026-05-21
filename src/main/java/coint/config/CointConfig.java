@@ -88,21 +88,25 @@ public class CointConfig {
 
         @Config.Comment("Enable mob limiter")
         @Config.DefaultBoolean(true)
+        @Config.Reloadable("reload")
         public boolean enabled;
 
         @Config.Comment("General chunk mobs cup")
         @Config.DefaultInt(20)
         @Config.RangeInt(min = 0, max = 50)
+        @Config.Reloadable("reload")
         public int chunkCup;
 
         @Config.Comment("Passive mobs cup")
         @Config.DefaultInt(20)
         @Config.RangeInt(min = 0, max = 50)
+        @Config.Reloadable("reload")
         public int passiveCup;
 
         @Config.Comment("Hostile mobs cup")
         @Config.DefaultInt(20)
         @Config.RangeInt(min = 0, max = 50)
+        @Config.Reloadable("reload")
         public int hostileCup;
 
     }
