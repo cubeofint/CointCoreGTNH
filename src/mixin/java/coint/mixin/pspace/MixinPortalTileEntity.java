@@ -4,34 +4,37 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
+import org.spongepowered.asm.mixin.Dynamic;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import coint.CointCore;
+import coint.mixin.CointMixinPlugin;
 import coint.player.TeamsManager;
-import me.eigenraven.personalspace.block.PortalTileEntity;
 import me.eigenraven.personalspace.world.DimensionConfig;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 
-@Mixin(value = PortalTileEntity.class, remap = false)
-public class MixinDimensionCreation {
+@Pseudo
+@Mixin(targets = "me.eigenraven.personalspace.block.PortalTileEntity", remap = false)
+public class MixinPortalTileEntity {
 
     @Shadow
     public int targetDimId;
 
+    @Dynamic
     @Inject(
-        method = "updateSettings(Lnet/minecraft/entity/player/EntityPlayerMP;Lme/eigenraven/personalspace/world/DimensionConfig;)V",
+        method = "updateSettings",
         remap = false,
         at = @At(
             value = "INVOKE",
             target = "Lme/eigenraven/personalspace/world/DimensionConfig;getGroundLevel()I",
             shift = At.Shift.AFTER))
     private void cointcore$onDimCreated(EntityPlayerMP player, DimensionConfig unsafeConfig, CallbackInfo ci) {
-        CointCore.LOG.info("after create");
+        CointMixinPlugin.LOG.info("after create");
         if (Universe.get()
             .getPlayer(player)
             .hasTeam()) {
@@ -42,13 +45,14 @@ public class MixinDimensionCreation {
         }
     }
 
+    @Dynamic
     @Inject(
-        method = "updateSettings(Lnet/minecraft/entity/player/EntityPlayerMP;Lme/eigenraven/personalspace/world/DimensionConfig;)V",
+        method = "updateSettings",
         remap = false,
         cancellable = true,
         at = @At(value = "INVOKE", target = "Lme/eigenraven/personalspace/world/DimensionConfig;nextFreeDimId()I"))
     private void cointcore$beforeDimCreated(EntityPlayerMP player, DimensionConfig unsafeConfig, CallbackInfo ci) {
-        CointCore.LOG.info("before create");
+        CointMixinPlugin.LOG.info("before create");
         ForgePlayer p = Universe.get()
             .getPlayer(player);
         if (p.isOP()) {

@@ -20,7 +20,7 @@
     "minecraft.MixinEntityPlayer",
     "minecraft.MixinEntityPlayerForestryDupTrace",
     "minecraft.MixinNetHandlerPlayServerForestryBackpackClickBlock",
-    "pspace.MixinDimensionCreation",
+    "pspace.MixinPortalTileEntity",
     "serverutilities.MixinCmdHome",
     "serverutilities.MixinCmdSetHome",
     "serverutilities.MixinServerUtilitiesTeamData",
