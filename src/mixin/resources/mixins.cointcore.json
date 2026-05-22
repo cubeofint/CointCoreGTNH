@@ -14,6 +14,7 @@
     "forestry.MixinItemInventoryUidFix",
     "galacticraft.MixinGCPlayerHandler",
     "mattermanipulator.MixinAbstractBuildable",
+    "bloodmagic.MixinBoundToolsClaimGuard",
     "minecraft.MixinCommandMessage",
     "minecraft.MixinEntityLivingBase",
     "minecraft.MixinEntityPlayer",

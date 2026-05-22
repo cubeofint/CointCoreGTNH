@@ -1,6 +1,5 @@
 package coint.core;
 
-import coint.http.ChatWSClient;
 import com.gtnewhorizon.gtnhlib.config.ConfigException;
 
 import coint.CointCore;
@@ -12,6 +11,7 @@ import coint.commands.temprank.TempRankTask;
 import coint.config.CointConfig;
 import coint.epochsync.EpochRegistry;
 import coint.events.KeepInventoryHandler;
+import coint.http.ChatWSClient;
 import coint.integration.serverutilities.CointSUPermissions;
 import coint.integration.serverutilities.RanksManager;
 import coint.tasks.CleanupTask;

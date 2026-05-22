@@ -1,12 +1,12 @@
 package coint.player;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldSavedData;
 import net.minecraft.world.WorldServer;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class TeamsManager extends WorldSavedData {
 
@@ -16,7 +16,8 @@ public class TeamsManager extends WorldSavedData {
     public HashMap<Short, Integer> pdBinds = new HashMap<>();
 
     public static TeamsManager get() {
-        WorldServer overworld = MinecraftServer.getServer().worldServerForDimension(0);
+        WorldServer overworld = MinecraftServer.getServer()
+            .worldServerForDimension(0);
         TeamsManager instance = (TeamsManager) overworld.loadItemData(TeamsManager.class, DATA_NAME);
 
         if (instance == null) {
@@ -62,7 +63,10 @@ public class TeamsManager extends WorldSavedData {
     public void writeToNBT(NBTTagCompound nbt) {
         NBTTagCompound list = new NBTTagCompound();
         for (Map.Entry<Short, Integer> entry : pdBinds.entrySet()) {
-            list.setInteger(entry.getKey().toString(), entry.getValue());
+            list.setInteger(
+                entry.getKey()
+                    .toString(),
+                entry.getValue());
         }
         nbt.setTag(NBT_PDS, list);
     }
