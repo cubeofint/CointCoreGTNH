@@ -7,7 +7,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
-import coint.core.ChatWSClient;
+import coint.http.ChatWSClient;
 
 public class CommandHub extends CommandBase {
 

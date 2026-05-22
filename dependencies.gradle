@@ -51,6 +51,7 @@ dependencies {
     mixinCompileOnly("com.github.GTNewHorizons:MatterManipulator:0.0.51-GTNH:dev")
     mixinCompileOnly("com.github.GTNewHorizons:BloodMagic:1.7.52:dev")
     mixinCompileOnly("com.github.GTNewHorizons:AdventureBackpack2:1.3.13-GTNH:dev") { transitive = false }
+    mixinCompileOnly("com.github.GTNewHorizons:PersonalSpace:1.0.33:dev") { transitive = false }
 
     api("thaumcraft:Thaumcraft:1.7.10-4.2.3.5:dev")
     runtimeOnly("com.github.GTNewHorizons:Baubles-Expanded:2.1.19-GTNH:dev")

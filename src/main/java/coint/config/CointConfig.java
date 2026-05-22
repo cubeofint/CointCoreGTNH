@@ -127,7 +127,7 @@ public class CointConfig {
         @Config.DefaultString("!")
         public String prefix;
 
-        @Config.Comment("Formatting of global chat")
+        @Config.Comment("Formatting of local chat")
         @Config.DefaultString("§7[L] %s§r§7: §f%s")
         public String localFormat;
 
@@ -135,11 +135,11 @@ public class CointConfig {
         @Config.DefaultString("§a[G] %s§r§7: §f%s")
         public String globalFormat;
 
-        @Config.Comment("Enable login message")
+        @Config.Comment("Enable login message. Works only if NewHorizonsCoreMod login msg disabled.")
         @Config.DefaultBoolean(true)
         public boolean loginMsgEnabled;
 
-        @Config.Comment("Formatting of global chat")
+        @Config.Comment("Login message lines")
         @Config.DefaultStringList({ "&6&m————————————————————————————————————————————",
             "&fWelcome to our server, %player%!", "&7Configure these lines in cointcore.cfg -> [login_message]" })
         public String[] loginMessageLines;

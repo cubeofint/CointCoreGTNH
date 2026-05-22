@@ -1,4 +1,4 @@
-package coint.core;
+package coint.http;
 
 import java.net.URI;
 import java.net.URISyntaxException;

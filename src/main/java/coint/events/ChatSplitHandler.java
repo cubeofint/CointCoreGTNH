@@ -20,7 +20,7 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 import coint.CointCore;
 import coint.commands.spy.LocalSpyRegistry;
 import coint.config.CointConfig;
-import coint.core.ChatWSClient;
+import coint.http.ChatWSClient;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.ServerUtilitiesPermissions;

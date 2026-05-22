@@ -1,5 +1,6 @@
 package coint.core;
 
+import coint.http.ChatWSClient;
 import com.gtnewhorizon.gtnhlib.config.ConfigException;
 
 import coint.CointCore;
