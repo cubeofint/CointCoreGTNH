@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import betterquesting.api.enums.EnumPartyStatus;
 import betterquesting.api.questing.party.IParty;
 import betterquesting.questing.party.PartyInstance;
-import coint.config.CointConfig;
+import coint.CointConfig;
 import coint.integration.betterquesting.PartyEventListener;
 
 /**

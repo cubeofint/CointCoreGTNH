@@ -8,7 +8,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
-import coint.config.CointConfig;
+import coint.CointConfig;
 import coint.events.ChatSplitHandler;
 
 /**

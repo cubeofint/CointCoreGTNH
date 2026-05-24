@@ -13,7 +13,7 @@ import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.questing.party.IParty;
 import betterquesting.api2.storage.DBEntry;
 import betterquesting.questing.party.PartyManager;
-import coint.config.CointConfig;
+import coint.CointConfig;
 import coint.epochsync.EpochEntry;
 import coint.integration.serverutilities.RanksManager;
 import cpw.mods.fml.common.eventhandler.EventPriority;

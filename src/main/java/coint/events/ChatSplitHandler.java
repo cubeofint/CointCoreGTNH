@@ -19,7 +19,7 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointCore;
 import coint.commands.spy.LocalSpyRegistry;
-import coint.config.CointConfig;
+import coint.CointConfig;
 import coint.http.ChatWSClient;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -32,10 +32,10 @@ import serverutils.ranks.Ranks;
  * Разделяет игровой чат на <b>локальный</b> и <b>глобальный</b>.
  *
  * <ul>
- * <li>Сообщение, начинающееся с {@link coint.config.CointConfig.Chat#prefix} (по умолчанию {@code !}),
+ * <li>Сообщение, начинающееся с {@link CointConfig.Chat#prefix} (по умолчанию {@code !}),
  * рассылается всем онлайн-игрокам во всех измерениях.</li>
  * <li>Любое другое сообщение рассылается только тем игрокам, которые находятся
- * в пределах {@link coint.config.CointConfig.Chat#radius} блоков и в том же измерении.</li>
+ * в пределах {@link CointConfig.Chat#radius} блоков и в том же измерении.</li>
  * </ul>
  *
  * <p>

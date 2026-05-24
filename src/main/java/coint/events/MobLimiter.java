@@ -13,7 +13,7 @@ import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
-import coint.config.CointConfig;
+import coint.CointConfig;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 

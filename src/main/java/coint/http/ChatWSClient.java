@@ -14,7 +14,7 @@ import org.java_websocket.handshake.ServerHandshake;
 import com.google.gson.Gson;
 
 import coint.CointCore;
-import coint.config.CointConfig;
+import coint.CointConfig;
 
 public class ChatWSClient extends WebSocketClient {
 

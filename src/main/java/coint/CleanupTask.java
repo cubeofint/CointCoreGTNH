@@ -1,4 +1,4 @@
-package coint.tasks;
+package coint;
 
 import static serverutils.ServerUtilitiesConfig.tasks;
 import static serverutils.ServerUtilitiesNotifications.CLEANUP;

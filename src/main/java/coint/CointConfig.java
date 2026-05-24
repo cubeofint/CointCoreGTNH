@@ -1,4 +1,4 @@
-package coint.config;
+package coint;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -6,8 +6,6 @@ import java.net.URISyntaxException;
 import com.gtnewhorizon.gtnhlib.config.Config;
 import com.gtnewhorizon.gtnhlib.config.ConfigException;
 import com.gtnewhorizon.gtnhlib.config.ConfigurationManager;
-
-import coint.CointCore;
 
 /**
  * Configuration handler for CointCore.

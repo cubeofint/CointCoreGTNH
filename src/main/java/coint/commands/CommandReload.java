@@ -6,7 +6,7 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
 
-import coint.config.CointConfig;
+import coint.CointConfig;
 import coint.epochsync.EpochRegistry;
 import coint.integration.serverutilities.RanksManager;
 import serverutils.lib.util.permission.DefaultPermissionLevel;

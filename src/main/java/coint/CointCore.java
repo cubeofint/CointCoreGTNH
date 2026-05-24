@@ -10,7 +10,6 @@ import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import coint.core.CommonProxy;
 import cpw.mods.fml.common.Mod;
 
 @Mod(

@@ -10,6 +10,8 @@ import net.minecraft.world.WorldSavedData;
 import net.minecraft.world.WorldServer;
 import serverutils.lib.data.Universe;
 
+/// Actually API for PersonalSpace
+@SuppressWarnings("unused")
 public class TeamsManager extends WorldSavedData {
 
     private static final String DATA_NAME = "COINT_Teams";
@@ -35,7 +37,7 @@ public class TeamsManager extends WorldSavedData {
 
     public void setDimensionId(short shortId, int dimId) {
         pdBinds.put(shortId, dimId);
-        markDirty(); // Уведомляем сервер о необходимости сохранения данных на диск
+        markDirty();
     }
 
     public boolean isDimBound(short teamUid) {

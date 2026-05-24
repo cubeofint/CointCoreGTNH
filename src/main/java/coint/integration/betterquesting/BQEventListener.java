@@ -12,7 +12,7 @@ import org.apache.logging.log4j.Logger;
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import betterquesting.api.events.QuestEvent;
-import coint.config.CointConfig;
+import coint.CointConfig;
 import coint.epochsync.EpochEntry;
 import coint.epochsync.EpochRegistry;
 import coint.integration.serverutilities.RanksManager;

@@ -11,7 +11,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import betterquesting.api.questing.party.IParty;
-import coint.config.CointConfig;
+import coint.CointConfig;
 import coint.epochsync.EpochEntry;
 import coint.epochsync.EpochRegistry;
 import coint.util.HttpUtil;
