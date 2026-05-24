@@ -55,6 +55,11 @@ import serverutils.ranks.Ranks;
 @EventBusSubscriber
 public class ChatSplitHandler {
 
+    @EventBusSubscriber.Condition
+    public static boolean isEnabled() {
+        return CointConfig.chat.splitEnabled;
+    }
+
     public static final Pattern URL_PATTERN = Pattern
         .compile("((https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])", Pattern.CASE_INSENSITIVE);
 
@@ -133,10 +138,6 @@ public class ChatSplitHandler {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onServerChat(ServerChatEvent event) {
-        if (!CointConfig.chat.splitEnabled) {
-            return;
-        }
-
         // Если мьют-хэндлер (HIGHEST) уже отменил событие — не трогаем.
         if (event.isCanceled()) {
             return;

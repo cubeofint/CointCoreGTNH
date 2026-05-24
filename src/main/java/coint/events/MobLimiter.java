@@ -3,6 +3,7 @@ package coint.events;
 import java.util.List;
 
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.INpc;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.passive.IAnimals;
@@ -21,8 +22,9 @@ public class MobLimiter {
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onMobSpawn(EntityJoinWorldEvent event) {
-        if (!CointConfig.limiter.enabled) return;
         if (event.entity instanceof EntityPlayer) return;
+        if (!(event.entity instanceof EntityLiving)) return;
+        if (!CointConfig.limiter.enabled) return;
 
         int passive = 0;
         int hostile = 0;

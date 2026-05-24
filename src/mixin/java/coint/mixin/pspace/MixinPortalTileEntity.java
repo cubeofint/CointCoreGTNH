@@ -4,7 +4,6 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
-import org.spongepowered.asm.mixin.Dynamic;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
@@ -25,7 +24,6 @@ public class MixinPortalTileEntity {
     @Shadow
     public int targetDimId;
 
-    @Dynamic
     @Inject(
         method = "updateSettings",
         remap = false,
@@ -45,7 +43,6 @@ public class MixinPortalTileEntity {
         }
     }
 
-    @Dynamic
     @Inject(
         method = "updateSettings",
         remap = false,
