@@ -2,6 +2,7 @@ package coint.integration.betterquesting;
 
 import java.util.UUID;
 
+import coint.CointCore;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
@@ -29,7 +30,7 @@ import serverutils.lib.data.Universe;
 @EventBusSubscriber
 public class BQEventListener {
 
-    private static final Logger LOG = LogManager.getLogger(BQEventListener.class);
+    private static final Logger LOG = LogManager.getLogger(CointCore.MOD_NAME + "/BQ");
 
     @EventBusSubscriber.Condition
     public static boolean isEnabled() {
