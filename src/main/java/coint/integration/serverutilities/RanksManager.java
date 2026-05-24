@@ -237,66 +237,6 @@ public class RanksManager {
     }
 
     /**
-     * Sync all ranks with external API
-     */
-    public void syncRanks(boolean onlyRoles) {
-        Ranks ranks = Ranks.INSTANCE;
-        if (ranks == null) {
-            LOG.error("Cannot sync ranks: ServerUtilities Ranks not initialized");
-            return;
-        }
-
-        String apiUrl = null;
-        if (apiUrl == null || apiUrl.isEmpty()) {
-            LOG.warn("API URL not configured, cannot sync ranks");
-            return;
-        }
-
-        JsonObject data = new JsonObject();
-
-        // Add ranks
-        JsonArray ranksArray = new JsonArray();
-        for (Rank r : ranks.ranks.values()) {
-            JsonObject rankObj = new JsonObject();
-            rankObj.addProperty("name", r.getId());
-            rankObj.addProperty("power", r.getPriority());
-            ranksArray.add(rankObj);
-        }
-        data.add("ranks", ranksArray);
-
-        // Add players if requested
-        if (!onlyRoles) {
-            JsonArray playersArray = new JsonArray();
-            for (PlayerRank p : ranks.playerRanks.values()) {
-                JsonObject playerObj = new JsonObject();
-                playerObj.addProperty("player_id", p.uuid.toString());
-
-                boolean hasEpoch = false;
-                for (Rank par : p.getActualParents()) {
-                    EpochEntry epoch = EpochRegistry.INST.getEpoch(par.getId());
-                    if (epoch != null) {
-                        playerObj.addProperty("rank", epoch.rankName);
-                        hasEpoch = true;
-                        break;
-                    }
-                }
-
-                if (hasEpoch) {
-                    playersArray.add(playerObj);
-                }
-            }
-            data.add("players", playersArray);
-        }
-
-        HttpUtil.postJsonAsync(apiUrl + "/api/coint-connector/roles/sync", data.toString())
-            .thenAccept(code -> LOG.info("Rank sync completed, response: {}", code))
-            .exceptionally(e -> {
-                LOG.error("Rank sync failed: {}", e.getMessage());
-                return null;
-            });
-    }
-
-    /**
      * Get the current epoch rank of a player.
      *
      * @param playerId The player's UUID
