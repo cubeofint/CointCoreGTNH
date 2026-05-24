@@ -1,17 +1,17 @@
 package coint;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import coint.core.CommonProxy;
-import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
-import cpw.mods.fml.common.event.FMLServerStoppingEvent;
+import cpw.mods.fml.common.event.FMLServerStoppedEvent;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import coint.core.CommonProxy;
+import cpw.mods.fml.common.Mod;
 
 @Mod(
     modid = CointCore.MOD_ID,
@@ -65,7 +65,7 @@ public class CointCore {
     }
 
     @Mod.EventHandler
-    public void serverStopping(FMLServerStoppingEvent event) {
+    public void serverStopping(FMLServerStoppedEvent event) {
         proxy.serverStopping(event);
     }
 }

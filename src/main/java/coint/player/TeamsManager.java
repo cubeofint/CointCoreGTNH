@@ -3,10 +3,12 @@ package coint.player;
 import java.util.HashMap;
 import java.util.Map;
 
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldSavedData;
 import net.minecraft.world.WorldServer;
+import serverutils.lib.data.Universe;
 
 public class TeamsManager extends WorldSavedData {
 
@@ -31,10 +33,6 @@ public class TeamsManager extends WorldSavedData {
         super(name);
     }
 
-    public TeamsManager() {
-        super(DATA_NAME);
-    }
-
     public void setDimensionId(short shortId, int dimId) {
         pdBinds.put(shortId, dimId);
         markDirty(); // Уведомляем сервер о необходимости сохранения данных на диск
@@ -42,6 +40,10 @@ public class TeamsManager extends WorldSavedData {
 
     public boolean isDimBound(short teamUid) {
         return pdBinds.containsKey(teamUid);
+    }
+
+    public boolean isDimBound(EntityPlayer player) {
+        return isDimBound(Universe.get().getPlayer(player).team.getUID());
     }
 
     public void removeBinding(short shortId) {

@@ -22,7 +22,7 @@ import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
-import cpw.mods.fml.common.event.FMLServerStoppingEvent;
+import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 import serverutils.ServerUtilitiesConfig;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -127,7 +127,7 @@ public class CommonProxy {
     }
 
     @SuppressWarnings("unused")
-    public void serverStopping(FMLServerStoppingEvent event) {
+    public void serverStopping(FMLServerStoppedEvent event) {
         DmLogger.close();
         ChatWSClient.inst.close();
     }
