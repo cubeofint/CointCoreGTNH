@@ -14,10 +14,10 @@ import org.spongepowered.asm.mixin.Unique;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
+import coint.CointConfig;
 import coint.Tags;
 import coint.commands.spy.LocalSpyRegistry;
 import coint.commands.spy.PersonalSpyRegistry;
-import coint.CointConfig;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
 import serverutils.lib.data.Universe;

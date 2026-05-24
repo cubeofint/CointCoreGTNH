@@ -7,7 +7,6 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 
-import coint.integration.serverutilities.RanksManager;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 

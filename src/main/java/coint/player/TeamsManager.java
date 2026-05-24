@@ -8,6 +8,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldSavedData;
 import net.minecraft.world.WorldServer;
+
 import serverutils.lib.data.Universe;
 
 /// Actually API for PersonalSpace
@@ -45,7 +46,9 @@ public class TeamsManager extends WorldSavedData {
     }
 
     public boolean isDimBound(EntityPlayer player) {
-        return isDimBound(Universe.get().getPlayer(player).team.getUID());
+        return isDimBound(
+            Universe.get()
+                .getPlayer(player).team.getUID());
     }
 
     public void removeBinding(short shortId) {

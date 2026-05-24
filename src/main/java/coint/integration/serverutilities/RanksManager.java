@@ -7,7 +7,6 @@ import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import betterquesting.api.questing.party.IParty;

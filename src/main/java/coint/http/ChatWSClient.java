@@ -13,8 +13,8 @@ import org.java_websocket.handshake.ServerHandshake;
 
 import com.google.gson.Gson;
 
-import coint.CointCore;
 import coint.CointConfig;
+import coint.CointCore;
 
 public class ChatWSClient extends WebSocketClient {
 
