@@ -2,7 +2,6 @@ package coint.integration.betterquesting;
 
 import java.util.UUID;
 
-import coint.CointCore;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
@@ -14,6 +13,7 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import betterquesting.api.events.QuestEvent;
 import coint.CointConfig;
+import coint.CointCore;
 import coint.epochsync.EpochEntry;
 import coint.epochsync.EpochRegistry;
 import coint.integration.serverutilities.RanksManager;

@@ -36,23 +36,35 @@ public class TeamsManager extends WorldSavedData {
         super(name);
     }
 
-    public void setDimensionId(short shortId, int dimId) {
-        pdBinds.put(shortId, dimId);
+    public boolean hasDimBinding(EntityPlayer player) {
+        var p = Universe.get()
+            .getPlayer(player);
+        if (!p.hasTeam()) return false;
+
+        return pdBinds.containsKey(p.team.getUID());
+    }
+
+    public int getDim(EntityPlayer player) {
+        var p = Universe.get()
+            .getPlayer(player);
+        if (!p.hasTeam()) return 0;
+
+        return pdBinds.get(p.team.getUID());
+    }
+
+    public void bindDim(EntityPlayer player, int dimId) {
+        pdBinds.put(
+            Universe.get()
+                .getPlayer(player).team.getUID(),
+            dimId);
         markDirty();
     }
 
-    public boolean isDimBound(short teamUid) {
-        return pdBinds.containsKey(teamUid);
-    }
-
-    public boolean isDimBound(EntityPlayer player) {
-        return isDimBound(
+    public void removeDimBind(EntityPlayer player) {
+        if (pdBinds.remove(
             Universe.get()
-                .getPlayer(player).team.getUID());
-    }
-
-    public void removeBinding(short shortId) {
-        if (pdBinds.remove(shortId) != null) {
+                .getPlayer(player).team.getUID())
+            != null) {
             markDirty();
         }
     }
