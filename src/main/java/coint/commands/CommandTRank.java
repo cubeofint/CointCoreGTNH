@@ -291,6 +291,7 @@ public class CommandTRank extends CommandBase {
      * Разница во времени от «сейчас» до даты через {@code months} календарных месяцев
      * (учёт 28/29/30/31 дня, високосных лет и т.д. — через {@link Calendar#add(int, int)}).
      */
+    // TODO: Move to TimeUtil
     private static long millisForCalendarMonths(long months) throws WrongUsageException {
         if (months <= 0) {
             throw new WrongUsageException("Число месяцев должно быть положительным");
@@ -310,6 +311,7 @@ public class CommandTRank extends CommandBase {
      *
      * @return milliseconds, or {@code -1} for "perm"
      */
+    // TODO: Move to TimeUtil
     private static long parseDuration(String raw) throws WrongUsageException {
         String s = raw.toLowerCase()
             .trim();

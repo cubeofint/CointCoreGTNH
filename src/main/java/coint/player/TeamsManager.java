@@ -39,7 +39,7 @@ public class TeamsManager extends WorldSavedData {
     public boolean hasDimBinding(EntityPlayer player) {
         var p = Universe.get()
             .getPlayer(player);
-        if (!p.hasTeam()) return false;
+        if (!p.hasTeam() || p.isOP()) return false;
 
         return pdBinds.containsKey(p.team.getUID());
     }
@@ -49,7 +49,7 @@ public class TeamsManager extends WorldSavedData {
             .getPlayer(player);
         if (!p.hasTeam()) return 0;
 
-        return pdBinds.get(p.team.getUID());
+        return pdBinds.getOrDefault(p.team.getUID(), 0);
     }
 
     public void bindDim(EntityPlayer player, int dimId) {

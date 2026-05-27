@@ -13,12 +13,14 @@ import com.gtnewhorizon.gtnhlib.config.ConfigurationManager;
 @Config(modid = CointCore.MOD_ID, category = "")
 public class CointConfig {
 
+    public static final String RELOAD = "reload";
+
     public static void load() throws ConfigException {
         ConfigurationManager.registerConfig(CointConfig.class);
     }
 
     public static void reload() {
-        ConfigurationManager.reloadConfig(CointConfig.class, "reload");
+        ConfigurationManager.reloadConfig(CointConfig.class, RELOAD);
     }
 
     public static final General general = new General();
@@ -26,12 +28,32 @@ public class CointConfig {
     public static final Api api = new Api();
     public static final MobLimiter limiter = new MobLimiter();
     public static final Chat chat = new Chat();
+    public static final Cleaner cleaner = new Cleaner();
 
     public static class General {
 
-        @Config.Comment("Enable cleanup")
+        @Config.Comment("Enable entity cleanup")
         @Config.DefaultBoolean(true)
         public boolean cleanupEnabled;
+    }
+
+    public static class Cleaner {
+
+        @Config.Comment("Enable personal dimensions cleaner")
+        @Config.DefaultBoolean(true)
+        public boolean enabled;
+
+        @Config.Comment("[W.I.P] Remove player files with their dimension")
+        @Config.DefaultBoolean(false)
+        public boolean removePlayers;
+
+        @Config.Comment("Number of days before dimension freeze due to team inactivity")
+        @Config.DefaultInt(30)
+        public int daysToFreeze;
+
+        @Config.Comment("Number of days before dimension delete due to team inactivity")
+        @Config.DefaultInt(180)
+        public int daysToDelete;
     }
 
     public static class Epochs {
@@ -70,7 +92,7 @@ public class CointConfig {
 
         @Config.Comment("Server Tag in chat")
         @Config.DefaultString("S")
-        @Config.Reloadable("reload")
+        @Config.Reloadable(RELOAD)
         public String serverTag;
 
         public URI getChatWs() throws URISyntaxException {
@@ -86,25 +108,25 @@ public class CointConfig {
 
         @Config.Comment("Enable mob limiter")
         @Config.DefaultBoolean(true)
-        @Config.Reloadable("reload")
+        @Config.Reloadable(RELOAD)
         public boolean enabled;
 
         @Config.Comment("General chunk mobs cup")
         @Config.DefaultInt(20)
         @Config.RangeInt(min = 0, max = 50)
-        @Config.Reloadable("reload")
+        @Config.Reloadable(RELOAD)
         public int chunkCup;
 
         @Config.Comment("Passive mobs cup")
         @Config.DefaultInt(20)
         @Config.RangeInt(min = 0, max = 50)
-        @Config.Reloadable("reload")
+        @Config.Reloadable(RELOAD)
         public int passiveCup;
 
         @Config.Comment("Hostile mobs cup")
         @Config.DefaultInt(20)
         @Config.RangeInt(min = 0, max = 50)
-        @Config.Reloadable("reload")
+        @Config.Reloadable(RELOAD)
         public int hostileCup;
 
     }

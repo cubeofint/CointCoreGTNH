@@ -64,7 +64,7 @@ public class CointCore {
     }
 
     @Mod.EventHandler
-    public void serverStopping(FMLServerStoppedEvent event) {
-        proxy.serverStopping(event);
+    public void serverStopped(FMLServerStoppedEvent event) {
+        proxy.serverStopped(event);
     }
 }

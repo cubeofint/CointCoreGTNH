@@ -123,7 +123,7 @@ public class CommonProxy {
     }
 
     @SuppressWarnings("unused")
-    public void serverStopping(FMLServerStoppedEvent event) {
+    public void serverStopped(FMLServerStoppedEvent event) {
         DmLogger.close();
         ChatWSClient.inst.close();
     }
