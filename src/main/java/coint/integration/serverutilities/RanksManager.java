@@ -7,13 +7,9 @@ import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.gson.JsonObject;
-
 import betterquesting.api.questing.party.IParty;
-import coint.CointConfig;
 import coint.epochsync.EpochEntry;
 import coint.epochsync.EpochRegistry;
-import coint.util.HttpUtil;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.ranks.PlayerRank;
 import serverutils.ranks.Rank;
@@ -210,29 +206,7 @@ public class RanksManager {
                 rank);
         }
 
-        // Notify external API
-        if (CointConfig.api.notifyEnabled) {
-            notifyApiRankChange(playerId, rank);
-        }
-    }
-
-    /**
-     * Notify external API about rank change
-     */
-    // TODO: rework
-    private void notifyApiRankChange(UUID playerId, String rank) {
-        String apiUrl = null;
-
-        JsonObject data = new JsonObject();
-        data.addProperty("player_id", playerId.toString());
-        data.addProperty("rank", rank);
-
-        HttpUtil.postJsonAsync(apiUrl + "/api/coint-connector/roles/gtnh", data.toString())
-            .thenAccept(code -> LOG.debug("API notification sent, response: {}", code))
-            .exceptionally(e -> {
-                LOG.error("API notification failed: {}", e.getMessage());
-                return null;
-            });
+        // TODO: rank notify
     }
 
     /**

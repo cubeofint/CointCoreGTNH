@@ -9,6 +9,7 @@ import net.minecraft.util.ChatComponentText;
 
 import coint.commands.spy.LocalSpyRegistry;
 import coint.commands.spy.PersonalSpyRegistry;
+import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 
@@ -48,15 +49,17 @@ public class CommandSpy extends CommandBase {
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
         ChatComponentText msg;
 
+        var p = Universe.get()
+            .getPlayer(sender);
         if (args.length > 0) {
             msg = switch (args[0]) {
-                case "dm" -> PersonalSpyRegistry.toggleWithMessage(sender.getCommandSenderName());
-                case "local" -> LocalSpyRegistry.toggleWithMessage(sender.getCommandSenderName());
+                case "dm" -> PersonalSpyRegistry.toggleWithMessage(p);
+                case "local" -> LocalSpyRegistry.toggleWithMessage(p);
                 default -> throw new WrongUsageException(getCommandUsage(sender));
             };
         } else {
-            msg = PersonalSpyRegistry.toggleWithMessage(sender.getCommandSenderName());
-            msg.appendSibling(LocalSpyRegistry.toggleWithMessage(sender.getCommandSenderName()));
+            msg = PersonalSpyRegistry.toggleWithMessage(p);
+            msg.appendSibling(LocalSpyRegistry.toggleWithMessage(p));
         }
 
         sender.addChatMessage(msg);

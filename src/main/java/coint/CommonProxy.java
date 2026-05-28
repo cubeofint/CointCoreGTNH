@@ -7,10 +7,9 @@ import coint.commands.spy.DmLogger;
 import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
 import coint.epochsync.EpochRegistry;
-import coint.events.KeepInventoryHandler;
 import coint.http.ChatWSClient;
-import coint.integration.serverutilities.CointSUPermissions;
 import coint.integration.serverutilities.RanksManager;
+import coint.util.PermissionsUtil;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
@@ -21,8 +20,6 @@ import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 import serverutils.ServerUtilitiesConfig;
 import serverutils.lib.data.Universe;
-import serverutils.lib.util.permission.DefaultPermissionLevel;
-import serverutils.lib.util.permission.PermissionAPI;
 
 /**
  * Common proxy for both client and server.
@@ -48,35 +45,7 @@ public class CommonProxy {
      */
     @SuppressWarnings("unused")
     public void init(FMLInitializationEvent event) {
-        // TODO: move to PermissionUtils
-        PermissionAPI.registerNode(
-            KeepInventoryHandler.PERMISSION,
-            DefaultPermissionLevel.NONE,
-            "Сохранять инвентарь при смерти");
-
-        // Split /god, /fly, /tpl into self-use vs. targeting-others tiers.
-        // The existing SU node "commands.<name>" controls self-use (unchanged).
-        // These new nodes guard the "apply to another player" variant.
-        PermissionAPI.registerNode(
-            CointSUPermissions.TP_COORDS,
-            DefaultPermissionLevel.NONE,
-            "Teleport to coordinates via /tp x y z (JourneyMap waypoints)");
-        PermissionAPI.registerNode(
-            CointSUPermissions.GOD_OTHER,
-            DefaultPermissionLevel.OP,
-            "Apply god mode to another player via /god <player>");
-        PermissionAPI.registerNode(
-            CointSUPermissions.FLY_OTHER,
-            DefaultPermissionLevel.OP,
-            "Toggle fly for another player via /fly <player>");
-        PermissionAPI.registerNode(
-            CointSUPermissions.TPL_OTHER,
-            DefaultPermissionLevel.OP,
-            "Teleport another player to someone via /tpl <who> <to>");
-        PermissionAPI.registerNode(
-            CointSUPermissions.TPL_TO_PROTECTED,
-            DefaultPermissionLevel.OP,
-            "Teleport to protected players via /tpl (e.g. admins)");
+        PermissionsUtil.register();
     }
 
     /**

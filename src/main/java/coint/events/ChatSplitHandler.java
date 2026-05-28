@@ -93,7 +93,7 @@ public class ChatSplitHandler {
                         .setChatHoverEvent(
                             new HoverEvent(
                                 HoverEvent.Action.SHOW_TEXT,
-                                new ChatComponentText("Осторожно! Ссылка на сторонний сайт."))));
+                                new ChatComponentText("Ссылка на сторонний сайт."))));
 
                 currentLine.appendSibling(linkComp);
                 currentLength += partLen;
@@ -158,14 +158,7 @@ public class ChatSplitHandler {
             return;
         }
 
-        // Получаем имя с префиксом ранга из ServerUtilities (или просто ник, если SU недоступен).
-        String senderName = getRankFormattedName(sender);
-
-        if (isGlobal) {
-            sendGlobal(sender, senderName, text);
-        } else {
-            sendLocal(sender, senderName, text);
-        }
+        send(sender, text, isGlobal);
     }
 
     // ------------------------------------------------------------------
@@ -272,53 +265,45 @@ public class ChatSplitHandler {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Send helpers
-    // ------------------------------------------------------------------
-
-    // TODO: Extract Chat interactions to other package (may be util)
-    private static void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
+    private static void send(EntityPlayerMP sender, String text, boolean isGlobal) {
+        String senderName = getRankFormattedName(sender);
         String colorCode = getTextColorCode(sender);
-        String formatted = String
-            .format(CointConfig.chat.globalFormat, senderName, text.replaceAll("(?<=^|\\s)", colorCode));
-        ChatComponentText component = new ChatComponentText(formatted);
 
-        MinecraftServer.getServer()
-            .getConfigurationManager()
-            .sendChatMsg(component);
-
-        ChatWSClient.send(
-            sender.getGameProfile()
-                .getName(),
+        String formatted = String.format(
+            isGlobal ? CointConfig.chat.globalFormat : CointConfig.chat.localFormat,
             senderName,
-            text);
-    }
-
-    private static void sendLocal(EntityPlayerMP sender, String senderName, String text) {
-        String colorCode = getTextColorCode(sender);
-        String formatted = String
-            .format(CointConfig.chat.localFormat, senderName, text.replaceAll("(?<=^|\\s)", colorCode));
+            text.replaceAll("(?<=^|\\s)", colorCode));
         ChatComponentText component = new ChatComponentText(formatted);
 
-        double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
-        int senderDim = sender.dimension;
+        if (isGlobal) {
+            MinecraftServer.getServer()
+                .getConfigurationManager()
+                .sendChatMsg(component);
 
-        List<EntityPlayerMP> players = MinecraftServer.getServer()
-            .getConfigurationManager().playerEntityList;
+            ChatWSClient.send(
+                sender.getGameProfile()
+                    .getName(),
+                senderName,
+                text);
+        } else {
+            double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
+            int senderDim = sender.dimension;
 
-        int recipients = 0;
-        for (EntityPlayerMP p : players) {
-            if (p.dimension != senderDim || sender.getDistanceSqToEntity(p) > radiusSq) {
-                continue;
+            int recipients = 0;
+            for (EntityPlayerMP p : MinecraftServer.getServer()
+                .getConfigurationManager().playerEntityList) {
+                if (p.dimension != senderDim || sender.getDistanceSqToEntity(p) > radiusSq) {
+                    continue;
+                }
+                p.addChatMessage(component);
+                recipients++;
             }
-            p.addChatMessage(component);
-            recipients++;
+
+            CointCore.LOG
+                .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.chat.radius, senderName, text, recipients);
+
+            // Notify admins who have /localspy enabled and were out of range.
+            LocalSpyRegistry.notifySpies(sender, senderName, text);
         }
-
-        CointCore.LOG
-            .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.chat.radius, senderName, text, recipients);
-
-        // Notify admins who have /localspy enabled and were out of range.
-        LocalSpyRegistry.notifySpies(sender, senderName, text);
     }
 }

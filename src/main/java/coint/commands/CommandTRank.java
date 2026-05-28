@@ -1,6 +1,5 @@
 package coint.commands;
 
-import java.util.Calendar;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,7 +29,7 @@ import serverutils.ranks.Ranks;
  * /trank remove &lt;player&gt; &lt;rank&gt;              — manually revoke a temp rank
  * /trank list  [player]                       — list active temp ranks
  * </pre>
- *
+ * <p>
  * Duration format: {@code 30s}, {@code 10m} (minutes), {@code 2h}, {@code 7d}, {@code 1mo} (calendar months).
  * Permission: {@code cointcore.command.trank} (default: OP)
  */
@@ -108,13 +107,15 @@ public class CommandTRank extends CommandBase {
     // Sub-commands
     // ------------------------------------------------------------------
 
-    /** /trank give <player> <rank> <duration> */
+    /**
+     * /trank give <player> <rank> <duration>
+     */
     private void cmdGive(ICommandSender sender, String[] args) throws CommandException {
         if (args.length < 4) throw new WrongUsageException("/trank give <player> <rank> <duration>");
 
         ForgePlayer fp = resolvePlayer(args[1]);
         String rankId = args[2];
-        long durationMs = parseDuration(args[3]);
+        long durationMs = TimeUtil.parseDuration(args[3]);
 
         // Validate rank exists before calling manager
         if (Ranks.INSTANCE == null || Ranks.INSTANCE.getRank(rankId) == null) {
@@ -151,7 +152,7 @@ public class CommandTRank extends CommandBase {
 
         ForgePlayer fp = resolvePlayer(args[1]);
         String rankId = args[2];
-        long durationMs = parseDuration(args[3]);
+        long durationMs = TimeUtil.parseDuration(args[3]);
         if (durationMs < 0) {
             throw new CommandException("Для продления укажите конечную длительность (не perm/навсегда)");
         }
@@ -193,7 +194,9 @@ public class CommandTRank extends CommandBase {
                 EnumChatFormatting.GREEN + "Ранг §e" + rankId + "§a выдан §e" + fp.getName() + "§a " + durStr));
     }
 
-    /** /trank remove <player> <rank> */
+    /**
+     * /trank remove <player> <rank>
+     */
     private void cmdRemove(ICommandSender sender, String[] args) throws CommandException {
         if (args.length < 3) throw new WrongUsageException("/trank remove <player> <rank>");
 
@@ -217,7 +220,9 @@ public class CommandTRank extends CommandBase {
                 EnumChatFormatting.GREEN + "Временный ранг §e" + rankId + "§a снят с §e" + fp.getName()));
     }
 
-    /** /trank list [player] */
+    /**
+     * /trank list [player]
+     */
     private void cmdList(ICommandSender sender, String[] args) throws CommandException {
         if (args.length >= 2) {
             // List for a specific player
@@ -274,10 +279,6 @@ public class CommandTRank extends CommandBase {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
-
     private static ForgePlayer resolvePlayer(String name) throws CommandException {
         ForgePlayer fp = Universe.get()
             .getPlayer(name);
@@ -285,62 +286,5 @@ public class CommandTRank extends CommandBase {
             throw new CommandException("Игрок §e" + name + "§r не найден (ни разу не заходил на сервер)");
         }
         return fp;
-    }
-
-    /**
-     * Разница во времени от «сейчас» до даты через {@code months} календарных месяцев
-     * (учёт 28/29/30/31 дня, високосных лет и т.д. — через {@link Calendar#add(int, int)}).
-     */
-    // TODO: Move to TimeUtil
-    private static long millisForCalendarMonths(long months) throws WrongUsageException {
-        if (months <= 0) {
-            throw new WrongUsageException("Число месяцев должно быть положительным");
-        }
-        if (months > Integer.MAX_VALUE) {
-            throw new WrongUsageException("Слишком большое число месяцев");
-        }
-        Calendar cal = Calendar.getInstance();
-        long start = cal.getTimeInMillis();
-        cal.add(Calendar.MONTH, (int) months);
-        return cal.getTimeInMillis() - start;
-    }
-
-    /**
-     * Parses duration strings: {@code 30s}, {@code 10m} (minutes), {@code 2h}, {@code 7d}, {@code 1mo}…{@code 12mo}
-     * (calendar months).
-     *
-     * @return milliseconds, or {@code -1} for "perm"
-     */
-    // TODO: Move to TimeUtil
-    private static long parseDuration(String raw) throws WrongUsageException {
-        String s = raw.toLowerCase()
-            .trim();
-        if (s.equals("perm") || s.equals("permanent") || s.equals("навсегда")) {
-            return -1;
-        }
-        if (s.length() < 2) {
-            throw new WrongUsageException(
-                "Неверный формат времени. Примеры: 30s, 10m (минуты), 2h, 7d, 1mo (календарные месяцы)");
-        }
-        try {
-            if (s.endsWith("mo")) {
-                if (s.length() < 3) {
-                    throw new WrongUsageException("Укажите число перед mo, например: 1mo, 3mo, 12mo");
-                }
-                long months = Long.parseLong(s.substring(0, s.length() - 2));
-                return millisForCalendarMonths(months);
-            }
-            long value = Long.parseLong(s.substring(0, s.length() - 1));
-            return switch (s.charAt(s.length() - 1)) {
-                case 's' -> value * 1_000L;
-                case 'm' -> value * 60_000L;
-                case 'h' -> value * 3_600_000L;
-                case 'd' -> value * 86_400_000L;
-                default -> throw new WrongUsageException(
-                    "Неверный суффикс. Используйте: s, m (минуты), h, d, mo (календарные месяцы)");
-            };
-        } catch (NumberFormatException e) {
-            throw new WrongUsageException("Неверный формат времени: " + raw);
-        }
     }
 }

@@ -45,11 +45,11 @@ public class LoginMsgHandler {
             event.player.addChatMessage(buildLoginComponent(line));
         }
 
-        if (Universe.get()
-            .getPlayer(event.player)
-            .isOP()) {
-            LocalSpyRegistry.toggle(event.player.getCommandSenderName());
-            PersonalSpyRegistry.toggle(event.player.getCommandSenderName());
+        var p = Universe.get()
+            .getPlayer(event.player);
+        if (p.isOP()) {
+            LocalSpyRegistry.enable(p);
+            PersonalSpyRegistry.enable(p);
         }
     }
 

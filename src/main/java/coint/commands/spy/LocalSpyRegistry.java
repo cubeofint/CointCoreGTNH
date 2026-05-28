@@ -4,12 +4,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
 import coint.CointConfig;
 import coint.events.ChatSplitHandler;
+import serverutils.lib.data.ForgePlayer;
 
 /**
  * Tracks which administrators have local-chat spy mode enabled and routes spy copies to them.
@@ -35,7 +35,7 @@ import coint.events.ChatSplitHandler;
  */
 public final class LocalSpyRegistry {
 
-    private static final Set<String> SPIES = ConcurrentHashMap.newKeySet();
+    private static final Set<ForgePlayer> SPIES = ConcurrentHashMap.newKeySet();
 
     /**
      * Prefix shown before every spy-copy message.
@@ -49,37 +49,31 @@ public final class LocalSpyRegistry {
     private LocalSpyRegistry() {}
 
     /**
-     * Toggles local-spy mode for {@code playerName}.
+     * Toggles local-spy mode for {@code player}.
      *
      * @return {@code true} if spy mode is now <em>enabled</em>
      */
-    public static boolean toggle(String playerName) {
-        if (SPIES.remove(playerName)) {
+    public static boolean toggle(ForgePlayer player) {
+        if (SPIES.remove(player)) {
             return false;
         }
-        SPIES.add(playerName);
+        SPIES.add(player);
         return true;
     }
 
-    public static ChatComponentText toggleWithMessage(String player) {
+    public static ChatComponentText toggleWithMessage(ForgePlayer player) {
         return new ChatComponentText(
             LocalSpyRegistry.SPY_PREFIX
                 + (toggle(player) ? EnumChatFormatting.GREEN + "Включён — вы видите локальные сообщения всех игроков."
                     : EnumChatFormatting.RED + "Выключен."));
     }
 
-    /**
-     * Returns {@code true} if the player currently has local-spy mode on.
-     */
-    public static boolean isEnabled(String playerName) {
-        return SPIES.contains(playerName);
+    public static void enable(ForgePlayer player) {
+        SPIES.add(player);
     }
 
-    /**
-     * Removes the entry; call on player disconnect to avoid stale state.
-     */
-    public static void remove(String playerName) {
-        SPIES.remove(playerName);
+    public static void disable(ForgePlayer player) {
+        SPIES.remove(player);
     }
 
     /**
@@ -97,27 +91,16 @@ public final class LocalSpyRegistry {
      * @param senderDisplay rank-formatted display name
      * @param text          raw message text (no colour codes from the local format string)
      */
-    // TODO?: rework with set of players (merge spy and receivers list?)
     public static void notifySpies(EntityPlayerMP sender, String senderDisplay, String text) {
         if (SPIES.isEmpty()) return;
 
         double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
-        int senderDim = sender.dimension;
+        String location = EnumChatFormatting.DARK_GRAY + "(dim:" + sender.dimension + ")";
 
-        // Location suffix shown to spies — dimension + integer block coordinates.
-        String location = EnumChatFormatting.DARK_GRAY + "(dim:" + senderDim + ")";
-
-        for (EntityPlayerMP spy : MinecraftServer.getServer()
-            .getConfigurationManager().playerEntityList) {
-
-            String spyName = spy.getCommandSenderName();
-            if (!isEnabled(spyName)) continue;
-            if (spy == sender) continue; // sender already sees their own text
-
-            // Skip if the spy was already within range (they got the normal message).
-            if (spy.dimension == senderDim && sender.getDistanceSqToEntity(spy) <= radiusSq) {
-                continue;
-            }
+        for (ForgePlayer spy : SPIES) {
+            if (!spy.isOnline() || spy.equalsPlayer(sender)) continue;
+            if (spy.getPlayer().dimension == sender.dimension
+                && sender.getDistanceSqToEntity(spy.getPlayer()) <= radiusSq) continue;
 
             ChatComponentText msg = new ChatComponentText(
                 SPY_PREFIX + EnumChatFormatting.AQUA
@@ -128,7 +111,8 @@ public final class LocalSpyRegistry {
                     + ": "
                     + EnumChatFormatting.WHITE
                     + text);
-            spy.addChatMessage(msg);
+            spy.getPlayer()
+                .addChatMessage(msg);
         }
     }
 }

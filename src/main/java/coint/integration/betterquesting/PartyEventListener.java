@@ -89,29 +89,6 @@ public class PartyEventListener {
     }
 
     /**
-     * Internal method to sync a player to a specific party.
-     */
-    // TODO: move method
-    public static void syncToPartyEpoch(UUID playerId, IParty party) {
-        RanksManager ranksManager = RanksManager.get();
-        if (ranksManager == null) {
-            return;
-        }
-
-        EpochEntry partyEpoch = ranksManager.getHighestPartyEpoch(party);
-        if (partyEpoch == null) {
-            LOG.debug("Party has no epoch rank, nothing to sync for new member {}", playerId);
-            return;
-        }
-
-        // Only upgrade, never downgrade
-        if (ranksManager.needsEpochUpgrade(playerId, partyEpoch)) {
-            LOG.info("Syncing new party member {} to epoch: {}", playerId, partyEpoch.rankName);
-            assignRankToPlayer(playerId, partyEpoch.rankName);
-        }
-    }
-
-    /**
      * Get the party for a player.
      */
     private static IParty getPlayerParty(UUID playerId) {

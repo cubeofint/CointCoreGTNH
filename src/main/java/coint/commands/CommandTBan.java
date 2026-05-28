@@ -75,7 +75,7 @@ public class CommandTBan extends CommandBase {
             return;
         }
 
-        long durationMs = parseTimeToMs(args[1]);
+        long durationMs = TimeUtil.parseDuration(args[1]);
         String reason = Joiner.on(" ")
             .join(Arrays.copyOfRange(args, 2, args.length));
         reason = reason.replaceAll("^['\"]|['\"]$", "");
@@ -102,25 +102,5 @@ public class CommandTBan extends CommandBase {
         MinecraftServer.getServer()
             .getConfigurationManager()
             .sendChatMsg(message);
-    }
-
-    private long parseTimeToMs(String time) {
-        String str = time.toLowerCase();
-        if (str.equals("perm")) {
-            return -1;
-        }
-
-        long l = Long.parseLong(str.substring(0, str.length() - 1));
-        if (str.endsWith("s")) {
-            return l * 1000;
-        } else if (str.endsWith("m")) {
-            return l * 60 * 1000;
-        } else if (str.endsWith("h")) {
-            return l * 60 * 60 * 1000;
-        } else if (str.endsWith("d")) {
-            return l * 24 * 60 * 60 * 1000;
-        }
-
-        throw new WrongUsageException("Неверный формат времени. Используйте: 10s, 5m, 2h, 1d, perm");
     }
 }
