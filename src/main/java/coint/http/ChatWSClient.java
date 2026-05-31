@@ -22,6 +22,8 @@ public class ChatWSClient extends WebSocketClient {
 
     static Gson gson;
     MinecraftServer server;
+    boolean needReconnect = true;
+
 
     public static void init() {
         URI uri = null;
@@ -72,9 +74,16 @@ public class ChatWSClient extends WebSocketClient {
     }
 
     @Override
+    public void close() {
+        super.close();
+        needReconnect = false;
+    }
+
+    @Override
     public void onClose(int code, String reason, boolean remote) {
         CointCore.LOG.info("Hub WS connection closed{}: {} {}", remote ? " from remote" : "", code, reason);
 
+        if (!needReconnect) return;
         new Thread(() -> {
             int attempts = 0;
 
