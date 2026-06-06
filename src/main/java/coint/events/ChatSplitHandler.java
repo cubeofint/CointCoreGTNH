@@ -1,5 +1,7 @@
 package coint.events;
 
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -161,10 +163,6 @@ public class ChatSplitHandler {
         send(sender, text, isGlobal);
     }
 
-    // ------------------------------------------------------------------
-    // Rank name resolution
-    // ------------------------------------------------------------------
-
     /**
      * Возвращает имя игрока, отформатированное согласно его рангу в ServerUtilities.
      *
@@ -221,10 +219,6 @@ public class ChatSplitHandler {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Text colour resolution
-    // ------------------------------------------------------------------
-
     /**
      * Возвращает Minecraft-код цвета (например {@code §c}) для текста сообщения отправителя,
      * взятый из привилегии {@code serverutilities.chat.text.color} в ranks.txt.
@@ -269,10 +263,17 @@ public class ChatSplitHandler {
         String senderName = getRankFormattedName(sender);
         String colorCode = getTextColorCode(sender);
 
+        LocalTime now = LocalTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+        String time = now.format(formatter);
+
         String formatted = String.format(
             isGlobal ? CointConfig.chat.globalFormat : CointConfig.chat.localFormat,
             senderName,
             text.replaceAll("(?<=^|\\s)", colorCode));
+
+        formatted = EnumChatFormatting.GRAY + "[" + time + "]" + EnumChatFormatting.RESET + formatted;
+
         ChatComponentText component = new ChatComponentText(formatted);
 
         if (isGlobal) {
