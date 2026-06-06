@@ -1,12 +1,19 @@
 package coint.player;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.util.LinkedList;
+import java.util.UUID;
 
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.PlayerNotFoundException;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.util.Constants;
 
 import coint.CointCore;
@@ -27,11 +34,63 @@ public class CointPlayer {
     TBan ban;
     LinkedList<Warn> warns;
 
+    public static NBTTagCompound getOfflineNBT(UUID uuid) {
+        NBTTagCompound nbt;
+        try {
+            File w = MinecraftServer.getServer()
+                .worldServerForDimension(0)
+                .getSaveHandler()
+                .getWorldDirectory();
+            File pdir = new File(w, "playerdata");
+            File dat = new File(pdir, uuid.toString() + ".dat");
+            try (FileInputStream stream = new FileInputStream(dat)) {
+                nbt = CompressedStreamTools.readCompressed(stream)
+                    .getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG)
+                    .getCompoundTag(NBT_DATA);
+            }
+        } catch (Exception e) {
+            CointCore.LOG.warn("NBT {} read problem", uuid);
+            CointCore.LOG.error(e.getMessage());
+            return null;
+        }
+
+        return nbt;
+    }
+
+    public static void saveOfflineNBT(UUID uuid, NBTTagCompound nbt) {
+        try {
+            File w = MinecraftServer.getServer()
+                .worldServerForDimension(0)
+                .getSaveHandler()
+                .getWorldDirectory();
+            File pdir = new File(w, "playerdata");
+            File dat = new File(pdir, uuid.toString() + ".dat");
+            NBTTagCompound base;
+            try (FileInputStream fis = new FileInputStream(dat)) {
+                base = CompressedStreamTools.readCompressed(fis)
+                    .getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+            }
+            base.setTag(NBT_DATA, nbt);
+            try (FileOutputStream fos = new FileOutputStream(dat)) {
+                CompressedStreamTools.writeCompressed(base, fos);
+            }
+        } catch (Exception e) {
+            CointCore.LOG.warn("NBT {} write problem", uuid);
+            CointCore.LOG.error(e.getMessage());
+        }
+    }
+
     private CointPlayer(ForgePlayer player) {
         this.player = player;
 
-        NBTTagCompound nbt = NBTUtils.getPersistedData(getPlayer(), true)
-            .getCompoundTag(NBT_DATA);
+        NBTTagCompound nbt;
+        if (player.isOnline()) {
+            nbt = NBTUtils.getPersistedData(getPlayer(), true)
+                .getCompoundTag(NBT_DATA);
+        } else {
+            nbt = getOfflineNBT(player.getId());
+            if (nbt == null) throw new PlayerNotFoundException();
+        }
 
         warns = new LinkedList<>();
         if (nbt.hasKey(NBT_WARN, Constants.NBT.TAG_LIST)) {
@@ -94,8 +153,12 @@ public class CointPlayer {
             nbt.setTag(NBT_BAN, nbtBan);
         }
 
-        NBTTagCompound base = NBTUtils.getPersistedData(getPlayer(), true);
-        base.setTag(NBT_DATA, nbt);
+        if (player.isOnline()) {
+            NBTTagCompound base = NBTUtils.getPersistedData(getPlayer(), true);
+            base.setTag(NBT_DATA, nbt);
+        } else {
+            saveOfflineNBT(player.getId(), nbt);
+        }
         // player.setPlayerNBT(base);
     }
 

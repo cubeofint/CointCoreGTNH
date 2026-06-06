@@ -24,7 +24,6 @@ public class ChatWSClient extends WebSocketClient {
     MinecraftServer server;
     boolean needReconnect = true;
 
-
     public static void init() {
         URI uri = null;
         try {
