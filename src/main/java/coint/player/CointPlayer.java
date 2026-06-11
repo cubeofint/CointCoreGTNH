@@ -67,10 +67,11 @@ public class CointPlayer {
             File dat = new File(pdir, uuid.toString() + ".dat");
             NBTTagCompound base;
             try (FileInputStream fis = new FileInputStream(dat)) {
-                base = CompressedStreamTools.readCompressed(fis)
-                    .getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG);
+                base = CompressedStreamTools.readCompressed(fis);
             }
-            base.setTag(NBT_DATA, nbt);
+            base.getCompoundTag("ForgeData")
+                .getCompoundTag(EntityPlayer.PERSISTED_NBT_TAG)
+                .setTag(NBT_DATA, nbt);
             try (FileOutputStream fos = new FileOutputStream(dat)) {
                 CompressedStreamTools.writeCompressed(base, fos);
             }

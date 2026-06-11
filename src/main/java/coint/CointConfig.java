@@ -10,7 +10,7 @@ import com.gtnewhorizon.gtnhlib.config.ConfigurationManager;
 /**
  * Configuration handler for CointCore.
  */
-@Config(modid = CointCore.MOD_ID, category = "")
+@Config(modid = CointCore.MOD_ID, category = "", configSubDirectory = "cointcore/")
 public class CointConfig {
 
     public static final String RELOAD = "reload";

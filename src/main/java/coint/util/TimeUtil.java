@@ -12,6 +12,10 @@ public class TimeUtil {
     private static final String PARSE_ERROR = "Неверный формат времени. Примеры: 30s, 10m (минуты), 2h, 7d, 1mo (календарные месяцы), perm (навсегда)";
 
     public static String formatDuration(long ms) {
+        if (ms < -1) {
+            return "навсегда";
+        }
+
         long seconds = ms / 1000;
         long minutes = seconds / 60;
         long hours = minutes / 60;
