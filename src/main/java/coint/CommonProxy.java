@@ -95,7 +95,7 @@ public class CommonProxy {
     public void serverStopped(FMLServerStoppedEvent event) {
         DmLogger.close();
         if (CointConfig.chat.splitEnabled) {
-            ChatWSClient.inst.close();
+            ChatWSClient.close();
         }
     }
 }

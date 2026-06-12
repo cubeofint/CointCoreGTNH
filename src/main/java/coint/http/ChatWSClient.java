@@ -1,111 +1,54 @@
 package coint.http;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.EnumChatFormatting;
-import net.minecraft.util.IChatComponent;
-
-import org.java_websocket.client.WebSocketClient;
-import org.java_websocket.handshake.ServerHandshake;
 
 import com.google.gson.Gson;
+import com.neovisionaries.ws.client.WebSocket;
+import com.neovisionaries.ws.client.WebSocketException;
+import com.neovisionaries.ws.client.WebSocketFactory;
 
 import coint.CointConfig;
 import coint.CointCore;
 
-public class ChatWSClient extends WebSocketClient {
+public class ChatWSClient {
 
-    public static ChatWSClient inst;
+    public static WebSocket ws;
 
     static Gson gson;
-    MinecraftServer server;
-    boolean needReconnect = true;
+    static MinecraftServer server;
 
     public static void init() {
+        gson = new Gson();
+        server = MinecraftServer.getServer();
+
         URI uri = null;
         try {
             uri = CointConfig.api.getChatWs();
         } catch (URISyntaxException e) {
             CointCore.LOG.error(e.getMessage());
         }
-        inst = new ChatWSClient(uri);
-        inst.connect();
+
+        WebSocketFactory factory = new WebSocketFactory();
+        try {
+            ws = factory.createSocket(uri);
+            ws.connect();
+            ws.addListener(new HubWSAdapter());
+        } catch (IOException | WebSocketException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static void send(String sender, String senderFormatted, String text) {
         String msg = gson.toJson(new WSMessage(sender, senderFormatted, text));
-        inst.send(msg);
+        ws.sendText(msg);
     }
 
-    public ChatWSClient(URI serverUri) {
-        super(serverUri);
-
-        gson = new Gson();
-        server = MinecraftServer.getServer();
-    }
-
-    @Override
-    public void onOpen(ServerHandshake handshakedata) {
-        String greeting = gson.toJson(new WSMessage("server", "server", "greeting"));
-        inst.send(greeting);
-
-        CointCore.LOG.info("Hub WS connection established");
-    }
-
-    @Override
-    public void onMessage(String message) {
-        if (server == null) {
-            return;
-        }
-
-        WSMessage msg = gson.fromJson(message, WSMessage.class);
-
-        IChatComponent c = new ChatComponentText(
-            EnumChatFormatting.GREEN + "[" + msg.server + "] " + EnumChatFormatting.RESET)
-                .appendText(msg.senderFormatted + ": ")
-                .appendText(msg.text);
-
-        server.getConfigurationManager()
-            .sendChatMsg(c);
-    }
-
-    @Override
-    public void close() {
-        super.close();
-        needReconnect = false;
-    }
-
-    @Override
-    public void onClose(int code, String reason, boolean remote) {
-        CointCore.LOG.info("Hub WS connection closed{}: {} {}", remote ? " from remote" : "", code, reason);
-
-        if (!needReconnect) return;
-        new Thread(() -> {
-            int attempts = 0;
-
-            while (attempts < 5) {
-                try {
-                    Thread.sleep(5000);
-                    CointCore.LOG.info("Hub ws reconnection attempt {}", attempts + 1);
-                    if (inst.reconnectBlocking()) {
-                        CointCore.LOG.info("Hub ws reconnected");
-                        return;
-                    }
-                } catch (InterruptedException e) {
-                    CointCore.LOG.info(e.getMessage());
-                }
-                attempts++;
-            }
-            CointCore.LOG.info("Hub ws reconnection fail");
-        }).start();
-    }
-
-    @Override
-    public void onError(Exception ex) {
-        CointCore.LOG.error(ex.getMessage());
+    public static void close() {
+        ws.sendClose();
     }
 
     public static class WSMessage {

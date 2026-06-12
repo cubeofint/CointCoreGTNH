@@ -34,7 +34,7 @@ public class CommandHub extends CommandBase {
 
         switch (args[0]) {
             case "reconnect": {
-                if (ChatWSClient.inst == null) {
+                if (ChatWSClient.ws == null) {
                     ChatWSClient.init();
                     sender.addChatMessage(
                         new ChatComponentText(
@@ -42,7 +42,7 @@ public class CommandHub extends CommandBase {
                                 + "Клиент хаба не был создан; вызван init (проверьте wsHubUrl и лог)"));
                     return;
                 }
-                ChatWSClient.inst.reconnect();
+                ChatWSClient.ws.connectAsynchronously();
                 sender.addChatMessage(
                     new ChatComponentText(EnumChatFormatting.GREEN + "Запрошено переподключение к WebSocket-хабу"));
                 break;

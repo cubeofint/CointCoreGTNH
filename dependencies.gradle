@@ -34,7 +34,7 @@
  * For more details, see https://docs.gradle.org/8.0.1/userguide/java_library_plugin.html#sec:java_library_configurations_graph
  */
 dependencies {
-    api("org.java-websocket:Java-WebSocket:1.6.0")
+    shadowImplementation("com.neovisionaries:nv-websocket-client:2.14")
 
     api("com.github.GTNewHorizons:GTNHLib:0.11.12:dev")
     api("thaumcraft:Thaumcraft:1.7.10-4.2.3.5:dev")
@@ -56,3 +56,15 @@ dependencies {
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.8.101-GTNH:dev") { transitive = false }
     runtimeOnly("com.github.GTNewHorizons:Baubles-Expanded:2.2.21-GTNH:dev")
 }
+//
+//shadowJar {
+//    // Говорим плагину, какие зависимости нужно забрать в jar
+//    configurations = [project.configurations.shadow]
+//
+//    // ВАЖНО: Перемещаем пакет (shading), чтобы не конфликтовать с другими модами
+//    // Переименует com.neovisionaries в ваш_пакет.libs.nv-websocket-client
+//    relocate 'com.neovisionaries.ws.client', 'coint.libs.websockets'
+//
+//    // Название вашего итогового файла
+//    archiveClassifier.set('')
+//}

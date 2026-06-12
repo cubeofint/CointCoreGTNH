@@ -1,13 +1,13 @@
 package coint.commands;
 
-import coint.CointCore;
 import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
-import org.java_websocket.client.WebSocketClient;
-import serverutils.lib.data.Universe;
 
-import java.net.URL;
+import coint.CointCore;
+import serverutils.lib.data.Universe;
 
 public class CommandClass extends CommandBase {
 
@@ -23,28 +23,28 @@ public class CommandClass extends CommandBase {
 
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
-        var p = Universe.get().getPlayer(sender);
-        if (p != null) {
-            return p.isOP();
+        if (sender instanceof EntityPlayerMP p) {
+            return Universe.get()
+                .getPlayer(p)
+                .isOP();
         }
         return true;
     }
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
-        Class<WebSocketClient> clazz = WebSocketClient.class;
-        URL l = clazz.getProtectionDomain().getCodeSource().getLocation();
-        if (l != null) {
-            sender.addChatMessage(new ChatComponentText("url: " + l.getFile()));
-            CointCore.LOG.info("url: {}", l.getFile());
-            return;
-        } else {
-            String classResource = clazz.getName().replace('.', '/') + ".class";
-            l = clazz.getClassLoader() != null
-                ? clazz.getClassLoader().getResource(classResource)
-                : ClassLoader.getSystemResource(classResource);
+        if (args.length == 1) {
+            try {
+                var clazz = Class.forName(args[0]);
+                String classResource = clazz.getName()
+                    .replace('.', '/') + ".class";
+                var l = clazz.getClassLoader() != null ? clazz.getClassLoader()
+                    .getResource(classResource) : ClassLoader.getSystemResource(classResource);
+                sender.addChatMessage(new ChatComponentText("url: " + l));
+                CointCore.LOG.info("url: {}", l);
+            } catch (ClassNotFoundException e) {
+                throw new CommandException(e.getMessage());
+            }
         }
-        sender.addChatMessage(new ChatComponentText("url: " + l));
-        CointCore.LOG.info("url: {}", l);
     }
 }
