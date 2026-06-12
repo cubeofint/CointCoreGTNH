@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.util.LinkedList;
 import java.util.UUID;
 
+import coint.events.MuteHandler;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.entity.player.EntityPlayer;
@@ -175,11 +176,13 @@ public class CointPlayer {
     public void mute(ICommandSender sender, String reason, long durationMs) {
         mute = new Mute(sender, reason, durationMs);
         save();
+        MuteHandler.muted.add(this);
     }
 
     public void unmute() {
         mute = null;
         save();
+        MuteHandler.muted.remove(this);
     }
 
     public boolean isMuted() {
@@ -190,8 +193,8 @@ public class CointPlayer {
         return mute != null && mute.isExpired();
     }
 
-    public long getMuteRemaining() {
-        return mute.expiresAt - System.currentTimeMillis();
+    public Mute getMute() {
+        return mute;
     }
 
     public void warn(ICommandSender sender, String reason) {

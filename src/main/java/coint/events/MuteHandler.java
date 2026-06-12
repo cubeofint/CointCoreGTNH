@@ -1,5 +1,6 @@
 package coint.events;
 
+import coint.player.Mute;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
@@ -14,9 +15,15 @@ import coint.util.TimeUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
+import serverutils.lib.data.ForgePlayer;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @EventBusSubscriber
-public class BehaviorHandler {
+public class MuteHandler {
+
+    public static List<CointPlayer> muted = new ArrayList<>();
 
     @SubscribeEvent
     public static void muteTick(TickEvent.ServerTickEvent event) {
@@ -24,28 +31,26 @@ public class BehaviorHandler {
             return;
         }
 
-        java.util.List<EntityPlayerMP> players = MinecraftServer.getServer()
-            .getConfigurationManager().playerEntityList;
-
-        for (EntityPlayer ep : players) {
-            CointPlayer player = CointPlayer.get(ep.getCommandSenderName());
+        for (CointPlayer player : muted) {
             if (player.isMuteExpired()) {
                 player.unmute();
-                ep.addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "Ваш мут был автоматически снят"));
+                player.getPlayer().addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "Ваш мут был автоматически снят"));
             }
         }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onServerChat(ServerChatEvent event) {
-        CointPlayer player = CointPlayer.get(event.username);
-        if (player.isMuted()) {
+        Mute mute = CointPlayer.get(event.username).getMute();
+        if (!mute.isExpired()) {
             event.setCanceled(true);
             event.player.addChatMessage(
                 new ChatComponentText(
-                    EnumChatFormatting.RED + "Ваш чат заблокирован. Доступен через "
+                    EnumChatFormatting.RED + "Ваш чат заблокирован ("
+                        + mute.reason
+                        + "). Доступен через "
                         + EnumChatFormatting.GOLD
-                        + TimeUtil.formatDuration(player.getMuteRemaining())));
+                        + TimeUtil.formatDuration(mute.expiresAt - System.currentTimeMillis())));
 
         }
     }

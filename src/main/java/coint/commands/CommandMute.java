@@ -85,7 +85,9 @@ public class CommandMute extends CommandBase {
                 + player.getName()
                 + EnumChatFormatting.RESET
                 + " на "
-                + TimeUtil.formatDuration(durationMs));
+                + TimeUtil.formatDuration(durationMs)
+                + ": "
+                + reason);
 
         MinecraftServer.getServer()
             .getConfigurationManager()

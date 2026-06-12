@@ -56,15 +56,3 @@ dependencies {
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.8.101-GTNH:dev") { transitive = false }
     runtimeOnly("com.github.GTNewHorizons:Baubles-Expanded:2.2.21-GTNH:dev")
 }
-//
-//shadowJar {
-//    // Говорим плагину, какие зависимости нужно забрать в jar
-//    configurations = [project.configurations.shadow]
-//
-//    // ВАЖНО: Перемещаем пакет (shading), чтобы не конфликтовать с другими модами
-//    // Переименует com.neovisionaries в ваш_пакет.libs.nv-websocket-client
-//    relocate 'com.neovisionaries.ws.client', 'coint.libs.websockets'
-//
-//    // Название вашего итогового файла
-//    archiveClassifier.set('')
-//}
