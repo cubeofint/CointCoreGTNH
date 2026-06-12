@@ -6,11 +6,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.event.ServerChatEvent;
-import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
-import coint.CointCore;
 import coint.player.CointPlayer;
 import coint.util.TimeUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
@@ -19,23 +17,6 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 
 @EventBusSubscriber
 public class BehaviorHandler {
-
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onEntityJoin(EntityJoinWorldEvent event) {
-        if (event.entity instanceof EntityPlayerMP ep && !event.entity.worldObj.isRemote) {
-            try {
-                CointPlayer player = CointPlayer.get(ep.getCommandSenderName());
-                if (player.isBanned()) {
-                    CointCore.LOG.info("Kicking banned player {}", ep.getDisplayName());
-                    ep.playerNetServerHandler.kickPlayerFromServer(player.getBanMessage());
-                    event.setCanceled(true);
-                }
-            } catch (Exception e) {
-                CointCore.LOG.error(e.getMessage());
-            }
-
-        }
-    }
 
     @SubscribeEvent
     public static void muteTick(TickEvent.ServerTickEvent event) {

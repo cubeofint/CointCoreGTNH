@@ -26,12 +26,10 @@ public class CointPlayer {
     private static final String NBT_DATA = CointCore.MOD_ID + ".data";
     private static final String NBT_WARN = "warns";
     private static final String NBT_MUTE = "mute";
-    private static final String NBT_BAN = "ban";
 
     ForgePlayer player;
 
     Mute mute;
-    TBan ban;
     LinkedList<Warn> warns;
 
     public static NBTTagCompound getOfflineNBT(UUID uuid) {
@@ -113,14 +111,6 @@ public class CointPlayer {
             mute.reason = nbtMute.getString("reason");
             mute.expiresAt = nbtMute.getLong("expiresAt");
         }
-
-        if (nbt.hasKey(NBT_BAN, Constants.NBT.TAG_COMPOUND)) {
-            NBTTagCompound nbtBan = nbt.getCompoundTag(NBT_BAN);
-            ban = new TBan();
-            ban.banner = nbtBan.getString("banner");
-            ban.reason = nbtBan.getString("reason");
-            ban.expiresAt = nbtBan.getLong("expiresAt");
-        }
     }
 
     private void save() {
@@ -144,14 +134,6 @@ public class CointPlayer {
             nbtMute.setString("reason", mute.reason);
             nbtMute.setLong("expiresAt", mute.expiresAt);
             nbt.setTag(NBT_MUTE, nbtMute);
-        }
-
-        if (isBanned()) {
-            NBTTagCompound nbtBan = new NBTTagCompound();
-            nbtBan.setString("banner", ban.banner);
-            nbtBan.setString("reason", ban.reason);
-            nbtBan.setLong("expiresAt", ban.expiresAt);
-            nbt.setTag(NBT_BAN, nbtBan);
         }
 
         if (player.isOnline()) {
@@ -188,25 +170,6 @@ public class CointPlayer {
 
     public String getName() {
         return player.getName();
-    }
-
-    public void ban(ICommandSender sender, String reason, long durationMs) {
-        ban = new TBan(sender, reason, durationMs);
-        save();
-    }
-
-    public void unban() {
-        ban = null;
-        save();
-    }
-
-    public boolean isBanned() {
-        return ban != null && !ban.isExpired();
-    }
-
-    public String getBanMessage() {
-        if (ban != null) return ban.getBanMessage();
-        else return "Вы разбанены";
     }
 
     public void mute(ICommandSender sender, String reason, long durationMs) {
