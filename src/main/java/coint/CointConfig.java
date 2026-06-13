@@ -43,6 +43,14 @@ public class CointConfig {
         @Config.DefaultBoolean(true)
         public boolean enabled;
 
+        @Config.Comment("Enable personal dimensions freeze")
+        @Config.DefaultBoolean(true)
+        public boolean freezeEnabled;
+
+        @Config.Comment("Enable personal dimensions delete")
+        @Config.DefaultBoolean(false)
+        public boolean deleteEnabled;
+
         @Config.Comment("[W.I.P] Remove player files with their dimension")
         @Config.DefaultBoolean(false)
         public boolean removePlayers;

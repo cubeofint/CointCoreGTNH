@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.util.LinkedList;
 import java.util.UUID;
 
-import coint.events.MuteHandler;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.entity.player.EntityPlayer;
@@ -18,6 +17,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.util.Constants;
 
 import coint.CointCore;
+import coint.events.MuteHandler;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.NBTUtils;

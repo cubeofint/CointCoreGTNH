@@ -1,9 +1,8 @@
 package coint.events;
 
-import coint.player.Mute;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.server.MinecraftServer;
+import java.util.ArrayList;
+import java.util.List;
+
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.event.ServerChatEvent;
@@ -11,14 +10,11 @@ import net.minecraftforge.event.ServerChatEvent;
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.player.CointPlayer;
+import coint.player.Mute;
 import coint.util.TimeUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
-import serverutils.lib.data.ForgePlayer;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @EventBusSubscriber
 public class MuteHandler {
@@ -34,14 +30,16 @@ public class MuteHandler {
         for (CointPlayer player : muted) {
             if (player.isMuteExpired()) {
                 player.unmute();
-                player.getPlayer().addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "Ваш мут был автоматически снят"));
+                player.getPlayer()
+                    .addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "Ваш мут был автоматически снят"));
             }
         }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onServerChat(ServerChatEvent event) {
-        Mute mute = CointPlayer.get(event.username).getMute();
+        Mute mute = CointPlayer.get(event.username)
+            .getMute();
         if (!mute.isExpired()) {
             event.setCanceled(true);
             event.player.addChatMessage(

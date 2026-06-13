@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
 
 import net.minecraft.nbt.CompressedStreamTools;
@@ -12,17 +13,29 @@ import net.minecraft.nbt.NBTTagDouble;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChunkCoordinates;
+import net.minecraft.world.WorldSavedData;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+
 import coint.player.TeamsManager;
+import cpw.mods.fml.common.event.FMLServerStartedEvent;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.lib.data.ForgeTeam;
 import serverutils.lib.data.Universe;
 
-public class DimensionCleaner {
+@EventBusSubscriber
+public class DimensionCleaner extends WorldSavedData {
 
-    static {
-        processDims();
+    @SubscribeEvent
+    public static void checkDims(FMLServerStartedEvent event) {
+        get().processDims();
     }
+
+    private static final String DATA_NAME = "dimensions";
+    private static final String NBT_FREEZE_LIST = "freeze";
+    private static final String NBT_DELETE_LIST = "delete";
 
     private static final long MS_TO_FREEZE = 86_400_000L * CointConfig.cleaner.daysToFreeze;
     private static final long MS_TO_DELETE = 86_400_000L * CointConfig.cleaner.daysToDelete;
@@ -30,8 +43,25 @@ public class DimensionCleaner {
     public static ArrayList<Integer> excludeRegisterList = new ArrayList<>();
     public static ArrayList<Integer> deleteList = new ArrayList<>();
 
-    public static void processDims() {
-        if (!CointConfig.cleaner.enabled) return;
+    public DimensionCleaner(String p_i2141_1_) {
+        super(p_i2141_1_);
+    }
+
+    public static DimensionCleaner get() {
+        WorldServer overworld = MinecraftServer.getServer()
+            .worldServerForDimension(0);
+        DimensionCleaner instance = (DimensionCleaner) overworld.loadItemData(DimensionCleaner.class, DATA_NAME);
+
+        if (instance == null) {
+            instance = new DimensionCleaner(DATA_NAME);
+            overworld.setItemData(DATA_NAME, instance);
+        }
+        return instance;
+    }
+
+    public void processDims() {
+        if (!CointConfig.cleaner.enabled || (!CointConfig.cleaner.deleteEnabled && !CointConfig.cleaner.freezeEnabled))
+            return;
 
         var mgr = TeamsManager.get();
         long curr = System.currentTimeMillis();
@@ -41,13 +71,14 @@ public class DimensionCleaner {
             int dimId = mgr.pdBinds.get(team.getUID());
 
             long inactiveTime = curr - team.getLastActivity();
-            if (inactiveTime >= MS_TO_DELETE) {
+            if (CointConfig.cleaner.deleteEnabled && inactiveTime >= MS_TO_DELETE) {
                 deleteList.add(dimId);
-            } else if (inactiveTime >= MS_TO_FREEZE) {
+            } else if (CointConfig.cleaner.deleteEnabled && inactiveTime >= MS_TO_FREEZE) {
                 excludeRegisterList.add(dimId);
             }
-            processPlayers();
         }
+        markDirty();
+        processPlayers();
     }
 
     private static void processPlayers() {
@@ -89,5 +120,29 @@ public class DimensionCleaner {
                 CointCore.LOG.error("Can't evacuate player: {}", dat.getName());
             }
         }
+    }
+
+    @Override
+    public void readFromNBT(NBTTagCompound nbt) {
+        excludeRegisterList.clear();
+        Arrays.stream(nbt.getIntArray(NBT_FREEZE_LIST))
+            .forEach(excludeRegisterList::add);
+        deleteList.clear();
+        Arrays.stream(nbt.getIntArray(NBT_DELETE_LIST))
+            .forEach(deleteList::add);
+    }
+
+    @Override
+    public void writeToNBT(NBTTagCompound nbt) {
+        nbt.setIntArray(
+            NBT_FREEZE_LIST,
+            excludeRegisterList.stream()
+                .mapToInt(Integer::intValue)
+                .toArray());
+        nbt.setIntArray(
+            NBT_DELETE_LIST,
+            deleteList.stream()
+                .mapToInt(Integer::intValue)
+                .toArray());
     }
 }
