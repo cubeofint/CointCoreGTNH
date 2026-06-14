@@ -20,7 +20,7 @@ import com.mojang.authlib.GameProfile;
 import serverutils.lib.data.ForgeTeam;
 import serverutils.lib.data.Universe;
 
-@Mixin(ServerConfigurationManager.class)
+@Mixin(targets = "net.minecraft.server.management.ServerConfigurationManager", remap = true)
 public class MixinServerConfigurationManager {
 
     @Shadow
@@ -36,7 +36,7 @@ public class MixinServerConfigurationManager {
      * @author EternalQ
      * @reason Control teammate connection
      */
-    @Overwrite
+    @Overwrite(aliases = { "func_148542_a" })
     public String allowUserToConnect(SocketAddress address, GameProfile profile) {
         var mgr = (ServerConfigurationManager) (Object) this;
         var dateFormat = new SimpleDateFormat("yyyy-MM-dd \'в\' HH:mm:ss МСК");
@@ -77,7 +77,7 @@ public class MixinServerConfigurationManager {
      * @author EternalQ
      * @reason show online teams
      */
-    @Overwrite
+    @Overwrite(aliases = { "func_72394_k" })
     public int getCurrentPlayerCount() {
         return Universe.get()
             .getOnlinePlayers()
