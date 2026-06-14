@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 
 import coint.commands.CommandReply;
-import coint.commands.ReplyTracker;
+import coint.commands.MessageTracker;
 import coint.commands.spy.DmLogger;
 import coint.commands.spy.PersonalSpyRegistry;
 
@@ -49,7 +49,7 @@ public class MixinCommandMessage {
     /**
      * Adds {@code "m"} to the command's alias list so that {@code /m} works alongside the
      * built-in {@code /w} and {@code /msg}.
-     * 
+     *
      * @author mawlee
      * @reason CointCore
      */
@@ -62,7 +62,7 @@ public class MixinCommandMessage {
      * Replaces the vanilla whisper format and routes it through the custom DM pipeline.
      * Replicates vanilla exception throwing for invalid invocations (too few args,
      * player not found, self-message) so the command dispatcher shows the correct errors.
-     * 
+     *
      * @author mawlee
      * @reason CointCore
      */
@@ -79,6 +79,10 @@ public class MixinCommandMessage {
         // Self-message — mirror vanilla behaviour.
         if (target == sender) {
             throw new PlayerNotFoundException("commands.message.sameTarget");
+        }
+
+        if (MessageTracker.checkIgnore(sender.getCommandSenderName(), target.getCommandSenderName())) {
+            throw new CommandException("Вам запрещено писать этому игроку.");
         }
 
         IChatComponent text = CommandBase.func_147176_a(sender, args, 1, !(sender instanceof EntityPlayer));
@@ -113,7 +117,7 @@ public class MixinCommandMessage {
         sender.addChatMessage(toSender);
 
         // Record reply targets so both parties can use /r.
-        ReplyTracker.record(sender.getCommandSenderName(), target.getCommandSenderName());
+        MessageTracker.setReply(sender.getCommandSenderName(), target.getCommandSenderName());
 
         // Append to the dedicated DM log file and notify in-game spies.
         DmLogger.log("TELL", senderDisplay, targetDisplay, text.getUnformattedText());

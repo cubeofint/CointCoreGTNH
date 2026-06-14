@@ -86,7 +86,7 @@ public class CommandMute extends CommandBase {
                 + EnumChatFormatting.RESET
                 + " на "
                 + TimeUtil.formatDuration(durationMs)
-                + ": "
+                + " по причине: "
                 + reason);
 
         MinecraftServer.getServer()

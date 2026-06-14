@@ -1,21 +1,18 @@
 package coint.events;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-
+import coint.player.CointPlayer;
+import coint.player.Mute;
+import coint.util.TimeUtil;
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.event.ServerChatEvent;
 
-import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
-
-import coint.player.CointPlayer;
-import coint.player.Mute;
-import coint.util.TimeUtil;
-import cpw.mods.fml.common.eventhandler.EventPriority;
-import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import cpw.mods.fml.common.gameevent.TickEvent;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @EventBusSubscriber
 public class MuteHandler {
@@ -46,9 +43,9 @@ public class MuteHandler {
             event.setCanceled(true);
             event.player.addChatMessage(
                 new ChatComponentText(
-                    EnumChatFormatting.RED + "Ваш чат заблокирован ("
+                    EnumChatFormatting.RED + "Ваш чат заблокирован по причине:"
                         + mute.reason
-                        + "). Доступен через "
+                        + ". Доступен через "
                         + EnumChatFormatting.GOLD
                         + TimeUtil.formatDuration(mute.expiresAt - System.currentTimeMillis())));
 

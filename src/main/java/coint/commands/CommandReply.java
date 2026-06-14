@@ -101,7 +101,7 @@ public class CommandReply extends CommandBase {
             throw new WrongUsageException(getCommandUsage(sender));
         }
 
-        String targetName = ReplyTracker.getReplyTarget(sender.getCommandSenderName());
+        String targetName = MessageTracker.getReplyTarget(sender.getCommandSenderName());
         if (targetName == null) {
             throw new CommandException("Некому отвечать.");
         }
@@ -141,7 +141,7 @@ public class CommandReply extends CommandBase {
         sender.addChatMessage(toSender);
 
         // Keep reply chain current for both parties.
-        ReplyTracker.record(sender.getCommandSenderName(), targetName);
+        MessageTracker.setReply(sender.getCommandSenderName(), targetName);
 
         // Append to the dedicated DM log file and notify in-game spies.
         DmLogger.log("REPLY", senderDisplay, targetDisplay, text.getUnformattedText());

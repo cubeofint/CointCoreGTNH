@@ -1,9 +1,11 @@
 package coint.commands;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import io.netty.util.internal.ConcurrentSet;
 
 import javax.annotation.Nullable;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tracks the last DM contact for each player so that {@code /reply} knows who to address.
@@ -16,17 +18,18 @@ import javax.annotation.Nullable;
  * Uses {@link ConcurrentHashMap} because entries may be read/written from different threads
  * (Netty IO thread vs. server tick thread).
  */
-public final class ReplyTracker {
+public final class MessageTracker {
 
     private static final Map<String, String> LAST_CONTACT = new ConcurrentHashMap<>();
+    private static final Map<String, Set<String>> IGNORE = new ConcurrentHashMap<>();
 
-    private ReplyTracker() {}
+    private MessageTracker() {}
 
     /**
      * Records a two-way contact: {@code senderName}→{@code targetName} and the reverse.
      * Call this after a whisper has been successfully delivered.
      */
-    public static void record(String senderName, String targetName) {
+    public static void setReply(String senderName, String targetName) {
         LAST_CONTACT.put(senderName, targetName);
         LAST_CONTACT.put(targetName, senderName);
     }
@@ -40,11 +43,34 @@ public final class ReplyTracker {
         return LAST_CONTACT.get(playerName);
     }
 
-    /**
-     * Removes the reply entry for {@code playerName}. Call on player disconnect to free memory
-     * and avoid stale entries.
-     */
-    public static void remove(String playerName) {
-        LAST_CONTACT.remove(playerName);
+    public static void toggleIgnore(String sender, String target) {
+        var i = IGNORE.get(sender);
+        if (i == null) {
+            i = new ConcurrentSet<>();
+            i.add(target);
+            return;
+        }
+
+        if (i.contains(target)) {
+            i.remove(target);
+            return;
+        }
+
+        i.add(target);
+    }
+
+    // true if ignore exist at any side
+    public static boolean checkIgnore(String sender, String target) {
+        boolean result = true;
+
+        var i = IGNORE.get(sender);
+        if (i == null) result = false;
+        result = result && i.contains(target);
+
+        i = IGNORE.get(target);
+        if (i == null) result = false;
+        result = result && i.contains(target);
+
+        return result;
     }
 }
