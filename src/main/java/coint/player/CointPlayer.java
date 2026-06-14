@@ -180,9 +180,10 @@ public class CointPlayer {
     }
 
     public void unmute() {
-        mute = null;
-        save();
-        MuteHandler.muted.remove(this);
+        if (mute != null) {
+            mute = null;
+            save();
+        }
     }
 
     public boolean isMuted() {
@@ -190,7 +191,7 @@ public class CointPlayer {
     }
 
     public boolean isMuteExpired() {
-        return mute != null && mute.isExpired();
+        return mute == null || mute.isExpired();
     }
 
     public Mute getMute() {

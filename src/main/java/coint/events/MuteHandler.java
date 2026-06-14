@@ -2,6 +2,7 @@ package coint.events;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
@@ -19,7 +20,7 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 @EventBusSubscriber
 public class MuteHandler {
 
-    public static List<CointPlayer> muted = new ArrayList<>();
+    public static List<CointPlayer> muted = new CopyOnWriteArrayList<>();
 
     @SubscribeEvent
     public static void muteTick(TickEvent.ServerTickEvent event) {
@@ -30,6 +31,7 @@ public class MuteHandler {
         for (CointPlayer player : muted) {
             if (player.isMuteExpired()) {
                 player.unmute();
+                muted.remove(player);
                 player.getPlayer()
                     .addChatMessage(new ChatComponentText(EnumChatFormatting.GREEN + "Ваш мут был автоматически снят"));
             }
