@@ -64,14 +64,14 @@ public class CommonProxy {
      * Called when server is starting
      */
     public void serverStarting(FMLServerStartingEvent event) {
-        if (CointConfig.chat.splitEnabled) {
-            ChatWSClient.init();
-        }
         CmdRegistry.register(event);
     }
 
     @SuppressWarnings("unused")
     public void serverStarted(FMLServerStartedEvent event) {
+        if (CointConfig.chat.splitEnabled) {
+            ChatWSClient.init();
+        }
         if (!ServerUtilitiesConfig.tasks.cleanup.enabled) {
             Universe universe = Universe.get();
             universe.scheduleTask(new CleanupTask(), CointConfig.general.cleanupEnabled);
