@@ -1,12 +1,9 @@
 package coint;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Objects;
-
+import coint.player.TeamsManager;
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+import cpw.mods.fml.common.event.FMLServerStoppingEvent;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagDouble;
@@ -16,20 +13,21 @@ import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.world.WorldSavedData;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
-
-import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
-
-import coint.player.TeamsManager;
-import cpw.mods.fml.common.event.FMLServerStartedEvent;
-import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.lib.data.ForgeTeam;
 import serverutils.lib.data.Universe;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Objects;
 
 @EventBusSubscriber
 public class DimensionCleaner extends WorldSavedData {
 
     @SubscribeEvent
-    public static void checkDims(FMLServerStartedEvent event) {
+    public static void checkDims(FMLServerStoppingEvent event) {
         get().processDims();
     }
 
