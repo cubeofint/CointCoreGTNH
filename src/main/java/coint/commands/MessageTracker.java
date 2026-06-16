@@ -49,6 +49,7 @@ public final class MessageTracker {
         if (i == null) {
             i = new ConcurrentSet<>();
             i.add(target);
+            IGNORE.put(sender, i);
             return;
         }
 
