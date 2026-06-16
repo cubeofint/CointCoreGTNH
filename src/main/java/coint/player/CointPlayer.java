@@ -111,6 +111,7 @@ public class CointPlayer {
             mute.muter = nbtMute.getString("muter");
             mute.reason = nbtMute.getString("reason");
             mute.expiresAt = nbtMute.getLong("expiresAt");
+            MuteHandler.muted.add(this);
         }
     }
 

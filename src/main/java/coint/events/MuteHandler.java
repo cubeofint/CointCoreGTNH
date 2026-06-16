@@ -28,6 +28,11 @@ public class MuteHandler {
         }
 
         for (CointPlayer player : muted) {
+            if (!player.isOnline()) {
+                muted.remove(player);
+                return;
+            }
+
             if (player.isMuteExpired()) {
                 player.unmute();
                 muted.remove(player);
@@ -41,7 +46,7 @@ public class MuteHandler {
     public static void onServerChat(ServerChatEvent event) {
         Mute mute = CointPlayer.get(event.username)
             .getMute();
-        if (!mute.isExpired()) {
+        if (mute != null && !mute.isExpired()) {
             event.setCanceled(true);
             event.player.addChatMessage(
                 new ChatComponentText(
