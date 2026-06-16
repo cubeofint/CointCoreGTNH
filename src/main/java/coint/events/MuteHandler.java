@@ -1,18 +1,20 @@
 package coint.events;
 
-import coint.player.CointPlayer;
-import coint.player.Mute;
-import coint.util.TimeUtil;
-import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
-import cpw.mods.fml.common.eventhandler.EventPriority;
-import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import cpw.mods.fml.common.gameevent.TickEvent;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.event.ServerChatEvent;
 
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+
+import coint.player.CointPlayer;
+import coint.player.Mute;
+import coint.util.TimeUtil;
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 
 @EventBusSubscriber
 public class MuteHandler {

@@ -62,7 +62,8 @@ public class ChatSplitHandler {
         return CointConfig.chat.splitEnabled;
     }
 
-    public static final Pattern URL_PATTERN = Pattern.compile("((https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])", Pattern.CASE_INSENSITIVE);
+    public static final Pattern URL_PATTERN = Pattern
+        .compile("((https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])", Pattern.CASE_INSENSITIVE);
 
     @SuppressWarnings("unused")
     public List<IChatComponent> processAndSplit(String input) {
@@ -87,7 +88,14 @@ public class ChatSplitHandler {
                 }
 
                 ChatComponentText linkComp = new ChatComponentText(domain);
-                linkComp.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.AQUA).setUnderlined(true).setChatClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, part)).setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Ссылка на сторонний сайт."))));
+                linkComp.setChatStyle(
+                    new ChatStyle().setColor(EnumChatFormatting.AQUA)
+                        .setUnderlined(true)
+                        .setChatClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, part))
+                        .setChatHoverEvent(
+                            new HoverEvent(
+                                HoverEvent.Action.SHOW_TEXT,
+                                new ChatComponentText("Ссылка на сторонний сайт."))));
 
                 currentLine.appendSibling(linkComp);
                 currentLength += partLen;
@@ -98,7 +106,8 @@ public class ChatSplitHandler {
                         currentLine.appendSibling(new ChatComponentText(sub));
                         lines.add(currentLine);
                         currentLine = new ChatComponentText(part.substring(100 - currentLength));
-                        currentLength = currentLine.getUnformattedText().length();
+                        currentLength = currentLine.getUnformattedText()
+                            .length();
                     } else {
                         lines.add(currentLine);
                         currentLine = new ChatComponentText(part);
@@ -145,7 +154,8 @@ public class ChatSplitHandler {
         String prefix = CointConfig.chat.prefix;
         boolean isGlobal = !prefix.isEmpty() && event.message.startsWith(prefix);
 
-        String text = isGlobal ? event.message.substring(prefix.length()).trim() : event.message;
+        String text = isGlobal ? event.message.substring(prefix.length())
+            .trim() : event.message;
         if (text.isEmpty()) return;
 
         send(event.player, text, isGlobal);
@@ -169,14 +179,16 @@ public class ChatSplitHandler {
      * При любой ошибке (Ranks не загружен, формат пустой) возвращает чистый ник.
      */
     private static String getRankFormattedName(EntityPlayerMP player) {
-        String plainName = player.getGameProfile().getName();
+        String plainName = player.getGameProfile()
+            .getName();
 
         try {
             if (Ranks.INSTANCE == null) {
                 return plainName;
             }
 
-            String format = Ranks.INSTANCE.getPlayerRank(player.getGameProfile()).getPermission(ServerUtilitiesPermissions.CHAT_NAME_FORMAT);
+            String format = Ranks.INSTANCE.getPlayerRank(player.getGameProfile())
+                .getPermission(ServerUtilitiesPermissions.CHAT_NAME_FORMAT);
 
             if (format.isEmpty()) {
                 return plainName;
@@ -189,11 +201,13 @@ public class ChatSplitHandler {
             format = format.replace("{name}", plainName);
 
             // Убираем угловые скобки <> — стандартная обёртка в шаблонах SU вида <Ранг {name}>
-            format = format.replace("<", "").replace(">", "");
+            format = format.replace("<", "")
+                .replace(">", "");
 
             // Убираем хвостовое «:» (и пробелы вокруг него) — SU добавляет его
             // как разделитель чата, но в нашем формате разделитель уже есть.
-            format = format.replaceAll(":\\s*$", "").trim();
+            format = format.replaceAll(":\\s*$", "")
+                .trim();
 
             return format;
 
@@ -224,7 +238,8 @@ public class ChatSplitHandler {
                 return "";
             }
 
-            EnumChatFormatting color = (EnumChatFormatting) ((ConfigEnum<?>) RankConfigAPI.get(player, ServerUtilitiesPermissions.CHAT_TEXT_COLOR)).getValue();
+            EnumChatFormatting color = (EnumChatFormatting) ((ConfigEnum<?>) RankConfigAPI
+                .get(player, ServerUtilitiesPermissions.CHAT_TEXT_COLOR)).getValue();
 
             // WHITE — значение по умолчанию; не добавляем лишний код.
             if (color == EnumChatFormatting.WHITE) {
@@ -233,7 +248,11 @@ public class ChatSplitHandler {
 
             return color.toString(); // возвращает §x
         } catch (Exception e) {
-            CointCore.LOG.warn("[ChatSplit] Failed to get text color for {}: {}", player.getGameProfile().getName(), e.getMessage());
+            CointCore.LOG.warn(
+                "[ChatSplit] Failed to get text color for {}: {}",
+                player.getGameProfile()
+                    .getName(),
+                e.getMessage());
             return "";
         }
     }
@@ -246,22 +265,32 @@ public class ChatSplitHandler {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
         String time = now.format(formatter);
 
-        String formatted = String.format(isGlobal ? CointConfig.chat.globalFormat : CointConfig.chat.localFormat, senderName, text.replaceAll("(?<=^|\\s)", colorCode));
+        String formatted = String.format(
+            isGlobal ? CointConfig.chat.globalFormat : CointConfig.chat.localFormat,
+            senderName,
+            text.replaceAll("(?<=^|\\s)", colorCode));
 
         formatted = EnumChatFormatting.GRAY + "[" + time + "]" + EnumChatFormatting.RESET + formatted;
 
         ChatComponentText component = new ChatComponentText(formatted);
 
         if (isGlobal) {
-            MinecraftServer.getServer().getConfigurationManager().sendChatMsg(component);
+            MinecraftServer.getServer()
+                .getConfigurationManager()
+                .sendChatMsg(component);
 
-            ChatWSClient.send(sender.getGameProfile().getName(), senderName, text);
+            ChatWSClient.send(
+                sender.getGameProfile()
+                    .getName(),
+                senderName,
+                text);
         } else {
             double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
             int senderDim = sender.dimension;
 
             int recipients = 0;
-            for (EntityPlayerMP p : MinecraftServer.getServer().getConfigurationManager().playerEntityList) {
+            for (EntityPlayerMP p : MinecraftServer.getServer()
+                .getConfigurationManager().playerEntityList) {
                 if (p.dimension != senderDim || sender.getDistanceSqToEntity(p) > radiusSq) {
                     continue;
                 }
@@ -269,7 +298,8 @@ public class ChatSplitHandler {
                 recipients++;
             }
 
-            CointCore.LOG.info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.chat.radius, senderName, text, recipients);
+            CointCore.LOG
+                .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.chat.radius, senderName, text, recipients);
 
             // Notify admins who have /localspy enabled and were out of range.
             LocalSpyRegistry.notifySpies(sender, senderName, text);

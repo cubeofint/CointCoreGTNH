@@ -1,11 +1,12 @@
 package coint.commands;
 
-import io.netty.util.internal.ConcurrentSet;
-
-import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import javax.annotation.Nullable;
+
+import io.netty.util.internal.ConcurrentSet;
 
 /**
  * Tracks the last DM contact for each player so that {@code /reply} knows who to address.

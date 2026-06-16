@@ -6,6 +6,7 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 public class CommandIgnore extends CommandBase {
+
     @Override
     public String getCommandName() {
         return "ignore";
