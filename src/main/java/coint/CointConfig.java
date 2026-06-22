@@ -35,6 +35,10 @@ public class CointConfig {
         @Config.Comment("Enable entity cleanup")
         @Config.DefaultBoolean(true)
         public boolean cleanupEnabled;
+
+        @Config.Comment("Enable pdim 'out of world' death saver")
+        @Config.DefaultBoolean(true)
+        public boolean pdimSaverEnabled;
     }
 
     public static class Cleaner {
