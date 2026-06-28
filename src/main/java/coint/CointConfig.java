@@ -32,12 +32,17 @@ public class CointConfig {
 
     public static class General {
 
+        @Config.Comment("Is GTNH version 2.9+")
+        @Config.DefaultBoolean(false)
+        public boolean isNew;
+
         @Config.Comment("Enable entity cleanup")
         @Config.DefaultBoolean(true)
         public boolean cleanupEnabled;
 
         @Config.Comment("Enable pdim 'out of world' death saver")
         @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
         public boolean pdimSaverEnabled;
     }
 
@@ -94,9 +99,9 @@ public class CointConfig {
         @Config.DefaultBoolean(false)
         public boolean notifyEnabled;
 
-        @Config.Comment("Enable player to server binding")
+        @Config.Comment("Enable websocket")
         @Config.DefaultBoolean(false)
-        public boolean bindingEnabled;
+        public boolean wsEnabled;
 
         @Config.Comment("API host")
         @Config.DefaultString("localhost:5665")
@@ -108,7 +113,7 @@ public class CointConfig {
         public String serverTag;
 
         public URI getChatWs() throws URISyntaxException {
-            return new URI("ws://" + host + "/gtnh-chat");
+            return new URI("ws://" + host + "/ws/gtnh");
         }
 
         public URI buildUri(String ep) throws URISyntaxException {

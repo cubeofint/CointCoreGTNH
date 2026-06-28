@@ -1,13 +1,15 @@
 package coint.commands;
 
+import java.io.IOException;
+
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.EnumChatFormatting;
 
-import coint.http.ChatWSClient;
+import com.neovisionaries.ws.client.WebSocketException;
+
+import coint.http.HubWebSocket;
 
 public class CommandHub extends CommandBase {
 
@@ -23,7 +25,7 @@ public class CommandHub extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/hub reconnect";
+        return "subcommands: ws-recreate, ws-close";
     }
 
     @Override
@@ -33,21 +35,20 @@ public class CommandHub extends CommandBase {
         }
 
         switch (args[0]) {
-            case "reconnect": {
-                if (ChatWSClient.ws == null) {
-                    ChatWSClient.init();
-                    sender.addChatMessage(
-                        new ChatComponentText(
-                            EnumChatFormatting.YELLOW
-                                + "Клиент хаба не был создан; вызван init (проверьте wsHubUrl и лог)"));
-                    return;
+            case "ws-recreate": {
+                try {
+                    HubWebSocket.get()
+                        .recreate();
+                } catch (IOException | WebSocketException e) {
+                    throw new RuntimeException(e);
                 }
-                ChatWSClient.ws.connectAsynchronously();
-                sender.addChatMessage(
-                    new ChatComponentText(EnumChatFormatting.GREEN + "Запрошено переподключение к WebSocket-хабу"));
-                break;
+                return;
             }
-            case "":
+            case "ws-close": {
+                HubWebSocket.get()
+                    .closeNormal("Closed by " + sender.getCommandSenderName());
+                return;
+            }
             default: {
                 throw new WrongUsageException(getCommandUsage(sender));
             }

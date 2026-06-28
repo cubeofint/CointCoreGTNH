@@ -7,7 +7,7 @@ import coint.commands.spy.DmLogger;
 import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
 import coint.epochsync.EpochRegistry;
-import coint.http.ChatWSClient;
+import coint.http.HubWebSocket;
 import coint.integration.serverutilities.RanksManager;
 import coint.util.PermissionsUtil;
 import cpw.mods.fml.common.Loader;
@@ -69,8 +69,8 @@ public class CommonProxy {
 
     @SuppressWarnings("unused")
     public void serverStarted(FMLServerStartedEvent event) {
-        if (CointConfig.chat.splitEnabled) {
-            ChatWSClient.init();
+        if (CointConfig.api.wsEnabled) {
+            HubWebSocket.get();
         }
         if (!ServerUtilitiesConfig.tasks.cleanup.enabled) {
             Universe universe = Universe.get();
@@ -94,8 +94,9 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
         DmLogger.close();
-        if (CointConfig.chat.splitEnabled) {
-            ChatWSClient.close();
+        if (CointConfig.api.wsEnabled) {
+            HubWebSocket.get()
+                .closeNormal("Server shutdown");
         }
     }
 }

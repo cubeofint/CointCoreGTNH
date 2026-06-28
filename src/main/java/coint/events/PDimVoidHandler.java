@@ -23,10 +23,15 @@ public class PDimVoidHandler {
         if ((event.entity instanceof EntityPlayerMP player) && player.worldObj.provider.dimensionId >= 180
             && event.source == DamageSource.outOfWorld) {
             event.setCanceled(true);
+
             var spawn = player.worldObj.getSpawnPoint();
             player.setPositionAndUpdate(spawn.posX, spawn.posY, spawn.posZ);
-            player.setHealth(2);
+
+            player.setHealth(1);
+            player.motionX = 0;
             player.motionY = 0;
+            player.motionZ = 0;
+            player.fallDistance = 0;
         }
     }
 }

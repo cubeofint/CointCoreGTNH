@@ -1,7 +1,5 @@
 package coint.events;
 
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -22,13 +20,11 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 import coint.CointConfig;
 import coint.CointCore;
 import coint.commands.spy.LocalSpyRegistry;
-import coint.http.ChatWSClient;
+import coint.http.HubWebSocket;
+import coint.http.WebSocketMessage;
+import coint.util.PlayerUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import serverutils.ServerUtilitiesPermissions;
-import serverutils.lib.config.ConfigEnum;
-import serverutils.lib.config.RankConfigAPI;
-import serverutils.ranks.Ranks;
 
 /**
  * Разделяет игровой чат на <b>локальный</b> и <b>глобальный</b>.
@@ -158,139 +154,27 @@ public class ChatSplitHandler {
             .trim() : event.message;
         if (text.isEmpty()) return;
 
-        send(event.player, text, isGlobal);
-    }
-
-    /**
-     * Возвращает имя игрока, отформатированное согласно его рангу в ServerUtilities.
-     *
-     * <p>
-     * Алгоритм:
-     * <ol>
-     * <li>Берём шаблон {@code CHAT_NAME_FORMAT} из ранга игрока
-     * (например {@code &c[Админ]&r {name}:}).</li>
-     * <li>Транслируем {@code &x} в {@code §x}.</li>
-     * <li>Заменяем {@code {name}} на реальный ник.</li>
-     * <li>Убираем завершающее {@code :} — оно нужно SU для собственного чата,
-     * но в нашем формате разделитель уже задан в строке формата.</li>
-     * </ol>
-     *
-     * <p>
-     * При любой ошибке (Ranks не загружен, формат пустой) возвращает чистый ник.
-     */
-    private static String getRankFormattedName(EntityPlayerMP player) {
-        String plainName = player.getGameProfile()
-            .getName();
-
-        try {
-            if (Ranks.INSTANCE == null) {
-                return plainName;
-            }
-
-            String format = Ranks.INSTANCE.getPlayerRank(player.getGameProfile())
-                .getPermission(ServerUtilitiesPermissions.CHAT_NAME_FORMAT);
-
-            if (format.isEmpty()) {
-                return plainName;
-            }
-
-            // ranks.txt использует &x для цветов; переводим в §x
-            format = format.replaceAll("&([0-9a-fk-orA-FK-OR])", "§$1");
-
-            // Подставляем ник
-            format = format.replace("{name}", plainName);
-
-            // Убираем угловые скобки <> — стандартная обёртка в шаблонах SU вида <Ранг {name}>
-            format = format.replace("<", "")
-                .replace(">", "");
-
-            // Убираем хвостовое «:» (и пробелы вокруг него) — SU добавляет его
-            // как разделитель чата, но в нашем формате разделитель уже есть.
-            format = format.replaceAll(":\\s*$", "")
-                .trim();
-
-            return format;
-
-        } catch (Exception e) {
-            CointCore.LOG.warn("[ChatSplit] Failed to get rank format for {}: {}", plainName, e.getMessage());
-            return plainName;
-        }
-    }
-
-    /**
-     * Возвращает Minecraft-код цвета (например {@code §c}) для текста сообщения отправителя,
-     * взятый из привилегии {@code serverutilities.chat.text.color} в ranks.txt.
-     *
-     * <p>
-     * Возвращает пустую строку, если:
-     * <ul>
-     * <li>Ranks недоступен</li>
-     * <li>значение не задано / равно {@code white} (умолчание по умолчанию)</li>
-     * </ul>
-     *
-     * <p>
-     * Логика намеренно повторяет подход из
-     * {@code ServerUtilitiesServerEventHandler.onServerChatEvent}.
-     */
-    private static String getTextColorCode(EntityPlayerMP player) {
-        try {
-            if (Ranks.INSTANCE == null) {
-                return "";
-            }
-
-            EnumChatFormatting color = (EnumChatFormatting) ((ConfigEnum<?>) RankConfigAPI
-                .get(player, ServerUtilitiesPermissions.CHAT_TEXT_COLOR)).getValue();
-
-            // WHITE — значение по умолчанию; не добавляем лишний код.
-            if (color == EnumChatFormatting.WHITE) {
-                return "";
-            }
-
-            return color.toString(); // возвращает §x
-        } catch (Exception e) {
-            CointCore.LOG.warn(
-                "[ChatSplit] Failed to get text color for {}: {}",
-                player.getGameProfile()
-                    .getName(),
-                e.getMessage());
-            return "";
-        }
+        String colorCode = PlayerUtil.getTextColorCode(event.player);
+        send(event.player, text.replaceAll("(?<=^|\\s)", colorCode), isGlobal);
     }
 
     private static void send(EntityPlayerMP sender, String text, boolean isGlobal) {
-        String senderName = getRankFormattedName(sender);
-        String colorCode = getTextColorCode(sender);
+        String senderName = PlayerUtil.getRankFormattedName(sender);
+        ChatComponentText component = PlayerUtil.getChatMessage(senderName, text, isGlobal);
 
-        LocalTime now = LocalTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-        String time = now.format(formatter);
-
-        String formatted = String.format(
-            isGlobal ? CointConfig.chat.globalFormat : CointConfig.chat.localFormat,
-            senderName,
-            text.replaceAll("(?<=^|\\s)", colorCode));
-
-        formatted = EnumChatFormatting.GRAY + "[" + time + "]" + EnumChatFormatting.RESET + formatted;
-
-        ChatComponentText component = new ChatComponentText(formatted);
-
+        var server = MinecraftServer.getServer();
         if (isGlobal) {
-            MinecraftServer.getServer()
-                .getConfigurationManager()
+            server.getConfigurationManager()
                 .sendChatMsg(component);
 
-            ChatWSClient.send(
-                sender.getGameProfile()
-                    .getName(),
-                senderName,
-                text);
+            HubWebSocket.get()
+                .send(WebSocketMessage.ChatMessage.create(sender, senderName, text));
         } else {
             double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
             int senderDim = sender.dimension;
 
             int recipients = 0;
-            for (EntityPlayerMP p : MinecraftServer.getServer()
-                .getConfigurationManager().playerEntityList) {
+            for (EntityPlayerMP p : server.getConfigurationManager().playerEntityList) {
                 if (p.dimension != senderDim || sender.getDistanceSqToEntity(p) > radiusSq) {
                     continue;
                 }
