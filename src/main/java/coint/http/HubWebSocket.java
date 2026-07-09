@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ChatComponentText;
 
 import com.google.gson.Gson;
 import com.neovisionaries.ws.client.WebSocket;
@@ -18,7 +19,7 @@ import com.neovisionaries.ws.client.WebSocketFrame;
 
 import coint.CointConfig;
 import coint.CointCore;
-import coint.util.PlayerUtil;
+import coint.util.ChatUtil;
 
 public class HubWebSocket extends WebSocketAdapter {
 
@@ -26,6 +27,9 @@ public class HubWebSocket extends WebSocketAdapter {
     private static WebSocket ws;
 
     private static int attempts = 0;
+    private static int errors = 0;
+    private static boolean closed = false;
+
     private static Gson gson;
     private static MinecraftServer server;
 
@@ -70,10 +74,14 @@ public class HubWebSocket extends WebSocketAdapter {
         ws.sendText(json);
     }
 
-    public void recreate() throws IOException, WebSocketException {
+    public void recreate(boolean clear) throws IOException, WebSocketException {
         if (!CointConfig.api.wsEnabled) return;
         ws = ws.recreate();
         ws.connect();
+        if (clear) {
+            errors = 0;
+            closed = false;
+        }
     }
 
     public void closeNormal(String reason) {
@@ -82,7 +90,7 @@ public class HubWebSocket extends WebSocketAdapter {
     }
 
     @Override
-    public void onTextMessage(WebSocket websocket, String text) throws Exception {
+    public void onTextMessage(WebSocket websocket, String text) {
         if (!CointConfig.api.wsEnabled) return;
         WebSocketMessage msg = gson.fromJson(text, WebSocketMessage.class);
         switch (msg.action) {
@@ -91,7 +99,10 @@ public class HubWebSocket extends WebSocketAdapter {
                     return;
                 }
                 var chat = gson.fromJson(msg.payload, WebSocketMessage.ChatMessage.class);
-                var c = PlayerUtil.getChatMessage(chat.senderFormatted, chat.text, true, msg.origin);
+                ChatComponentText c;
+                if (chat.sender.isEmpty() && chat.senderFormatted.isEmpty()) c = ChatUtil.getNotifyMessage(chat.text);
+                else c = ChatUtil.getChatMessage(chat.senderFormatted, chat.text, msg.origin);
+
                 server.getConfigurationManager()
                     .sendChatMsg(c);
             }
@@ -101,14 +112,12 @@ public class HubWebSocket extends WebSocketAdapter {
                     CointCore.LOG.warn("Unimplemented info");
                 }
             }
-            default -> {
-                CointCore.LOG.warn("Unimplemented action: {}", msg.action);
-            }
+            default -> CointCore.LOG.warn("Unimplemented action: {}", msg.action);
         }
     }
 
     @Override
-    public void onConnected(WebSocket websocket, Map<String, List<String>> headers) throws Exception {
+    public void onConnected(WebSocket websocket, Map<String, List<String>> headers) {
         if (!CointConfig.api.wsEnabled) return;
         attempts = 0;
         String init = gson.toJson(WebSocketMessage.InfoMessage.create(server));
@@ -118,7 +127,7 @@ public class HubWebSocket extends WebSocketAdapter {
     }
 
     @Override
-    public void onConnectError(WebSocket websocket, WebSocketException exception) throws Exception {
+    public void onConnectError(WebSocket websocket, WebSocketException exception) {
         if (!CointConfig.api.wsEnabled) return;
         CointCore.LOG.error("Hub-ws connection error: {}", exception.getMessage());
         tryReconnect();
@@ -126,8 +135,12 @@ public class HubWebSocket extends WebSocketAdapter {
 
     @Override
     public void onDisconnected(WebSocket websocket, WebSocketFrame serverCloseFrame, WebSocketFrame clientCloseFrame,
-        boolean closedByServer) throws Exception {
+        boolean closedByServer) {
         if (!CointConfig.api.wsEnabled) return;
+        if (closedByServer && ++errors >= 3) {
+            closed = true;
+            CointCore.LOG.error("Hub-ws server error: {}", serverCloseFrame.getCloseReason());
+        }
         if (!closedByServer && clientCloseFrame != null) {
             CointCore.LOG.info("Hub-ws closed");
             return;
@@ -137,14 +150,14 @@ public class HubWebSocket extends WebSocketAdapter {
     }
 
     private void tryReconnect() {
-        if (attempts < 5) {
+        if (attempts < 5 && !closed) {
             attempts++;
             CointCore.LOG.info("Hub-ws reconnect attempt {}...", attempts);
 
             new Thread(() -> {
                 try {
                     Thread.sleep(5000);
-                    recreate();
+                    recreate(false);
                 } catch (InterruptedException | IOException | WebSocketException e) {
                     Thread.currentThread()
                         .interrupt();

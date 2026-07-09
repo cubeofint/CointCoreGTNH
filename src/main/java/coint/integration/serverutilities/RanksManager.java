@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import betterquesting.api.questing.party.IParty;
 import coint.epochsync.EpochEntry;
 import coint.epochsync.EpochRegistry;
+import coint.util.ChatUtil;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.ranks.PlayerRank;
 import serverutils.ranks.Rank;
@@ -199,6 +200,9 @@ public class RanksManager {
             playerRank.addParent(epochRank);
             ranks.save();
             ranks.clearCache();
+
+            var p = ranks.universe.getPlayer(playerId);
+            if (p != null) ChatUtil.refreshRFN(p.getPlayer());
             LOG.info("Set rank {} for player {}", rank, playerId);
         } else {
             LOG.error(

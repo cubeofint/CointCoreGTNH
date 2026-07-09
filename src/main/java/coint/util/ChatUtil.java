@@ -2,6 +2,8 @@ package coint.util;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
@@ -14,29 +16,42 @@ import serverutils.lib.config.ConfigEnum;
 import serverutils.lib.config.RankConfigAPI;
 import serverutils.ranks.Ranks;
 
-public class PlayerUtil {
+public class ChatUtil {
 
-    public static ChatComponentText getChatMessage(String senderFormatted, String text, boolean isGlobal) {
-        return getChatMessage(senderFormatted, text, isGlobal, "");
+    private static final Map<String, String> rfnCache = new HashMap<>();
+
+    public static void refreshRFN(EntityPlayerMP player) {
+        rfnCache.remove(
+            player.getGameProfile()
+                .getName());
+        getRankFormattedName(player);
     }
 
-    public static ChatComponentText getChatMessage(String senderFormatted, String text, boolean isGlobal,
-        String origin) {
-        String formatted = String
-            .format(isGlobal ? CointConfig.chat.globalFormat : CointConfig.chat.localFormat, senderFormatted, text);
-
+    public static ChatComponentText getChatMessage(String senderFormatted, String text, String origin) {
         LocalTime now = LocalTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
         String time = now.format(formatter);
 
-        formatted = EnumChatFormatting.GRAY + "[" + time + " " + origin + "]" + EnumChatFormatting.RESET + formatted;
+        var sep = origin.isEmpty() ? "" : " ";
 
-        return new ChatComponentText(formatted);
+        var msg = CointConfig.chat.msgFormat.replace("{msg}", text)
+            .replace("{name}", senderFormatted)
+            .replace("{time}", time)
+            .replace("{origin_sep}", origin + sep)
+            .replace("{sep_origin}", sep + origin);
+
+        return new ChatComponentText(msg);
+    }
+
+    public static ChatComponentText getNotifyMessage(String text) {
+        return new ChatComponentText(EnumChatFormatting.YELLOW + "Уведомление: " + EnumChatFormatting.RESET + text);
     }
 
     public static String getRankFormattedName(EntityPlayerMP player) {
         String plainName = player.getGameProfile()
             .getName();
+        var rfn = rfnCache.get(plainName);
+        if (rfn != null) return rfn;
 
         try {
             if (Ranks.INSTANCE == null) {
@@ -56,6 +71,7 @@ public class PlayerUtil {
                 .replaceAll(":\\s*$", "")
                 .trim();
 
+            rfnCache.put(plainName, format);
             return format;
 
         } catch (Exception e) {

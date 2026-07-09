@@ -96,7 +96,7 @@ public class CommonProxy {
         DmLogger.close();
         if (CointConfig.api.wsEnabled) {
             HubWebSocket.get()
-                .closeNormal("Server shutdown");
+                .closeNormal("Перезагрузка");
         }
     }
 }

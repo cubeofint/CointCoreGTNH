@@ -12,6 +12,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.annotations.SerializedName;
 
 import coint.CointConfig;
+import coint.util.ChatUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 
@@ -27,7 +28,7 @@ public class WebSocketMessage {
         Chat,
 
         @SerializedName("player.logged")
-        PlayerLogged;
+        PlayerLogged
     }
 
     public String origin;
@@ -43,11 +44,13 @@ public class WebSocketMessage {
     public static class Player {
 
         String name;
+        String nameFormatted;
         String uuid;
         String team;
 
         public Player(ForgePlayer f) {
             this.name = f.getName();
+            this.nameFormatted = ChatUtil.getRankFormattedName(f.getPlayer());
             this.uuid = f.getId()
                 .toString();
             this.team = f.hasTeam() ? f.team.getTitle()
@@ -100,6 +103,7 @@ public class WebSocketMessage {
         }
     }
 
+    @SuppressWarnings("unused")
     public static class PlayerLoggedMessage {
 
         String name;

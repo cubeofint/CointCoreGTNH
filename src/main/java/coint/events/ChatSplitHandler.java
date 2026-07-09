@@ -22,7 +22,7 @@ import coint.CointCore;
 import coint.commands.spy.LocalSpyRegistry;
 import coint.http.HubWebSocket;
 import coint.http.WebSocketMessage;
-import coint.util.PlayerUtil;
+import coint.util.ChatUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
@@ -154,13 +154,14 @@ public class ChatSplitHandler {
             .trim() : event.message;
         if (text.isEmpty()) return;
 
-        String colorCode = PlayerUtil.getTextColorCode(event.player);
+        String colorCode = ChatUtil.getTextColorCode(event.player);
         send(event.player, text.replaceAll("(?<=^|\\s)", colorCode), isGlobal);
     }
 
     private static void send(EntityPlayerMP sender, String text, boolean isGlobal) {
-        String senderName = PlayerUtil.getRankFormattedName(sender);
-        ChatComponentText component = PlayerUtil.getChatMessage(senderName, text, isGlobal);
+        String senderName = ChatUtil.getRankFormattedName(sender);
+        var origin = isGlobal ? "G" : "";
+        ChatComponentText component = ChatUtil.getChatMessage(senderName, text, origin);
 
         var server = MinecraftServer.getServer();
         if (isGlobal) {

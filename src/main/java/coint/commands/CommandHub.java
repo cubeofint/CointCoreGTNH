@@ -38,15 +38,23 @@ public class CommandHub extends CommandBase {
             case "ws-recreate": {
                 try {
                     HubWebSocket.get()
-                        .recreate();
+                        .recreate(true);
                 } catch (IOException | WebSocketException e) {
                     throw new RuntimeException(e);
                 }
                 return;
             }
             case "ws-close": {
-                HubWebSocket.get()
-                    .closeNormal("Closed by " + sender.getCommandSenderName());
+                if (sender instanceof EntityPlayerMP) {
+                    HubWebSocket.get()
+                        .closeNormal("Closed by " + sender.getCommandSenderName());
+                } else {
+                    if (args.length < 2) {
+                        throw new WrongUsageException("Who are you? /hub ws-close <executer>");
+                    }
+                    HubWebSocket.get()
+                        .closeNormal("Closed by " + args[1]);
+                }
                 return;
             }
             default: {
