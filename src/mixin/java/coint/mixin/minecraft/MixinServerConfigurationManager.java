@@ -19,6 +19,7 @@ import com.mojang.authlib.GameProfile;
 
 import serverutils.lib.data.ForgeTeam;
 import serverutils.lib.data.Universe;
+import serverutils.lib.util.permission.PermissionAPI;
 
 @Mixin(targets = "net.minecraft.server.management.ServerConfigurationManager", remap = true)
 public class MixinServerConfigurationManager {
@@ -42,12 +43,6 @@ public class MixinServerConfigurationManager {
         var dateFormat = new SimpleDateFormat("yyyy-MM-dd \'в\' HH:mm:ss МСК");
         String s;
 
-        Set<ForgeTeam> onlineTeams = Universe.get()
-            .getOnlinePlayers()
-            .stream()
-            .map(player -> player.team)
-            .collect(Collectors.toSet());
-
         if (this.bannedPlayers.func_152702_a(profile)) {
             UserListBansEntry userlistbansentry = (UserListBansEntry) this.bannedPlayers.func_152683_b(profile);
             s = "Вы забанены на сервере!\nПричина: " + userlistbansentry.getBanReason();
@@ -68,8 +63,10 @@ public class MixinServerConfigurationManager {
             }
 
             return s;
+        } else if (PermissionAPI.hasPermission(profile, "cointcore.kit.uranium", null)) {
+            return null;
         } else {
-            return onlineTeams.size() >= this.maxPlayers ? "Сервер переполнен!" : null;
+            return getCurrentPlayerCount() >= this.maxPlayers ? "Сервер переполнен!" : null;
         }
     }
 
