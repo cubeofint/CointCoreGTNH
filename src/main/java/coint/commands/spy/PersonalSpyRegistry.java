@@ -3,11 +3,11 @@ package coint.commands.spy;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
+
+import serverutils.lib.data.ForgePlayer;
 
 /**
  * Tracks which administrators have DM-spy mode enabled and routes spy copies to them.
@@ -21,7 +21,7 @@ import net.minecraft.util.IChatComponent;
  */
 public final class PersonalSpyRegistry {
 
-    private static final Set<String> SPIES = ConcurrentHashMap.newKeySet();
+    private static final Set<ForgePlayer> SPIES = ConcurrentHashMap.newKeySet();
 
     /** In-game prefix shown before every spy-copy message. */
     public static final String SPY_PREFIX = EnumChatFormatting.DARK_GRAY + "["
@@ -33,36 +33,31 @@ public final class PersonalSpyRegistry {
     private PersonalSpyRegistry() {}
 
     /**
-     * Toggles spy mode for {@code playerName}.
+     * Toggles spy mode for {@code player}.
      *
      * @return {@code true} if spy mode is now <em>enabled</em>
      */
-    public static boolean toggle(String playerName) {
-        if (SPIES.remove(playerName)) {
+    public static boolean toggle(ForgePlayer player) {
+        if (SPIES.remove(player)) {
             return false;
         }
-        SPIES.add(playerName);
+        SPIES.add(player);
         return true;
     }
 
-    public static ChatComponentText toggleWithMessage(String player) {
+    public static ChatComponentText toggleWithMessage(ForgePlayer player) {
         return new ChatComponentText(
             PersonalSpyRegistry.SPY_PREFIX
                 + (toggle(player) ? EnumChatFormatting.GREEN + "Включён — вы видите личную переписку игроков."
                     : EnumChatFormatting.RED + "Выключен."));
     }
 
-    /** Returns {@code true} if the player currently has spy mode on. */
-    public static boolean isEnabled(String playerName) {
-        return SPIES.contains(playerName);
+    public static void enable(ForgePlayer player) {
+        SPIES.add(player);
     }
 
-    /**
-     * Removes the spy entry (call on player disconnect to avoid stale state if the server
-     * chooses to enforce that behaviour).
-     */
-    public static void remove(String playerName) {
-        SPIES.remove(playerName);
+    public static void disable(ForgePlayer player) {
+        SPIES.remove(player);
     }
 
     /**
@@ -79,13 +74,12 @@ public final class PersonalSpyRegistry {
     public static void notifySpies(String senderDisplay, String targetDisplay, IChatComponent text) {
         if (SPIES.isEmpty()) return;
 
-        for (EntityPlayerMP spy : MinecraftServer.getServer()
-            .getConfigurationManager().playerEntityList) {
-            String spyName = spy.getCommandSenderName();
-            if (!isEnabled(spyName)) continue;
-            if (spyName.equals(senderDisplay) || spyName.equals(targetDisplay)) continue;
-
-            // Build a fresh component per recipient so chat events don't share mutable state.
+        for (ForgePlayer spy : SPIES) {
+            if (!spy.isOnline() || spy.getName()
+                .equals(senderDisplay)
+                || spy.getName()
+                    .equals(targetDisplay))
+                continue;
             ChatComponentText msg = new ChatComponentText(
                 SPY_PREFIX + EnumChatFormatting.AQUA
                     + senderDisplay
@@ -97,7 +91,8 @@ public final class PersonalSpyRegistry {
                     + ": "
                     + EnumChatFormatting.WHITE);
             msg.appendSibling(text.createCopy());
-            spy.addChatMessage(msg);
+            spy.getPlayer()
+                .addChatMessage(msg);
         }
     }
 }

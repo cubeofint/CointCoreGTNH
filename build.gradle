@@ -1,4 +1,15 @@
-
 plugins {
     id "com.gtnewhorizons.gtnhconvention"
+    id "maven-publish"
+}
+
+group = 'ru.CuBe'
+version = gitVersion()
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            artifact jar
+        }
+    }
 }

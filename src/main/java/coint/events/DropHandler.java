@@ -2,7 +2,6 @@ package coint.events;
 
 import net.minecraft.entity.boss.IBossDisplayData;
 import net.minecraft.entity.item.EntityItem;
-import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
@@ -23,7 +22,7 @@ public class DropHandler {
 
     @SubscribeEvent
     public static void onLivingDrop(LivingDropsEvent event) {
-        if (event.entity instanceof EntityPlayer || event.entity instanceof IBossDisplayData) {
+        if (event.entity instanceof IBossDisplayData) {
             for (EntityItem drop : event.drops) {
                 ItemUtil.setDropTag(drop.getEntityItem());
             }

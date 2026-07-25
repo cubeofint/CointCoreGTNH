@@ -2,11 +2,11 @@ package coint.commands;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 
-import coint.integration.serverutilities.RanksManager;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 
@@ -41,23 +41,8 @@ public class CommandSync extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
-        if (args.length != 1 || (!"true".equals(args[0]) && !"false".equals(args[0]))) {
-            sendError(sender, "Usage: /coint_sync <true|false>");
-            return;
-        }
-
-        RanksManager manager = RanksManager.get();
-        if (manager == null) {
-            sendError(sender, "SURanksManager not initialized");
-            return;
-        }
-
-        boolean onlyRoles = parseBoolean(sender, args[0]);
-        manager.syncRanks(onlyRoles);
-
-        ChatComponentText success = new ChatComponentText("Sync initiated. Check server logs for results.");
-        success.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GREEN));
-        sender.addChatMessage(success);
+        // TODO?: add api syncing
+        throw new WrongUsageException("Work in progress");
     }
 
     private void sendError(ICommandSender sender, String message) {

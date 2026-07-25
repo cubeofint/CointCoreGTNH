@@ -5,7 +5,7 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 
-import coint.tasks.CleanupTask;
+import coint.CleanupTask;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;

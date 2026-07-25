@@ -70,7 +70,7 @@ public class CommandMute extends CommandBase {
         String playerName = args[0].toLowerCase();
         CointPlayer player = CointPlayer.get(playerName);
 
-        long durationMs = parseTimeToMs(args[1]);
+        long durationMs = TimeUtil.simpleParse(args[1]);
         String reason = Joiner.on(" ")
             .join(Arrays.copyOfRange(args, 2, args.length));
         reason = reason.replaceAll("^['\"]|['\"]$", "");
@@ -85,26 +85,12 @@ public class CommandMute extends CommandBase {
                 + player.getName()
                 + EnumChatFormatting.RESET
                 + " на "
-                + TimeUtil.formatDuration(durationMs));
+                + TimeUtil.formatDuration(durationMs)
+                + " по причине: "
+                + reason);
 
         MinecraftServer.getServer()
             .getConfigurationManager()
             .sendChatMsg(message);
-    }
-
-    private long parseTimeToMs(String time) {
-        String str = time.toLowerCase();
-
-        if (str.endsWith("s")) {
-            return Long.parseLong(str.substring(0, str.length() - 1)) * 1000;
-        } else if (str.endsWith("m")) {
-            return Long.parseLong(str.substring(0, str.length() - 1)) * 60 * 1000;
-        } else if (str.endsWith("h")) {
-            return Long.parseLong(str.substring(0, str.length() - 1)) * 60 * 60 * 1000;
-        } else if (str.endsWith("d")) {
-            return Long.parseLong(str.substring(0, str.length() - 1)) * 24 * 60 * 60 * 1000;
-        }
-
-        throw new WrongUsageException("Неверный формат времени. Используйте: 10s, 5m, 2h, 1d");
     }
 }

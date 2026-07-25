@@ -15,8 +15,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import coint.debug.BackpackSecurityAudit;
-import coint.debug.BackpackSecurityInspector;
+import coint.integration.backpack.BackpackSecurityAudit;
+import coint.integration.backpack.BackpackSecurityInspector;
 
 @Mixin(NetHandlerPlayServer.class)
 public abstract class MixinNetHandlerPlayServerBackpackAudit {

@@ -3,6 +3,7 @@ package coint.events;
 import java.util.List;
 
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.INpc;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.passive.IAnimals;
@@ -12,7 +13,7 @@ import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
-import coint.config.CointConfig;
+import coint.CointConfig;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
@@ -21,8 +22,9 @@ public class MobLimiter {
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onMobSpawn(EntityJoinWorldEvent event) {
-        if (!CointConfig.limiterEnabled) return;
+        if (!CointConfig.limiter.enabled) return;
         if (event.entity instanceof EntityPlayer) return;
+        if (!(event.entity instanceof EntityLiving)) return;
 
         int passive = 0;
         int hostile = 0;
@@ -37,22 +39,19 @@ public class MobLimiter {
                     continue;
                 }
 
-                if (isPassive(entity)) {
-                    passive++;
-                    continue;
+                if (isPassive(entity) && passive++ >= CointConfig.limiter.passiveCup) {
+                    event.setCanceled(true);
+                    return;
                 }
-                if (entity instanceof IMob) {
-                    hostile++;
+                if ((entity instanceof IMob) && hostile++ >= CointConfig.limiter.hostileCup) {
+                    event.setCanceled(true);
+                    return;
+                }
+                if (passive + hostile >= CointConfig.limiter.chunkCup) {
+                    event.setCanceled(true);
+                    return;
                 }
             }
-        }
-
-        if (isPassive(event.entity) && passive >= CointConfig.limiterPassiveCup) {
-            event.setCanceled(true);
-            return;
-        }
-        if (event.entity instanceof IMob && hostile >= CointConfig.limiterHostileCup) {
-            event.setCanceled(true);
         }
     }
 

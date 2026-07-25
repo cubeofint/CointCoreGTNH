@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
  */
 public class CointMixinPlugin implements IMixinConfigPlugin {
 
-    private static final Logger LOGGER = LogManager.getLogger("cointcore-mixin");
+    public static final Logger LOG = LogManager.getLogger("cointcore-mixin");
     private static final String BLOODMAGIC_MIXIN_PREFIX = "coint.mixin.bloodmagic.";
 
     @Override
@@ -39,7 +39,6 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
         // For every optional-mod mixin package, guard by checking whether the
         // target class (= a class that only exists when the mod is installed)
         // is present on the classpath.
-
         if (mixinClassName.contains(".gregtech.")) {
             return isClassAvailable(targetClassName);
         }
@@ -70,8 +69,14 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".forestry.")) {
             return isClassAvailable(targetClassName);
         }
+
+        // No classes
+        if (mixinClassName.contains(".pspace.")) {
+            LOG.info("Should Apply PersonalSpace: target={}, mixin={}", targetClassName, mixinClassName);
+            return true;
+        }
         if (mixinClassName.contains(".bloodmagic.")) {
-            LOGGER.info(
+            LOG.info(
                 "[MixinDebug] shouldApplyMixin bloodmagic mixin={}, target={}, forced=true",
                 mixinClassName,
                 targetClassName);
@@ -93,7 +98,7 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
     @Override
     public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
         if (mixinClassName != null && mixinClassName.startsWith(BLOODMAGIC_MIXIN_PREFIX)) {
-            LOGGER.info(
+            LOG.info(
                 "[MixinDebug] preApply bloodmagic mixin={}, target={}, info={}",
                 mixinClassName,
                 targetClassName,
@@ -104,7 +109,7 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
     @Override
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
         if (mixinClassName != null && mixinClassName.startsWith(BLOODMAGIC_MIXIN_PREFIX)) {
-            LOGGER.info(
+            LOG.info(
                 "[MixinDebug] postApply bloodmagic mixin={}, target={}, info={}",
                 mixinClassName,
                 targetClassName,

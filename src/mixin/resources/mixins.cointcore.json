@@ -7,25 +7,26 @@
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "betterquesting.MixinPartyInstance",
     "backpackmod.MixinContainerAdvancedAudit",
     "backpackmod.MixinEntityPlayerBackpackAudit",
     "backpackmod.MixinNetHandlerPlayServerBackpackAudit",
+    "betterquesting.MixinPartyInstance",
+    "forestry.MixinItemInventoryUidFix",
     "galacticraft.MixinGCPlayerHandler",
+    "mattermanipulator.MixinAbstractBuildable",
     "minecraft.MixinCommandMessage",
     "minecraft.MixinEntityLivingBase",
     "minecraft.MixinEntityPlayer",
     "minecraft.MixinEntityPlayerForestryDupTrace",
     "minecraft.MixinNetHandlerPlayServerForestryBackpackClickBlock",
-    "mattermanipulator.MixinAbstractBuildable",
+    "minecraft.MixinServerConfigurationManager",
     "serverutilities.MixinCmdHome",
     "serverutilities.MixinCmdSetHome",
     "serverutilities.MixinServerUtilitiesTeamData",
     "thaumcraft.MixinItemFocusBasic",
     "thaumcraft.MixinItemFocusPortableHole",
     "thaumcraft.MixinItemFocusTrade",
-    "thaumcraft.MixinItemFocusWarding",
-    "forestry.MixinItemInventoryUidFix"
+    "thaumcraft.MixinItemFocusWarding"
   ],
   "client": [
     "serverutilities.MixinMessageUpdateTabName"

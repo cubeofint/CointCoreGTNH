@@ -4,10 +4,11 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.ChatComponentText;
 
-import coint.config.CointConfig;
+import coint.CointConfig;
+import coint.epochsync.EpochRegistry;
 import coint.integration.serverutilities.RanksManager;
-import coint.module.epochsync.EpochRegistry;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 
@@ -52,7 +53,8 @@ public class CommandReload extends CommandBase {
                 return;
             }
             case "config": {
-                CointConfig.loadConfig();
+                CointConfig.reload();
+                sender.addChatMessage(new ChatComponentText("Reloaded"));
                 return;
             }
             default: {

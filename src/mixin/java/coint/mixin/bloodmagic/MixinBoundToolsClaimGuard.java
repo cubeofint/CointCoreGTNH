@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
+import WayofTime.alchemicalWizardry.common.items.BoundPickaxe;
 import serverutils.data.ClaimedChunks;
 
 /**
@@ -24,8 +25,9 @@ import serverutils.data.ClaimedChunks;
  * claimed chunks via explicit ServerUtilities checks.
  */
 @Mixin(
-    targets = { "WayofTime.alchemicalWizardry.common.items.BoundPickaxe",
-        "WayofTime.alchemicalWizardry.common.items.BoundShovel", "WayofTime.alchemicalWizardry.common.items.BoundAxe" },
+    value = BoundPickaxe.class,
+    // targets = { "WayofTime.alchemicalWizardry.common.items.BoundPickaxe",
+    // "WayofTime.alchemicalWizardry.common.items.BoundShovel", "WayofTime.alchemicalWizardry.common.items.BoundAxe" },
     remap = false)
 public abstract class MixinBoundToolsClaimGuard {
 
@@ -35,7 +37,7 @@ public abstract class MixinBoundToolsClaimGuard {
     private static boolean cointcore$loggedFirstIntercept = false;
 
     @Redirect(
-        method = "onItemRightClick(Lnet/minecraft/item/ItemStack;Lnet/minecraft/world/World;Lnet/minecraft/entity/player/EntityPlayer;)Lnet/minecraft/item/ItemStack;",
+        method = "onItemRightClick",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;setBlockToAir(III)Z"),
         remap = false,
         require = 1)

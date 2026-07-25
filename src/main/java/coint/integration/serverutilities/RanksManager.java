@@ -7,14 +7,10 @@ import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-
 import betterquesting.api.questing.party.IParty;
-import coint.config.CointConfig;
-import coint.module.epochsync.EpochEntry;
-import coint.module.epochsync.EpochRegistry;
-import coint.util.HttpUtil;
+import coint.epochsync.EpochEntry;
+import coint.epochsync.EpochRegistry;
+import coint.util.ChatUtil;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.ranks.PlayerRank;
 import serverutils.ranks.Rank;
@@ -204,6 +200,9 @@ public class RanksManager {
             playerRank.addParent(epochRank);
             ranks.save();
             ranks.clearCache();
+
+            var p = ranks.universe.getPlayer(playerId);
+            if (p != null) ChatUtil.refreshRFN(p.getPlayer());
             LOG.info("Set rank {} for player {}", rank, playerId);
         } else {
             LOG.error(
@@ -211,92 +210,7 @@ public class RanksManager {
                 rank);
         }
 
-        // Notify external API
-        if (CointConfig.notifyEnabled) {
-            notifyApiRankChange(playerId, rank);
-        }
-    }
-
-    /**
-     * Notify external API about rank change
-     */
-    private void notifyApiRankChange(UUID playerId, String rank) {
-        String apiUrl = CointConfig.getEffectiveApiUrl();
-        if (apiUrl == null || apiUrl.isEmpty()) {
-            LOG.debug("API URL not configured, skipping notification");
-            return;
-        }
-
-        JsonObject data = new JsonObject();
-        data.addProperty("player_id", playerId.toString());
-        data.addProperty("rank", rank);
-
-        HttpUtil.postJsonAsync(apiUrl + "/api/coint-connector/roles/gtnh", data.toString())
-            .thenAccept(code -> LOG.debug("API notification sent, response: {}", code))
-            .exceptionally(e -> {
-                LOG.error("API notification failed: {}", e.getMessage());
-                return null;
-            });
-    }
-
-    /**
-     * Sync all ranks with external API
-     */
-    public void syncRanks(boolean onlyRoles) {
-        Ranks ranks = Ranks.INSTANCE;
-        if (ranks == null) {
-            LOG.error("Cannot sync ranks: ServerUtilities Ranks not initialized");
-            return;
-        }
-
-        String apiUrl = CointConfig.getEffectiveApiUrl();
-        if (apiUrl == null || apiUrl.isEmpty()) {
-            LOG.warn("API URL not configured, cannot sync ranks");
-            return;
-        }
-
-        JsonObject data = new JsonObject();
-
-        // Add ranks
-        JsonArray ranksArray = new JsonArray();
-        for (Rank r : ranks.ranks.values()) {
-            JsonObject rankObj = new JsonObject();
-            rankObj.addProperty("name", r.getId());
-            rankObj.addProperty("power", r.getPriority());
-            ranksArray.add(rankObj);
-        }
-        data.add("ranks", ranksArray);
-
-        // Add players if requested
-        if (!onlyRoles) {
-            JsonArray playersArray = new JsonArray();
-            for (PlayerRank p : ranks.playerRanks.values()) {
-                JsonObject playerObj = new JsonObject();
-                playerObj.addProperty("player_id", p.uuid.toString());
-
-                boolean hasEpoch = false;
-                for (Rank par : p.getActualParents()) {
-                    EpochEntry epoch = EpochRegistry.INST.getEpoch(par.getId());
-                    if (epoch != null) {
-                        playerObj.addProperty("rank", epoch.rankName);
-                        hasEpoch = true;
-                        break;
-                    }
-                }
-
-                if (hasEpoch) {
-                    playersArray.add(playerObj);
-                }
-            }
-            data.add("players", playersArray);
-        }
-
-        HttpUtil.postJsonAsync(apiUrl + "/api/coint-connector/roles/sync", data.toString())
-            .thenAccept(code -> LOG.info("Rank sync completed, response: {}", code))
-            .exceptionally(e -> {
-                LOG.error("Rank sync failed: {}", e.getMessage());
-                return null;
-            });
+        // TODO: rank notify
     }
 
     /**

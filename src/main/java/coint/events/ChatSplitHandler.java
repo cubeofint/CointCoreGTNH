@@ -17,26 +17,23 @@ import net.minecraftforge.event.ServerChatEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
+import coint.CointConfig;
 import coint.CointCore;
 import coint.commands.spy.LocalSpyRegistry;
-import coint.config.CointConfig;
-import coint.core.ChatWSClient;
+import coint.http.HubWebSocket;
+import coint.http.WebSocketMessage;
+import coint.util.ChatUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import serverutils.ServerUtilitiesPermissions;
-import serverutils.lib.config.ConfigEnum;
-import serverutils.lib.config.RankConfigAPI;
-import serverutils.ranks.Ranks;
 
 /**
  * Разделяет игровой чат на <b>локальный</b> и <b>глобальный</b>.
  *
  * <ul>
- * <li>Сообщение, начинающееся с {@link CointConfig#globalChatPrefix} (по умолчанию {@code !}),
+ * <li>Сообщение, начинающееся с {@link CointConfig.Chat#prefix} (по умолчанию {@code !}),
  * рассылается всем онлайн-игрокам во всех измерениях.</li>
  * <li>Любое другое сообщение рассылается только тем игрокам, которые находятся
- * в пределах {@link CointConfig#localChatRadius} блоков (и, если
- * {@link CointConfig#sameDimensionOnly} включён, в том же измерении).</li>
+ * в пределах {@link CointConfig.Chat#radius} блоков и в том же измерении.</li>
  * </ul>
  *
  * <p>
@@ -56,9 +53,15 @@ import serverutils.ranks.Ranks;
 @EventBusSubscriber
 public class ChatSplitHandler {
 
+    @EventBusSubscriber.Condition
+    public static boolean isEnabled() {
+        return CointConfig.chat.splitEnabled;
+    }
+
     public static final Pattern URL_PATTERN = Pattern
         .compile("((https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])", Pattern.CASE_INSENSITIVE);
 
+    @SuppressWarnings("unused")
     public List<IChatComponent> processAndSplit(String input) {
         List<IChatComponent> lines = new ArrayList<>();
         ChatComponentText currentLine = new ChatComponentText("");
@@ -88,7 +91,7 @@ public class ChatSplitHandler {
                         .setChatHoverEvent(
                             new HoverEvent(
                                 HoverEvent.Action.SHOW_TEXT,
-                                new ChatComponentText("Осторожно! Ссылка на сторонний сайт."))));
+                                new ChatComponentText("Ссылка на сторонний сайт."))));
 
                 currentLine.appendSibling(linkComp);
                 currentLength += partLen;
@@ -133,192 +136,58 @@ public class ChatSplitHandler {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onServerChat(ServerChatEvent event) {
-        if (!CointConfig.chatSplitEnabled) {
-            return;
-        }
-
         // Если мьют-хэндлер (HIGHEST) уже отменил событие — не трогаем.
         if (event.isCanceled()) {
             return;
         }
-
         event.setCanceled(true);
 
-        EntityPlayerMP sender = event.player;
-        String rawMessage = event.message;
-
-        String prefix = CointConfig.globalChatPrefix;
-        boolean isGlobal = prefix != null && !prefix.isEmpty() && event.message.startsWith(prefix);
-
-        String text = isGlobal ? rawMessage.substring(prefix.length())
-            .trim() : rawMessage;
-
-        if (text.isEmpty()) {
+        if (event.message.contains("betterquesting.msg.sharequest")) {
+            send(event.player, event.message, true);
             return;
         }
 
-        // Получаем имя с префиксом ранга из ServerUtilities (или просто ник, если SU недоступен).
-        String senderName = getRankFormattedName(sender);
+        String prefix = CointConfig.chat.prefix;
+        boolean isGlobal = !prefix.isEmpty() && event.message.startsWith(prefix);
 
+        String text = isGlobal ? event.message.substring(prefix.length())
+            .trim() : event.message;
+        if (text.isEmpty()) return;
+
+        String colorCode = ChatUtil.getTextColorCode(event.player);
+        send(event.player, text.replaceAll("(?<=^|\\s)", colorCode), isGlobal);
+    }
+
+    private static void send(EntityPlayerMP sender, String text, boolean isGlobal) {
+        String senderName = ChatUtil.getRankFormattedName(sender);
+        var origin = isGlobal ? "G" : "";
+        ChatComponentText component = ChatUtil.getChatMessage(senderName, text, origin);
+
+        var server = MinecraftServer.getServer();
         if (isGlobal) {
-            sendGlobal(sender, senderName, text);
+            server.getConfigurationManager()
+                .sendChatMsg(component);
+
+            HubWebSocket.get()
+                .send(WebSocketMessage.ChatMessage.create(sender, senderName, text));
         } else {
-            sendLocal(sender, senderName, text);
+            double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
+            int senderDim = sender.dimension;
+
+            int recipients = 0;
+            for (EntityPlayerMP p : server.getConfigurationManager().playerEntityList) {
+                if (p.dimension != senderDim || sender.getDistanceSqToEntity(p) > radiusSq) {
+                    continue;
+                }
+                p.addChatMessage(component);
+                recipients++;
+            }
+
+            CointCore.LOG
+                .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.chat.radius, senderName, text, recipients);
+
+            // Notify admins who have /localspy enabled and were out of range.
+            LocalSpyRegistry.notifySpies(sender, senderName, text);
         }
-    }
-
-    // ------------------------------------------------------------------
-    // Rank name resolution
-    // ------------------------------------------------------------------
-
-    /**
-     * Возвращает имя игрока, отформатированное согласно его рангу в ServerUtilities.
-     *
-     * <p>
-     * Алгоритм:
-     * <ol>
-     * <li>Берём шаблон {@code CHAT_NAME_FORMAT} из ранга игрока
-     * (например {@code &c[Админ]&r {name}:}).</li>
-     * <li>Транслируем {@code &x} в {@code §x}.</li>
-     * <li>Заменяем {@code {name}} на реальный ник.</li>
-     * <li>Убираем завершающее {@code :} — оно нужно SU для собственного чата,
-     * но в нашем формате разделитель уже задан в строке формата.</li>
-     * </ol>
-     *
-     * <p>
-     * При любой ошибке (Ranks не загружен, формат пустой) возвращает чистый ник.
-     */
-    private static String getRankFormattedName(EntityPlayerMP player) {
-        String plainName = player.getGameProfile()
-            .getName();
-
-        try {
-            if (Ranks.INSTANCE == null) {
-                return plainName;
-            }
-
-            String format = Ranks.INSTANCE.getPlayerRank(player.getGameProfile())
-                .getPermission(ServerUtilitiesPermissions.CHAT_NAME_FORMAT);
-
-            if (format.isEmpty()) {
-                return plainName;
-            }
-
-            // ranks.txt использует &x для цветов; переводим в §x
-            format = format.replaceAll("&([0-9a-fk-orA-FK-OR])", "§$1");
-
-            // Подставляем ник
-            format = format.replace("{name}", plainName);
-
-            // Убираем угловые скобки <> — стандартная обёртка в шаблонах SU вида <Ранг {name}>
-            format = format.replace("<", "")
-                .replace(">", "");
-
-            // Убираем хвостовое «:» (и пробелы вокруг него) — SU добавляет его
-            // как разделитель чата, но в нашем формате разделитель уже есть.
-            format = format.replaceAll(":\\s*$", "")
-                .trim();
-
-            return format;
-
-        } catch (Exception e) {
-            CointCore.LOG.warn("[ChatSplit] Failed to get rank format for {}: {}", plainName, e.getMessage());
-            return plainName;
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Text colour resolution
-    // ------------------------------------------------------------------
-
-    /**
-     * Возвращает Minecraft-код цвета (например {@code §c}) для текста сообщения отправителя,
-     * взятый из привилегии {@code serverutilities.chat.text.color} в ranks.txt.
-     *
-     * <p>
-     * Возвращает пустую строку, если:
-     * <ul>
-     * <li>Ranks недоступен</li>
-     * <li>значение не задано / равно {@code white} (умолчание по умолчанию)</li>
-     * </ul>
-     *
-     * <p>
-     * Логика намеренно повторяет подход из
-     * {@code ServerUtilitiesServerEventHandler.onServerChatEvent}.
-     */
-    private static String getTextColorCode(EntityPlayerMP player) {
-        try {
-            if (Ranks.INSTANCE == null) {
-                return "";
-            }
-
-            EnumChatFormatting color = (EnumChatFormatting) ((ConfigEnum<?>) RankConfigAPI
-                .get(player, ServerUtilitiesPermissions.CHAT_TEXT_COLOR)).getValue();
-
-            // WHITE — значение по умолчанию; не добавляем лишний код.
-            if (color == EnumChatFormatting.WHITE) {
-                return "";
-            }
-
-            return color.toString(); // возвращает §x
-        } catch (Exception e) {
-            CointCore.LOG.warn(
-                "[ChatSplit] Failed to get text color for {}: {}",
-                player.getGameProfile()
-                    .getName(),
-                e.getMessage());
-            return "";
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Send helpers
-    // ------------------------------------------------------------------
-
-    private static void sendGlobal(EntityPlayerMP sender, String senderName, String text) {
-        String colorCode = getTextColorCode(sender);
-        String formatted = String.format(CointConfig.globalChatFormat, senderName, text.replaceAll("\\b", colorCode));
-        ChatComponentText component = new ChatComponentText(formatted);
-
-        MinecraftServer.getServer()
-            .getConfigurationManager()
-            .sendChatMsg(component);
-
-        // Forward to Discord via Nilcord (no-op if Nilcord is not installed).
-        // NilcordBridge.forwardGlobalChat(sender, text);
-        ChatWSClient.send(
-            sender.getGameProfile()
-                .getName(),
-            senderName,
-            text);
-
-        CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
-    }
-
-    private static void sendLocal(EntityPlayerMP sender, String senderName, String text) {
-        String colorCode = getTextColorCode(sender);
-        String formatted = String.format(CointConfig.localChatFormat, senderName, colorCode + text);
-        ChatComponentText component = new ChatComponentText(formatted);
-
-        double radiusSq = CointConfig.localChatRadius * CointConfig.localChatRadius;
-        int senderDim = sender.dimension;
-
-        List<EntityPlayerMP> players = MinecraftServer.getServer()
-            .getConfigurationManager().playerEntityList;
-
-        int recipients = 0;
-        for (EntityPlayerMP p : players) {
-            if (p.dimension != senderDim || sender.getDistanceSqToEntity(p) > radiusSq) {
-                continue;
-            }
-            p.addChatMessage(component);
-            recipients++;
-        }
-
-        CointCore.LOG
-            .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.localChatRadius, senderName, text, recipients);
-
-        // Notify admins who have /localspy enabled and were out of range.
-        LocalSpyRegistry.notifySpies(sender, senderName, text);
     }
 }
