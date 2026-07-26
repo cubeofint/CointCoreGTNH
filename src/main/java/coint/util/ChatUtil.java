@@ -1,7 +1,5 @@
 package coint.util;
 
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -9,7 +7,6 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
-import coint.CointConfig;
 import coint.CointCore;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.lib.config.ConfigEnum;
@@ -25,22 +22,6 @@ public class ChatUtil {
             player.getGameProfile()
                 .getName());
         getRankFormattedName(player);
-    }
-
-    public static ChatComponentText getChatMessage(String senderFormatted, String text, String origin) {
-        LocalTime now = LocalTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-        String time = now.format(formatter);
-
-        var sep = origin.isEmpty() ? "" : " ";
-
-        var msg = CointConfig.chat.msgFormat.replace("{msg}", text)
-            .replace("{name}", senderFormatted)
-            .replace("{time}", time)
-            .replace("{origin_sep}", origin + sep)
-            .replace("{sep_origin}", sep + origin);
-
-        return new ChatComponentText(msg);
     }
 
     public static ChatComponentText getNotifyMessage(String text) {

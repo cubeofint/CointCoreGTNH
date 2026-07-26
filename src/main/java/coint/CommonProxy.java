@@ -3,11 +3,11 @@ package coint;
 import com.gtnewhorizon.gtnhlib.config.ConfigException;
 
 import coint.commands.CmdRegistry;
-import coint.commands.spy.DmLogger;
 import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
 import coint.epochsync.EpochRegistry;
 import coint.http.HubWebSocket;
+import coint.integration.cchat.CChatBridge;
 import coint.integration.serverutilities.RanksManager;
 import coint.util.PermissionsUtil;
 import cpw.mods.fml.common.Loader;
@@ -56,7 +56,7 @@ public class CommonProxy {
 
     public void serverAboutToStart(FMLServerAboutToStartEvent event) {
         EpochRegistry.init(event);
-        DmLogger.init(new java.io.File("."));
+        CChatBridge.init();
         CointCore.LOG.info("CointCore GTNH initialized successfully");
     }
 
@@ -93,7 +93,6 @@ public class CommonProxy {
 
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
-        DmLogger.close();
         if (CointConfig.api.wsEnabled) {
             HubWebSocket.get()
                 .closeNormal("Перезагрузка");

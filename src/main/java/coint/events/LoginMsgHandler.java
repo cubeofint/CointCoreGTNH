@@ -16,11 +16,8 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
 import coint.Tags;
-import coint.commands.spy.LocalSpyRegistry;
-import coint.commands.spy.PersonalSpyRegistry;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
-import serverutils.lib.data.Universe;
 
 @EventBusSubscriber
 public class LoginMsgHandler {
@@ -43,13 +40,6 @@ public class LoginMsgHandler {
         for (String rawLine : lines) {
             String line = applyPlaceholders(rawLine, playerName);
             event.player.addChatMessage(buildLoginComponent(line));
-        }
-
-        var p = Universe.get()
-            .getPlayer(event.player);
-        if (p.isOP()) {
-            LocalSpyRegistry.enable(p);
-            PersonalSpyRegistry.enable(p);
         }
     }
 
