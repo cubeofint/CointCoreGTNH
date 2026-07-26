@@ -14,7 +14,6 @@
     "forestry.MixinItemInventoryUidFix",
     "galacticraft.MixinGCPlayerHandler",
     "mattermanipulator.MixinAbstractBuildable",
-    "minecraft.MixinCommandMessage",
     "minecraft.MixinEntityLivingBase",
     "minecraft.MixinEntityPlayer",
     "minecraft.MixinEntityPlayerForestryDupTrace",

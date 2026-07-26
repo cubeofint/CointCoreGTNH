@@ -19,6 +19,7 @@ import com.neovisionaries.ws.client.WebSocketFrame;
 
 import coint.CointConfig;
 import coint.CointCore;
+import coint.integration.cchat.CChatBridge;
 import coint.util.ChatUtil;
 
 public class HubWebSocket extends WebSocketAdapter {
@@ -34,6 +35,10 @@ public class HubWebSocket extends WebSocketAdapter {
     private static MinecraftServer server;
 
     public static HubWebSocket get() {
+        if (!CointConfig.api.wsEnabled) {
+            if (inst == null) inst = new HubWebSocket();
+            return inst;
+        }
         if (inst == null || ws == null) {
             try {
                 inst = create(CointConfig.api.getChatWs());
@@ -101,10 +106,9 @@ public class HubWebSocket extends WebSocketAdapter {
                 var chat = gson.fromJson(msg.payload, WebSocketMessage.ChatMessage.class);
                 ChatComponentText c;
                 if (chat.sender.isEmpty() && chat.senderFormatted.isEmpty()) c = ChatUtil.getNotifyMessage(chat.text);
-                else c = ChatUtil.getChatMessage(chat.senderFormatted, chat.text, msg.origin);
+                else c = new ChatComponentText(chat.senderFormatted + ": " + chat.text);
 
-                server.getConfigurationManager()
-                    .sendChatMsg(c);
+                CChatBridge.deliverInbound(msg.origin, c);
             }
             case Info -> {
                 if (CointConfig.general.isNew) {

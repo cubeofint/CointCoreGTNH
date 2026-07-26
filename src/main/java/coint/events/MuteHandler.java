@@ -5,7 +5,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
-import net.minecraftforge.event.ServerChatEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
@@ -15,6 +14,8 @@ import coint.util.TimeUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
+import ru.cube.cchat.channel.ChannelRegistry;
+import ru.cube.cchat.events.ChannelMessageEvent;
 
 @EventBusSubscriber
 public class MuteHandler {
@@ -42,20 +43,23 @@ public class MuteHandler {
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public static void onServerChat(ServerChatEvent event) {
-        Mute mute = CointPlayer.get(event.username)
-            .getMute();
-        if (mute != null && !mute.isExpired()) {
-            event.setCanceled(true);
-            event.player.addChatMessage(
-                new ChatComponentText(
-                    EnumChatFormatting.RED + "Ваш чат заблокирован по причине:"
-                        + mute.reason
-                        + ". Доступен через "
-                        + EnumChatFormatting.GOLD
-                        + TimeUtil.formatDuration(mute.expiresAt - System.currentTimeMillis())));
-
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onChannelMessage(ChannelMessageEvent event) {
+        if (!ChannelRegistry.LOCAL_ID.equals(event.channelId) && !ChannelRegistry.GLOBAL_ID.equals(event.channelId)) {
+            return;
         }
+
+        Mute mute = CointPlayer.get(event.sender.getCommandSenderName())
+            .getMute();
+        if (mute == null || mute.isExpired()) return;
+
+        event.setCanceled(true);
+        event.sender.addChatMessage(
+            new ChatComponentText(
+                EnumChatFormatting.RED + "Ваш чат заблокирован по причине:"
+                    + mute.reason
+                    + ". Доступен через "
+                    + EnumChatFormatting.GOLD
+                    + TimeUtil.formatDuration(mute.expiresAt - System.currentTimeMillis())));
     }
 }

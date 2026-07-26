@@ -148,26 +148,7 @@ public class CointConfig {
 
     }
 
-    // TODO: move to client mod
     public static class Chat {
-
-        @Config.Comment("Enable chat splitting")
-        @Config.DefaultBoolean(true)
-        public boolean splitEnabled;
-
-        @Config.Comment("Radius of local chat")
-        @Config.DefaultInt(300)
-        @Config.RangeInt(min = 50, max = 10000)
-        public int radius;
-
-        @Config.Comment("Prefix for global chat")
-        @Config.DefaultString("!")
-        public String prefix;
-
-        @Config.Comment("Formatting of chat message. Required params: {name}, {msg}. Optional: {time}, {origin_sep}|{sep_origin} (with separator)")
-        @Config.DefaultString("§7[{origin_sep}{time}]§r {name}: {msg}")
-        @Config.Reloadable(RELOAD)
-        public String msgFormat;
 
         @Config.Comment("Enable login message. Works only if NewHorizonsCoreMod login msg disabled.")
         @Config.DefaultBoolean(true)
