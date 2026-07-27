@@ -44,6 +44,12 @@ public class CointConfig {
         @Config.DefaultBoolean(true)
         @Config.Reloadable(RELOAD)
         public boolean pdimSaverEnabled;
+
+        @Config.Comment("Enable iTNT|nuke explosion")
+        @Config.DefaultBoolean(false)
+        @Config.Reloadable(RELOAD)
+        public boolean ic2ExplosionEnabled;
+
     }
 
     public static class Cleaner {

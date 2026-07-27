@@ -11,6 +11,7 @@
     "backpackmod.MixinEntityPlayerBackpackAudit",
     "backpackmod.MixinNetHandlerPlayServerBackpackAudit",
     "betterquesting.MixinPartyInstance",
+    "bloodmagic.MixinMeteor",
     "forestry.MixinItemInventoryUidFix",
     "galacticraft.MixinGCPlayerHandler",
     "mattermanipulator.MixinAbstractBuildable",
