@@ -43,6 +43,7 @@ dependencies {
     implementation("com.github.GTNewHorizons:ServerUtilities:2.3.1:dev") { transitive = false }
     implementation("com.github.GTNewHorizons:Galacticraft:3.4.29-GTNH:dev") { transitive = false }
     implementation("com.github.GTNewHorizons:PersonalSpace:1.0.39:dev") { transitive = false }
+    implementation("com.github.GTNewHorizons:BloodMagic:1.9.4:dev") { transitive = false }
 
     /**
      * Source set {@code mixin} имеет отдельный classpath: {@code compileOnly} сюда не попадает.
