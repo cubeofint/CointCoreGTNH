@@ -24,11 +24,7 @@ import serverutils.data.ClaimedChunks;
  * mining. We keep vanilla Blood Magic behavior, but deny deletion in foreign
  * claimed chunks via explicit ServerUtilities checks.
  */
-@Mixin(
-    value = BoundPickaxe.class,
-    // targets = { "WayofTime.alchemicalWizardry.common.items.BoundPickaxe",
-    // "WayofTime.alchemicalWizardry.common.items.BoundShovel", "WayofTime.alchemicalWizardry.common.items.BoundAxe" },
-    remap = false)
+@Mixin(value = BoundPickaxe.class, remap = false)
 public abstract class MixinBoundToolsClaimGuard {
 
     @Unique

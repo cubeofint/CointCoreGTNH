@@ -1,6 +1,5 @@
 package coint.mixin;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -9,6 +8,8 @@ import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.lib.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
+
+import com.gtnewhorizon.gtnhmixins.builders.IMixins;
 
 /**
  * Mixin plugin for CointCore.
@@ -91,8 +92,8 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public List<String> getMixins() {
-        // All mixins are declared in mixins.cointcore.json; nothing to add dynamically.
-        return new ArrayList<>();
+        // Vanilla/Forge mixins only — mod-targeting ones are phase = LATE and load via CointLateMixinLoader.
+        return IMixins.getMixins(Mixins.class);
     }
 
     @Override
