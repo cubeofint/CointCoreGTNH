@@ -71,11 +71,6 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
             return isClassAvailable(targetClassName);
         }
 
-        // No classes
-        if (mixinClassName.contains(".pspace.")) {
-            LOG.info("Should Apply PersonalSpace: target={}, mixin={}", targetClassName, mixinClassName);
-            return true;
-        }
         if (mixinClassName.contains(".bloodmagic.")) {
             LOG.info(
                 "[MixinDebug] shouldApplyMixin bloodmagic mixin={}, target={}, forced=true",
@@ -92,7 +87,6 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public List<String> getMixins() {
-        // Vanilla/Forge mixins only — mod-targeting ones are phase = LATE and load via CointLateMixinLoader.
         return IMixins.getMixins(Mixins.class);
     }
 

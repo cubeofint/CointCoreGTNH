@@ -1,21 +1,11 @@
 package coint.mixin;
 
-import com.gtnewhorizon.gtnhmixins.builders.IBaseTransformer.Phase;
 import com.gtnewhorizon.gtnhmixins.builders.IMixins;
 import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
-/**
- * Vanilla/Forge targets are resolvable as soon as the game starts, so they stay on {@code phase = null} — loaded
- * through {@link CointMixinPlugin#getMixins()} via the regular {@code mixins.cointcore.json}.
- *
- * <p>
- * Everything else targets another mod's classes, which may not be on the classpath yet when
- * {@code mixins.cointcore.json} is processed. Those are {@link Phase#LATE}, loaded through
- * {@link CointLateMixinLoader} once FML has added all mod jars to the classpath.
- */
 public enum Mixins implements IMixins {
 
-    VANILLA(new MixinBuilder("vanilla/Forge classes, always resolvable").addCommonMixins(
+    VANILLA(new MixinBuilder("Vanilla/Forge").addCommonMixins(
         "minecraft.MixinCommandMessage",
         "minecraft.MixinEntityLivingBase",
         "minecraft.MixinEntityPlayer",
@@ -23,7 +13,7 @@ public enum Mixins implements IMixins {
         "minecraft.MixinNetHandlerPlayServerForestryBackpackClickBlock",
         "minecraft.MixinServerConfigurationManager")),
 
-    BACKPACK(new MixinBuilder("Backpack mod").addRequiredMod(TargetMod.BACKPACK)
+    BACKPACK(new MixinBuilder("Backpacks").addRequiredMod(TargetMod.BACKPACK)
         .setPhase(Phase.LATE)
         .addCommonMixins(
             "backpackmod.MixinContainerAdvancedAudit",
@@ -34,15 +24,19 @@ public enum Mixins implements IMixins {
         .setPhase(Phase.LATE)
         .addCommonMixins("betterquesting.MixinPartyInstance")),
 
-    BLOODMAGIC(new MixinBuilder("Blood Magic").addRequiredMod(TargetMod.BLOODMAGIC)
+    BLOODMAGIC(new MixinBuilder("BloodMagic").addRequiredMod(TargetMod.BLOODMAGIC)
         .setPhase(Phase.LATE)
-        .addCommonMixins("bloodmagic.MixinMeteor", "bloodmagic.MixinBoundToolsClaimGuard")),
+        .addCommonMixins(
+            "bloodmagic.MixinMeteor",
+            "bloodmagic.MixinBoundToolsClaimGuard",
+            "bloodmagic.MixinSacrificialDagger",
+            "bloodmagic.MixinPlayerSacrificeHandler")),
 
     FORESTRY(new MixinBuilder("Forestry").addRequiredMod(TargetMod.FORESTRY)
         .setPhase(Phase.LATE)
         .addCommonMixins("forestry.MixinItemInventoryUidFix")),
 
-    GALACTICRAFT(new MixinBuilder("Galacticraft").addRequiredMod(TargetMod.GALACTICRAFT)
+    GALACTICRAFT(new MixinBuilder("GalactiCraft").addRequiredMod(TargetMod.GALACTICRAFT)
         .setPhase(Phase.LATE)
         .addCommonMixins("galacticraft.MixinGCPlayerHandler")),
 

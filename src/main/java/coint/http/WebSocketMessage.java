@@ -1,11 +1,14 @@
 package coint.http;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.dedicated.DedicatedServer;
+import net.minecraft.server.dedicated.PropertyManager;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -64,6 +67,7 @@ public class WebSocketMessage {
         int slots;
         double mspt;
         double tps;
+        int rconPort;
 
         public static WebSocketMessage create(MinecraftServer server) {
             var players = Universe.get()
@@ -82,8 +86,21 @@ public class WebSocketMessage {
             msg.slots = server.getMaxPlayers();
             msg.mspt = mspt;
             msg.tps = tps;
+            msg.rconPort = getRconPort(server);
 
             return new WebSocketMessage(Action.Info, gson.toJsonTree(msg));
+        }
+
+        private static int getRconPort(MinecraftServer server) {
+            if (!(server instanceof DedicatedServer dedicated)) return 0;
+            try {
+                Field settingsField = DedicatedServer.class.getDeclaredField("settings");
+                settingsField.setAccessible(true);
+                var settings = (PropertyManager) settingsField.get(dedicated);
+                return settings.getIntProperty("rcon.port", 0);
+            } catch (ReflectiveOperationException e) {
+                return 0;
+            }
         }
     }
 

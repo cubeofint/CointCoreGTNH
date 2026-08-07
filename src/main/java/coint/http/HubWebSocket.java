@@ -106,12 +106,7 @@ public class HubWebSocket extends WebSocketAdapter {
                 server.getConfigurationManager()
                     .sendChatMsg(c);
             }
-            case Info -> {
-                if (CointConfig.general.isNew) {
-                    // TabChannelHandler.INSTANCE.setServerData("");
-                    CointCore.LOG.warn("Unimplemented info");
-                }
-            }
+            case Info -> {}
             default -> CointCore.LOG.warn("Unimplemented action: {}", msg.action);
         }
     }
