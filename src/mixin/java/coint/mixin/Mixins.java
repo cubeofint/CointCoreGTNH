@@ -11,7 +11,8 @@ public enum Mixins implements IMixins {
         "minecraft.MixinEntityPlayer",
         "minecraft.MixinEntityPlayerForestryDupTrace",
         "minecraft.MixinNetHandlerPlayServerForestryBackpackClickBlock",
-        "minecraft.MixinServerConfigurationManager")),
+        "minecraft.MixinServerConfigurationManager",
+        "minecraft.MixinSpawnerAnimals")),
 
     BACKPACK(new MixinBuilder("Backpacks").addRequiredMod(TargetMod.BACKPACK)
         .setPhase(Phase.LATE)

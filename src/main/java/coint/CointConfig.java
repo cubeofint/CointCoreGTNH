@@ -50,6 +50,10 @@ public class CointConfig {
         @Config.Reloadable(RELOAD)
         public boolean ic2ExplosionEnabled;
 
+        @Config.Comment("Unload empty non-critical dimensions (no players, no forced chunks) after server start")
+        @Config.DefaultBoolean(true)
+        public boolean unloadEmptyDimensions;
+
     }
 
     public static class Cleaner {
@@ -134,23 +138,34 @@ public class CointConfig {
         @Config.Reloadable(RELOAD)
         public boolean enabled;
 
-        @Config.Comment("General chunk mobs cup")
-        @Config.DefaultInt(20)
-        @Config.RangeInt(min = 0, max = 50)
+        @Config.Comment("Radius (in blocks) around the spawn point to count mobs in")
+        @Config.DefaultInt(8)
+        @Config.RangeInt(min = 8, max = 128)
         @Config.Reloadable(RELOAD)
-        public int chunkCup;
+        public int radius;
 
-        @Config.Comment("Passive mobs cup")
-        @Config.DefaultInt(20)
+        @Config.Comment("General mobs cup within double the radius")
+        @Config.DefaultInt(10)
+        @Config.RangeInt(min = 0, max = 100)
+        @Config.Reloadable(RELOAD)
+        public int totalCup;
+
+        @Config.Comment("Passive mobs cup within the radius")
+        @Config.DefaultInt(3)
         @Config.RangeInt(min = 0, max = 50)
         @Config.Reloadable(RELOAD)
         public int passiveCup;
 
-        @Config.Comment("Hostile mobs cup")
-        @Config.DefaultInt(20)
+        @Config.Comment("Hostile mobs cup within the radius")
+        @Config.DefaultInt(3)
         @Config.RangeInt(min = 0, max = 50)
         @Config.Reloadable(RELOAD)
         public int hostileCup;
+
+        @Config.Comment("Make the vanilla per-dimension natural spawn cap static, ignoring player spread")
+        @Config.DefaultBoolean(false)
+        @Config.Reloadable(RELOAD)
+        public boolean staticVanillaCap;
 
     }
 

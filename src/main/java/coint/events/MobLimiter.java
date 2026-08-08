@@ -7,13 +7,13 @@ import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.INpc;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.passive.IAnimals;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraftforge.event.entity.EntityJoinWorldEvent;
+import net.minecraft.util.AxisAlignedBB;
+import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
+import cpw.mods.fml.common.eventhandler.Event.Result;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
@@ -21,38 +21,40 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 public class MobLimiter {
 
     @SubscribeEvent(priority = EventPriority.HIGH)
-    public static void onMobSpawn(EntityJoinWorldEvent event) {
+    public static void onCheckSpawn(LivingSpawnEvent.CheckSpawn event) {
         if (!CointConfig.limiter.enabled) return;
-        if (event.entity instanceof EntityPlayer) return;
-        if (!(event.entity instanceof EntityLiving)) return;
+
+        double radius = CointConfig.limiter.radius;
+        List<EntityLiving> nearby = event.world.getEntitiesWithinAABB(EntityLiving.class, box(event, radius));
 
         int passive = 0;
         int hostile = 0;
 
-        Chunk chunk = event.world.getChunkFromBlockCoords((int) event.entity.posX, (int) event.entity.posZ);
-        for (List eList : chunk.entityLists) {
-            for (Object obj : eList) {
-                Entity entity;
-                if (obj instanceof Entity e) {
-                    entity = e;
-                } else {
-                    continue;
-                }
-
-                if (isPassive(entity) && passive++ >= CointConfig.limiter.passiveCup) {
-                    event.setCanceled(true);
-                    return;
-                }
-                if ((entity instanceof IMob) && hostile++ >= CointConfig.limiter.hostileCup) {
-                    event.setCanceled(true);
-                    return;
-                }
-                if (passive + hostile >= CointConfig.limiter.chunkCup) {
-                    event.setCanceled(true);
-                    return;
-                }
+        for (EntityLiving entity : nearby) {
+            if (isPassive(entity) && ++passive >= CointConfig.limiter.passiveCup) {
+                event.setResult(Result.DENY);
+                return;
+            }
+            if (entity instanceof IMob && ++hostile >= CointConfig.limiter.hostileCup) {
+                event.setResult(Result.DENY);
+                return;
             }
         }
+
+        List<EntityLiving> wide = event.world.getEntitiesWithinAABB(EntityLiving.class, box(event, radius * 2));
+        if (wide.size() >= CointConfig.limiter.totalCup) {
+            event.setResult(Result.DENY);
+        }
+    }
+
+    private static AxisAlignedBB box(LivingSpawnEvent.CheckSpawn event, double radius) {
+        return AxisAlignedBB.getBoundingBox(
+            event.x - radius,
+            event.y - radius,
+            event.z - radius,
+            event.x + radius,
+            event.y + radius,
+            event.z + radius);
     }
 
     private static boolean isPassive(Entity entity) {

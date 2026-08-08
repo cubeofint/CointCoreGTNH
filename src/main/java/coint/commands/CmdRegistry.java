@@ -25,6 +25,7 @@ public class CmdRegistry {
         event.registerServerCommand(new CommandHub());
         event.registerServerCommand(new CommandClass());
         event.registerServerCommand(new CommandIgnore());
+        event.registerServerCommand(new CommandUnloadDimensions());
         CointCore.LOG.debug("Registered server commands");
     }
 }
