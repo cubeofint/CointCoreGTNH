@@ -35,7 +35,7 @@ public abstract class MixinBoundToolsClaimGuard {
     @Redirect(
         method = "onItemRightClick",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/World;setBlockToAir(III)Z"),
-        remap = false,
+        remap = true,
         require = 1)
     @SuppressWarnings("null")
     private boolean cointcore$guardAoEBreak(World world, int x, int y, int z, ItemStack stack, World methodWorld,

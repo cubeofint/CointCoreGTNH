@@ -11,18 +11,35 @@ import coint.CointCore;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 
 @EventBusSubscriber
 public class DimensionUnloader {
+
+    private static final int STARTUP_DELAY_TICKS = 200;
 
     @EventBusSubscriber.Condition
     public static boolean isEnabled() {
         return CointConfig.general.unloadEmptyDimensions;
     }
 
+    private static boolean pending = false;
+    private static int ticksLeft = 0;
+
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onServerStarted(FMLServerStartedEvent event) {
-        unloadEmptyDimensions();
+        CointCore.LOG.info("Dimension unloading delayed for {} seconds", STARTUP_DELAY_TICKS / 20);
+        pending = true;
+        ticksLeft = STARTUP_DELAY_TICKS;
+    }
+
+    @SubscribeEvent
+    public static void onTick(TickEvent.ServerTickEvent event) {
+        if (!pending || event.phase != TickEvent.Phase.END) return;
+        if (--ticksLeft > 0) return;
+        pending = false;
+        var unloaded = unloadEmptyDimensions();
+        CointCore.LOG.info("Queued {} empty dimension(s) for unload", unloaded);
     }
 
     public static int unloadEmptyDimensions() {
@@ -40,9 +57,6 @@ public class DimensionUnloader {
             unloaded++;
         }
 
-        if (unloaded > 0) {
-            CointCore.LOG.info("Queued {} empty dimension(s) for unload", unloaded);
-        }
         return unloaded;
     }
 }

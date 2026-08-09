@@ -1,4 +1,4 @@
-package coint.mixin;
+package coint;
 
 import com.gtnewhorizon.gtnhmixins.builders.ITargetMod;
 import com.gtnewhorizon.gtnhmixins.builders.TargetModBuilder;

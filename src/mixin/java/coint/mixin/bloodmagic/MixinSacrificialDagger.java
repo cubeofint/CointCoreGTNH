@@ -15,6 +15,7 @@ public class MixinSacrificialDagger {
     @Redirect(
         method = "onItemRightClick",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/EntityPlayer;setHealth(F)V"),
+        remap = true,
         require = 1)
     private void cointcore$skipHealthDrain(EntityPlayer player, float health) {
         if (!NBTUtils.getPersistedData(player, false)

@@ -12,54 +12,9 @@ public enum Mixins implements IMixins {
         "minecraft.MixinEntityPlayerForestryDupTrace",
         "minecraft.MixinNetHandlerPlayServerForestryBackpackClickBlock",
         "minecraft.MixinServerConfigurationManager",
-        "minecraft.MixinSpawnerAnimals")),
-
-    BACKPACK(new MixinBuilder("Backpacks").addRequiredMod(TargetMod.BACKPACK)
-        .setPhase(Phase.LATE)
-        .addCommonMixins(
-            "backpackmod.MixinContainerAdvancedAudit",
-            "backpackmod.MixinEntityPlayerBackpackAudit",
-            "backpackmod.MixinNetHandlerPlayServerBackpackAudit")),
-
-    BETTERQUESTING(new MixinBuilder("BetterQuesting").addRequiredMod(TargetMod.BETTERQUESTING)
-        .setPhase(Phase.LATE)
-        .addCommonMixins("betterquesting.MixinPartyInstance")),
-
-    BLOODMAGIC(new MixinBuilder("BloodMagic").addRequiredMod(TargetMod.BLOODMAGIC)
-        .setPhase(Phase.LATE)
-        .addCommonMixins(
-            "bloodmagic.MixinMeteor",
-            "bloodmagic.MixinBoundToolsClaimGuard",
-            "bloodmagic.MixinSacrificialDagger",
-            "bloodmagic.MixinPlayerSacrificeHandler")),
-
-    FORESTRY(new MixinBuilder("Forestry").addRequiredMod(TargetMod.FORESTRY)
-        .setPhase(Phase.LATE)
-        .addCommonMixins("forestry.MixinItemInventoryUidFix")),
-
-    GALACTICRAFT(new MixinBuilder("GalactiCraft").addRequiredMod(TargetMod.GALACTICRAFT)
-        .setPhase(Phase.LATE)
-        .addCommonMixins("galacticraft.MixinGCPlayerHandler")),
-
-    MATTERMANIPULATOR(new MixinBuilder("MatterManipulator").addRequiredMod(TargetMod.MATTERMANIPULATOR)
-        .setPhase(Phase.LATE)
-        .addCommonMixins("mattermanipulator.MixinAbstractBuildable")),
-
-    SERVERUTILITIES(new MixinBuilder("ServerUtilities").addRequiredMod(TargetMod.SERVERUTILITIES)
-        .setPhase(Phase.LATE)
-        .addCommonMixins(
-            "serverutilities.MixinCmdHome",
-            "serverutilities.MixinCmdSetHome",
-            "serverutilities.MixinServerUtilitiesTeamData")
-        .addClientMixins("serverutilities.MixinMessageUpdateTabName")),
-
-    THAUMCRAFT(new MixinBuilder("Thaumcraft").addRequiredMod(TargetMod.THAUMCRAFT)
-        .setPhase(Phase.LATE)
-        .addCommonMixins(
-            "thaumcraft.MixinItemFocusBasic",
-            "thaumcraft.MixinItemFocusPortableHole",
-            "thaumcraft.MixinItemFocusTrade",
-            "thaumcraft.MixinItemFocusWarding"));
+        "minecraft.MixinSpawnerAnimals",
+        "backpackmod.MixinEntityPlayerBackpackAudit",
+        "backpackmod.MixinNetHandlerPlayServerBackpackAudit"));
 
     private final MixinBuilder builder;
 

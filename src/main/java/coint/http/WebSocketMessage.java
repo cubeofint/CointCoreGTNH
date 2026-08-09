@@ -6,15 +6,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import net.minecraft.command.ICommandSender;
+import net.minecraft.network.rcon.RConThreadMain;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.dedicated.DedicatedServer;
-import net.minecraft.server.dedicated.PropertyManager;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.annotations.SerializedName;
 
 import coint.CointConfig;
+import coint.CointCore;
 import coint.util.ChatUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -92,14 +93,36 @@ public class WebSocketMessage {
         }
 
         private static int getRconPort(MinecraftServer server) {
-            if (!(server instanceof DedicatedServer dedicated)) return 0;
-            try {
-                Field settingsField = DedicatedServer.class.getDeclaredField("settings");
-                settingsField.setAccessible(true);
-                var settings = (PropertyManager) settingsField.get(dedicated);
-                return settings.getIntProperty("rcon.port", 0);
-            } catch (ReflectiveOperationException e) {
+            if (!(server instanceof DedicatedServer dedicated)) {
+                CointCore.LOG.warn("[rconPort] server is not a DedicatedServer ({}), reporting 0", server.getClass());
                 return 0;
+            }
+            try {
+                Field rconField = findField(DedicatedServer.class, "theRConThreadMain", "field_71339_n");
+                rconField.setAccessible(true);
+                var rcon = (RConThreadMain) rconField.get(dedicated);
+                if (rcon == null) {
+                    CointCore.LOG.warn(
+                        "[rconPort] theRConThreadMain is null (enable-rcon=false in server.properties?), reporting 0");
+                    return 0;
+                }
+
+                Field portField = findField(RConThreadMain.class, "rconPort", "field_72647_g");
+                portField.setAccessible(true);
+                int port = portField.getInt(rcon);
+                CointCore.LOG.debug("[rconPort] resolved rcon port: {}", port);
+                return port;
+            } catch (ReflectiveOperationException e) {
+                CointCore.LOG.error("[rconPort] reflection failed, reporting 0", e);
+                return 0;
+            }
+        }
+
+        private static Field findField(Class<?> clazz, String mcpName, String srgName) throws NoSuchFieldException {
+            try {
+                return clazz.getDeclaredField(mcpName);
+            } catch (NoSuchFieldException e) {
+                return clazz.getDeclaredField(srgName);
             }
         }
     }

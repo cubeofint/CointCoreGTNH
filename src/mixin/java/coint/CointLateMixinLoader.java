@@ -1,4 +1,4 @@
-package coint.mixin;
+package coint;
 
 import java.util.List;
 import java.util.Set;
@@ -17,6 +17,6 @@ public class CointLateMixinLoader implements ILateMixinLoader {
 
     @Override
     public List<String> getMixins(Set<String> loadedMods) {
-        return IMixins.getLateMixins(Mixins.class, loadedMods);
+        return IMixins.getLateMixins(LateMixins.class, loadedMods);
     }
 }

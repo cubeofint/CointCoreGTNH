@@ -14,7 +14,7 @@ public class MixinPlayerSacrificeHandler {
 
     @Redirect(
         method = "sacrificePlayerHealth",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/EntityPlayer;setHealth(F)V"),
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/EntityPlayer;setHealth(F)V", remap = true),
         require = 1)
     private static void cointcore$skipHealthDrain(EntityPlayer player, float health) {
         if (!NBTUtils.getPersistedData(player, false)
