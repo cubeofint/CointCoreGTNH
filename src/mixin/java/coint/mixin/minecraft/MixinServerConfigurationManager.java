@@ -2,7 +2,6 @@ package coint.mixin.minecraft;
 
 import java.net.SocketAddress;
 import java.text.SimpleDateFormat;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import net.minecraft.server.management.BanList;
@@ -17,7 +16,6 @@ import org.spongepowered.asm.mixin.Shadow;
 
 import com.mojang.authlib.GameProfile;
 
-import serverutils.lib.data.ForgeTeam;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.PermissionAPI;
 

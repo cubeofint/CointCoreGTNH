@@ -43,6 +43,8 @@ dependencies {
     implementation("com.github.GTNewHorizons:ServerUtilities:2.3.1:dev") { transitive = false }
     implementation("com.github.GTNewHorizons:Galacticraft:3.4.29-GTNH:dev") { transitive = false }
     implementation("com.github.GTNewHorizons:PersonalSpace:1.0.39:dev") { transitive = false }
+    implementation("com.github.GTNewHorizons:BloodMagic:1.7.52:dev") { transitive = false }
+    implementation("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
 
     /**
      * Source set {@code mixin} имеет отдельный classpath: {@code compileOnly} сюда не попадает.
@@ -51,7 +53,7 @@ dependencies {
     mixinCompileOnly("com.github.GTNewHorizons:PersonalSpace:1.0.39:dev") { transitive = false }
     mixinCompileOnly("com.github.GTNewHorizons:MatterManipulator:0.1.38-GTNH:dev")
     mixinCompileOnly("com.github.GTNewHorizons:AdventureBackpack2:1.4.21-GTNH:dev") { transitive = false }
-    mixinCompileOnly("com.github.GTNewHorizons:BloodMagic:1.9.4:dev") { transitive = false }
+    mixinCompileOnly("com.github.GTNewHorizons:BloodMagic:1.7.52:dev") { transitive = false }
 
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.8.101-GTNH:dev") { transitive = false }
     runtimeOnly("com.github.GTNewHorizons:Baubles-Expanded:2.2.21-GTNH:dev")
