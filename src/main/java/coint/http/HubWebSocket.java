@@ -110,7 +110,12 @@ public class HubWebSocket extends WebSocketAdapter {
 
                 CChatBridge.deliverInbound(msg.origin, c);
             }
-            case Info -> {}
+            case Info -> {
+                if (CointConfig.general.isNew) {
+                    // TabChannelHandler.INSTANCE.setServerData("");
+                    CointCore.LOG.warn("Unimplemented info");
+                }
+            }
             default -> CointCore.LOG.warn("Unimplemented action: {}", msg.action);
         }
     }
