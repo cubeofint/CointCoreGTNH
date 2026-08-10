@@ -8,8 +8,6 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
 import coint.CointCore;
-import cpw.mods.fml.common.event.FMLServerStartedEvent;
-import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 
@@ -23,19 +21,17 @@ public class DimensionUnloader {
         return CointConfig.general.unloadEmptyDimensions;
     }
 
-    private static boolean pending = false;
-    private static int ticksLeft = 0;
-
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onServerStarted(FMLServerStartedEvent event) {
-        CointCore.LOG.info("Dimension unloading delayed for {} seconds", STARTUP_DELAY_TICKS / 20);
-        pending = true;
-        ticksLeft = STARTUP_DELAY_TICKS;
-    }
+    private static boolean started = false;
+    private static boolean pending = true;
+    private static int ticksLeft = STARTUP_DELAY_TICKS;
 
     @SubscribeEvent
     public static void onTick(TickEvent.ServerTickEvent event) {
         if (!pending || event.phase != TickEvent.Phase.END) return;
+        if (!started) {
+            started = true;
+            CointCore.LOG.info("Dimension unloading delayed for {} seconds", STARTUP_DELAY_TICKS / 20);
+        }
         if (--ticksLeft > 0) return;
         pending = false;
         var unloaded = unloadEmptyDimensions();
