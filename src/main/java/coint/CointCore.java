@@ -11,6 +11,7 @@ import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
+import cpw.mods.fml.common.event.FMLServerStoppingEvent;
 
 @Mod(
     modid = CointCore.MOD_ID,
@@ -61,6 +62,12 @@ public class CointCore {
     @Mod.EventHandler
     public void serverStarted(FMLServerStartedEvent event) {
         proxy.serverStarted(event);
+    }
+
+    @Mod.EventHandler
+    public void serverStopping(FMLServerStoppingEvent event) {
+        DimensionCleaner.get()
+            .processDims();
     }
 
     @Mod.EventHandler

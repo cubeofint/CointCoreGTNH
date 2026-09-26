@@ -17,21 +17,11 @@ import net.minecraft.world.WorldSavedData;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 
-import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
-
 import coint.player.TeamsManager;
-import cpw.mods.fml.common.event.FMLServerStoppingEvent;
-import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.lib.data.ForgeTeam;
 import serverutils.lib.data.Universe;
 
-@EventBusSubscriber
 public class DimensionCleaner extends WorldSavedData {
-
-    @SubscribeEvent
-    public static void checkDims(FMLServerStoppingEvent event) {
-        get().processDims();
-    }
 
     private static final String DATA_NAME = "dimensions";
     private static final String NBT_FREEZE_LIST = "freeze";
