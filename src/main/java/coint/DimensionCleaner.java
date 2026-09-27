@@ -49,14 +49,18 @@ public class DimensionCleaner extends WorldSavedData {
         return instance;
     }
 
-    public void processDims() {
+    public void processDims(Universe universe) {
         if (!CointConfig.cleaner.enabled || (!CointConfig.cleaner.deleteEnabled && !CointConfig.cleaner.freezeEnabled))
             return;
 
+        if (universe == null) {
+            CointCore.LOG.warn("[DimensionCleaner] Skipping cleanup: ServerUtilities Universe is unavailable");
+            return;
+        }
+
         var mgr = TeamsManager.get();
         long curr = System.currentTimeMillis();
-        for (ForgeTeam team : Universe.get()
-            .getTeams()) {
+        for (ForgeTeam team : universe.getTeams()) {
             if (!mgr.pdBinds.containsKey(team.getUID())) continue;
             int dimId = mgr.pdBinds.get(team.getUID());
 

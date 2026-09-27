@@ -12,6 +12,7 @@ import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 import cpw.mods.fml.common.event.FMLServerStoppingEvent;
+import serverutils.lib.data.Universe;
 
 @Mod(
     modid = CointCore.MOD_ID,
@@ -30,6 +31,10 @@ public class CointCore {
 
     // Server-side only - no client proxy needed
     public static final CommonProxy proxy = new CommonProxy();
+
+    // ServerUtilities clears its static Universe instance before CointCore receives
+    // FMLServerStoppingEvent, so keep the live object while the server is running.
+    private Universe serverUtilitiesUniverse;
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
@@ -61,13 +66,26 @@ public class CointCore {
 
     @Mod.EventHandler
     public void serverStarted(FMLServerStartedEvent event) {
+        // At this point ServerUtilities is fully started and Universe is valid.
+        serverUtilitiesUniverse = Universe.get();
         proxy.serverStarted(event);
     }
 
     @Mod.EventHandler
     public void serverStopping(FMLServerStoppingEvent event) {
+        // Because CointCore loads after ServerUtilities, ServerUtilities has already
+        // set Universe.INSTANCE to null by the time this callback runs. Use the
+        // object cached in serverStarted instead of calling Universe.get() here.
+        Universe universe = serverUtilitiesUniverse;
+        serverUtilitiesUniverse = null;
+
+        if (universe == null) {
+            LOG.warn("[DimensionCleaner] Skipping cleanup: cached ServerUtilities Universe is unavailable");
+            return;
+        }
+
         DimensionCleaner.get()
-            .processDims();
+            .processDims(universe);
     }
 
     @Mod.EventHandler
