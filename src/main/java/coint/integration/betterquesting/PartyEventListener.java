@@ -1,5 +1,8 @@
 package coint.integration.betterquesting;
 
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayer;
@@ -19,6 +22,9 @@ import coint.integration.serverutilities.RanksManager;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import serverutils.lib.data.ForgePlayer;
+import serverutils.lib.data.Universe;
 
 /**
  * Event listener for party-related events.
@@ -28,11 +34,12 @@ import cpw.mods.fml.common.gameevent.PlayerEvent;
 public class PartyEventListener {
 
     private static final Logger LOG = LogManager.getLogger(PartyEventListener.class);
+    private static final int LOGIN_SYNC_DELAY_TICKS = 40;
+    private static final Map<UUID, Integer> pendingLoginSyncs = new HashMap<>();
 
     @EventBusSubscriber.Condition
     public static boolean isEnabled() {
-        // disabled due to offline rank assignment
-        return false;
+        return CointConfig.epochs.enabled && CointConfig.epochs.syncNewPartyMembers && CointConfig.epochs.partySync;
     }
 
     /**
@@ -41,19 +48,43 @@ public class PartyEventListener {
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        if (!CointConfig.epochs.syncNewPartyMembers || !CointConfig.epochs.partySync) {
-            return;
-        }
-
         EntityPlayer player = event.player;
         if (player == null || player.worldObj.isRemote) {
             return;
         }
 
         UUID playerId = QuestingAPI.getQuestingUUID(player);
-        LOG.debug("Player {} logged in, checking party sync", playerId);
+        pendingLoginSyncs.put(playerId, LOGIN_SYNC_DELAY_TICKS);
+        LOG.debug("Player {} logged in, scheduled party rank reconciliation", playerId);
+    }
 
-        syncPlayerToParty(playerId);
+    @SubscribeEvent
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END || pendingLoginSyncs.isEmpty()) {
+            return;
+        }
+
+        Iterator<Map.Entry<UUID, Integer>> iterator = pendingLoginSyncs.entrySet()
+            .iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, Integer> entry = iterator.next();
+            int ticksLeft = entry.getValue() - 1;
+            if (ticksLeft > 0) {
+                entry.setValue(ticksLeft);
+                continue;
+            }
+
+            UUID playerId = entry.getKey();
+            iterator.remove();
+
+            ForgePlayer forgePlayer = Universe.get()
+                .getPlayer(playerId);
+            if (forgePlayer == null || !forgePlayer.isOnline()) {
+                continue;
+            }
+
+            syncPlayerToParty(playerId);
+        }
     }
 
     /**
@@ -79,9 +110,18 @@ public class PartyEventListener {
             return;
         }
 
-        // Only upgrade, never downgrade
+        EpochEntry currentEpoch = ranksManager.getPlayerEpoch(playerId);
         if (ranksManager.needsEpochUpgrade(playerId, partyEpoch)) {
-            LOG.info("Syncing player {} to party epoch: {}", playerId, partyEpoch.rankName);
+            ForgePlayer forgePlayer = Universe.get()
+                .getPlayer(playerId);
+            String playerName = forgePlayer != null ? forgePlayer.getName() : playerId.toString();
+            String currentRank = currentEpoch != null ? currentEpoch.rankName : "none";
+            LOG.info(
+                "[EpochSync] Login reconciliation for {} ({}): {} -> {}",
+                playerName,
+                playerId,
+                currentRank,
+                partyEpoch.rankName);
             assignRankToPlayer(playerId, partyEpoch.rankName);
         } else {
             LOG.debug("Player {} already has equal or higher epoch", playerId);
