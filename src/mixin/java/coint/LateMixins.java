@@ -47,7 +47,8 @@ public enum LateMixins implements IMixins {
             "thaumcraft.MixinItemFocusBasic",
             "thaumcraft.MixinItemFocusPortableHole",
             "thaumcraft.MixinItemFocusTrade",
-            "thaumcraft.MixinItemFocusWarding"));
+            "thaumcraft.MixinItemFocusWarding",
+            "thaumcraft.MixinTileArcaneBoreSleep"));
 
     private final MixinBuilder builder;
 

@@ -29,6 +29,7 @@ public class CointConfig {
     public static final MobLimiter limiter = new MobLimiter();
     public static final Chat chat = new Chat();
     public static final Cleaner cleaner = new Cleaner();
+    public static final ArcaneBore arcaneBore = new ArcaneBore();
 
     public static class General {
 
@@ -54,6 +55,26 @@ public class CointConfig {
         @Config.DefaultBoolean(true)
         public boolean unloadEmptyDimensions;
 
+    }
+
+    public static class ArcaneBore {
+
+        @Config.Comment("Enable idle sleep optimization for Thaumcraft Arcane Bores")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean enabled;
+
+        @Config.Comment("Seconds without a dig target before a powered Arcane Bore enters sleep mode")
+        @Config.DefaultInt(300)
+        @Config.RangeInt(min = 1, max = 86400)
+        @Config.Reloadable(RELOAD)
+        public int idleTimeoutSeconds;
+
+        @Config.Comment("How often a sleeping Arcane Bore runs one normal server tick to look for work")
+        @Config.DefaultInt(20)
+        @Config.RangeInt(min = 1, max = 1200)
+        @Config.Reloadable(RELOAD)
+        public int sleepCheckIntervalTicks;
     }
 
     public static class Cleaner {
