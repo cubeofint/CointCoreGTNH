@@ -9,7 +9,12 @@ import coint.commands.temprank.TempRankTask;
 import coint.epochsync.EpochRegistry;
 import coint.http.HubWebSocket;
 import coint.integration.serverutilities.RanksManager;
+import coint.network.PacketOpenWorlds;
+import coint.network.WorldTravelNetwork;
 import coint.util.PermissionsUtil;
+import coint.worldtravel.WorldTravelManager;
+import coint.worldtravel.WorldTravelServerEvents;
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
@@ -37,6 +42,12 @@ public class CommonProxy {
             throw new RuntimeException(e);
         }
 
+        WorldTravelNetwork.init();
+        if (event.getSide()
+            .isServer()) {
+            WorldTravelManager.init(event.getModConfigurationDirectory());
+        }
+
         CointCore.LOG.info("CointCore GTNH version {} initializing...", Tags.VERSION);
     }
 
@@ -46,11 +57,19 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void init(FMLInitializationEvent event) {
         PermissionsUtil.register();
+        if (event.getSide()
+            .isServer()) {
+            FMLCommonHandler.instance()
+                .bus()
+                .register(WorldTravelServerEvents.INSTANCE);
+        }
     }
 
     /**
      * Called during FML postInit phase
      */
+    public void queueWorldTravelGui(PacketOpenWorlds packet) {}
+
     @SuppressWarnings("unused")
     public void postInit(FMLPostInitializationEvent event) {}
 

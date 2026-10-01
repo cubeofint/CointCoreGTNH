@@ -36,5 +36,9 @@ public class PermissionsUtil {
             CointSUPermissions.TPL_TO_PROTECTED,
             DefaultPermissionLevel.OP,
             "Teleport to protected players via /tpl (e.g. admins)");
+        PermissionAPI.registerNode(
+            CointSUPermissions.WORLD_TRAVEL_BYPASS,
+            DefaultPermissionLevel.OP,
+            "Bypass CointCore world travel quest requirements");
     }
 }

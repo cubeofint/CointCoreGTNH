@@ -9,6 +9,7 @@ import net.minecraft.util.ChatComponentText;
 import coint.CointConfig;
 import coint.epochsync.EpochRegistry;
 import coint.integration.serverutilities.RanksManager;
+import coint.worldtravel.WorldTravelManager;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 
@@ -34,7 +35,7 @@ public class CommandReload extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/coint_reload epoch|config";
+        return "/coint_reload epoch|config|worlds";
     }
 
     @Override
@@ -55,6 +56,12 @@ public class CommandReload extends CommandBase {
             case "config": {
                 CointConfig.reload();
                 sender.addChatMessage(new ChatComponentText("Reloaded"));
+                return;
+            }
+            case "worlds": {
+                boolean ok = WorldTravelManager.reload();
+                sender.addChatMessage(
+                    new ChatComponentText(ok ? "World travel config reloaded" : "World travel config reload failed"));
                 return;
             }
             default: {

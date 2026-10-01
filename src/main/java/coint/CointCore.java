@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
@@ -19,7 +20,6 @@ import serverutils.lib.data.Universe;
     version = CointCore.VERSION,
     name = CointCore.MOD_NAME,
     acceptedMinecraftVersions = "[1.7.10]",
-    acceptableRemoteVersions = "*", // Server-side only: client doesn't need this mod
     dependencies = "after:betterquesting;" + "after:serverutilities;" + "after:thaumcraft;")
 public class CointCore {
 
@@ -29,8 +29,8 @@ public class CointCore {
 
     public static final Logger LOG = LogManager.getLogger(MOD_ID);
 
-    // Server-side only - no client proxy needed
-    public static final CommonProxy proxy = new CommonProxy();
+    @SidedProxy(clientSide = "coint.ClientProxy", serverSide = "coint.CommonProxy")
+    public static CommonProxy proxy;
 
     // ServerUtilities clears its static Universe instance before CointCore receives
     // FMLServerStoppingEvent, so keep the live object while the server is running.

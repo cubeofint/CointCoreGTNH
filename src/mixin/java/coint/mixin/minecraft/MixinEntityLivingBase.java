@@ -45,7 +45,13 @@ public class MixinEntityLivingBase {
             return;
         }
         EntityPlayer self = (EntityPlayer) (Object) this;
-        if (self.worldObj == null || self.worldObj.isRemote) {
+        if (self.worldObj == null) {
+            return;
+        }
+        if (self.worldObj.isRemote) {
+            if (self.capabilities.disableDamage) {
+                cir.setReturnValue(false);
+            }
             return;
         }
         if (NBTUtils.getPersistedData(self, false)
@@ -66,10 +72,16 @@ public class MixinEntityLivingBase {
             return;
         }
         EntityPlayer self = (EntityPlayer) (Object) this;
-        if (self.worldObj == null || self.worldObj.isRemote) {
+        if (self.worldObj == null || health >= self.getHealth()) {
             return;
         }
-        if (health < self.getHealth() && NBTUtils.getPersistedData(self, false)
+        if (self.worldObj.isRemote) {
+            if (self.capabilities.disableDamage) {
+                ci.cancel();
+            }
+            return;
+        }
+        if (NBTUtils.getPersistedData(self, false)
             .getBoolean("god")) {
             ci.cancel();
         }

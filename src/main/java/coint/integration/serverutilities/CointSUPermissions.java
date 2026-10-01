@@ -50,4 +50,6 @@ public final class CointSUPermissions {
      * Without this permission, protected targets cannot be used as destination.
      */
     public static final String TPL_TO_PROTECTED = "cointcore.tpl.to_protected";
+
+    public static final String WORLD_TRAVEL_BYPASS = "cointcore.worldtravel.bypass";
 }
