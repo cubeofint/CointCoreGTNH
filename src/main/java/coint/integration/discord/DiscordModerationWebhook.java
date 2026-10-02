@@ -8,7 +8,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
 
 import com.google.gson.JsonArray;
@@ -167,8 +166,22 @@ public final class DiscordModerationWebhook {
     }
 
     private static String stripFormatting(String text) {
-        if (text == null) return "";
-        String clean = EnumChatFormatting.getTextWithoutFormattingCodes(text);
-        return clean == null ? "" : clean;
+        if (text == null || text.isEmpty()) return "";
+
+        StringBuilder clean = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\u00A7' && i + 1 < text.length()) {
+                char code = Character.toLowerCase(text.charAt(i + 1));
+                if ((code >= '0' && code <= '9') || (code >= 'a' && code <= 'f')
+                    || (code >= 'k' && code <= 'o')
+                    || code == 'r') {
+                    i++;
+                    continue;
+                }
+            }
+            clean.append(c);
+        }
+        return clean.toString();
     }
 }

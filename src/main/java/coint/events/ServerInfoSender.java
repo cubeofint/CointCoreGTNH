@@ -2,6 +2,7 @@ package coint.events;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
+import coint.CointConfig;
 import coint.http.HubWebSocket;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
@@ -13,6 +14,11 @@ public class ServerInfoSender {
 
     @SubscribeEvent
     public static void onTick(TickEvent.ServerTickEvent event) {
+        if (!CointConfig.api.wsEnabled) {
+            ticks = 0;
+            return;
+        }
+
         if (event.phase == TickEvent.Phase.END) {
             ticks++;
 

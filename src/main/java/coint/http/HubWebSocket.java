@@ -34,6 +34,11 @@ public class HubWebSocket extends WebSocketAdapter {
     private static MinecraftServer server;
 
     public static HubWebSocket get() {
+        if (!CointConfig.api.wsEnabled) {
+            if (inst == null) inst = new HubWebSocket();
+            return inst;
+        }
+
         if (inst == null || ws == null) {
             try {
                 inst = create(CointConfig.api.getChatWs());
@@ -41,6 +46,7 @@ public class HubWebSocket extends WebSocketAdapter {
                 CointCore.LOG.error("Hub-ws create error:\n{}", e.getMessage());
             }
         }
+        if (inst == null) inst = new HubWebSocket();
         return inst;
     }
 
@@ -63,19 +69,19 @@ public class HubWebSocket extends WebSocketAdapter {
     private HubWebSocket() {}
 
     public void send(WebSocketMessage msg) {
-        if (!CointConfig.api.wsEnabled) return;
+        if (!CointConfig.api.wsEnabled || ws == null || gson == null) return;
         String json = gson.toJson(msg);
         ws.sendText(json);
     }
 
     public void sendInfo() {
-        if (!CointConfig.api.wsEnabled) return;
+        if (!CointConfig.api.wsEnabled || ws == null || gson == null || server == null) return;
         String json = gson.toJson(WebSocketMessage.InfoMessage.create(server));
         ws.sendText(json);
     }
 
     public void recreate(boolean clear) throws IOException, WebSocketException {
-        if (!CointConfig.api.wsEnabled) return;
+        if (!CointConfig.api.wsEnabled || ws == null) return;
         ws = ws.recreate();
         ws.connect();
         if (clear) {
@@ -85,7 +91,7 @@ public class HubWebSocket extends WebSocketAdapter {
     }
 
     public void closeNormal(String reason) {
-        if (!CointConfig.api.wsEnabled) return;
+        if (!CointConfig.api.wsEnabled || ws == null) return;
         ws.sendClose(WebSocketCloseCode.NORMAL, reason);
     }
 

@@ -1,5 +1,8 @@
 package coint;
 
+import net.minecraftforge.common.MinecraftForge;
+
+import coint.client.ClientRestartOverlay;
 import coint.client.ClientWorldTravelEvents;
 import coint.client.ClientWorldTravelState;
 import coint.network.PacketOpenWorlds;
@@ -16,6 +19,7 @@ public class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(new ClientWorldTravelEvents());
+        MinecraftForge.EVENT_BUS.register(new ClientRestartOverlay());
     }
 
     @Override
