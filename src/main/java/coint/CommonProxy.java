@@ -8,6 +8,9 @@ import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
 import coint.epochsync.EpochRegistry;
 import coint.http.HubWebSocket;
+import coint.integration.discord.DiscordModerationWebhook;
+import coint.integration.personalspace.PDimRewardSyncEvents;
+import coint.integration.personalspace.PersonalSpaceTeamReward;
 import coint.integration.serverutilities.RanksManager;
 import coint.network.PacketOpenWorlds;
 import coint.network.WorldTravelNetwork;
@@ -62,6 +65,9 @@ public class CommonProxy {
             FMLCommonHandler.instance()
                 .bus()
                 .register(WorldTravelServerEvents.INSTANCE);
+            FMLCommonHandler.instance()
+                .bus()
+                .register(PDimRewardSyncEvents.INSTANCE);
         }
     }
 
@@ -69,6 +75,12 @@ public class CommonProxy {
      * Called during FML postInit phase
      */
     public void queueWorldTravelGui(PacketOpenWorlds packet) {}
+
+    public void setPDimRewardBlockedClient(boolean blocked) {}
+
+    public boolean isPDimRewardBlockedClient() {
+        return false;
+    }
 
     @SuppressWarnings("unused")
     public void postInit(FMLPostInitializationEvent event) {}
@@ -100,6 +112,8 @@ public class CommonProxy {
         RanksManager.get()
             .updateRanks();
 
+        PersonalSpaceTeamReward.onServerStarted();
+
         // Restore active temp-rank assignments and start the expiry checker.
         if (Loader.isModLoaded("serverutilities")) {
             TempRankManager.reset(); // discard stale state from a previous session in this JVM
@@ -113,6 +127,7 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
         DmLogger.close();
+        DiscordModerationWebhook.shutdown();
         if (CointConfig.api.wsEnabled) {
             HubWebSocket.get()
                 .closeNormal("Перезагрузка");

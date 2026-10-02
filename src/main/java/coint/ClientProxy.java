@@ -8,6 +8,8 @@ import cpw.mods.fml.common.event.FMLInitializationEvent;
 
 public class ClientProxy extends CommonProxy {
 
+    private volatile boolean pdimRewardBlocked;
+
     @Override
     public void init(FMLInitializationEvent event) {
         super.init(event);
@@ -19,5 +21,15 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void queueWorldTravelGui(PacketOpenWorlds packet) {
         ClientWorldTravelState.queue(packet);
+    }
+
+    @Override
+    public void setPDimRewardBlockedClient(boolean blocked) {
+        pdimRewardBlocked = blocked;
+    }
+
+    @Override
+    public boolean isPDimRewardBlockedClient() {
+        return pdimRewardBlocked;
     }
 }

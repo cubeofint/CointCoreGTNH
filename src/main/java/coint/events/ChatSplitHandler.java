@@ -22,6 +22,7 @@ import coint.CointCore;
 import coint.commands.spy.LocalSpyRegistry;
 import coint.http.HubWebSocket;
 import coint.http.WebSocketMessage;
+import coint.integration.discord.DiscordModerationWebhook;
 import coint.util.ChatUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -185,6 +186,8 @@ public class ChatSplitHandler {
 
             CointCore.LOG
                 .info("[LOCAL r={}] {}: {} ({} recipients)", CointConfig.chat.radius, senderName, text, recipients);
+
+            DiscordModerationWebhook.logLocal(sender, text);
 
             // Notify admins who have /localspy enabled and were out of range.
             LocalSpyRegistry.notifySpies(sender, senderName, text);

@@ -22,6 +22,7 @@ import coint.commands.CommandReply;
 import coint.commands.MessageTracker;
 import coint.commands.spy.DmLogger;
 import coint.commands.spy.PersonalSpyRegistry;
+import coint.integration.discord.DiscordModerationWebhook;
 
 /**
  * Replaces the vanilla {@code /tell} / {@code /msg} / {@code /w} message format and adds
@@ -121,6 +122,7 @@ public class MixinCommandMessage {
 
         // Append to the dedicated DM log file and notify in-game spies.
         DmLogger.log("TELL", senderDisplay, targetDisplay, text.getUnformattedText());
+        DiscordModerationWebhook.logDm(senderDisplay, targetDisplay, text.getUnformattedText());
         PersonalSpyRegistry.notifySpies(senderDisplay, targetDisplay, text);
     }
 }

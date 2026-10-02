@@ -23,6 +23,7 @@ public final class WorldTravelNetwork {
         CHANNEL.registerMessage(PacketOpenWorlds.Handler.class, PacketOpenWorlds.class, 0, Side.CLIENT);
         CHANNEL.registerMessage(PacketTravelRequest.Handler.class, PacketTravelRequest.class, 1, Side.SERVER);
         CHANNEL.registerMessage(PacketOpenWorldsRequest.Handler.class, PacketOpenWorldsRequest.class, 2, Side.SERVER);
+        CHANNEL.registerMessage(PacketPDimRewardState.Handler.class, PacketPDimRewardState.class, 3, Side.CLIENT);
         CointCore.LOG.info("[WorldTravel] Network initialized");
     }
 
@@ -34,5 +35,11 @@ public final class WorldTravelNetwork {
 
     public static void requestOpen() {
         CHANNEL.sendToServer(new PacketOpenWorldsRequest());
+    }
+
+    public static void syncPDimRewardState(EntityPlayerMP player, boolean blocked) {
+        if (player != null) {
+            CHANNEL.sendTo(new PacketPDimRewardState(blocked), player);
+        }
     }
 }

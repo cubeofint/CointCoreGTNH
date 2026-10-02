@@ -11,7 +11,7 @@ public enum LateMixins implements IMixins {
 
     BETTERQUESTING(new MixinBuilder("BetterQuesting").addRequiredMod(TargetMod.BETTERQUESTING)
         .setPhase(Phase.LATE)
-        .addCommonMixins("betterquesting.MixinPartyInstance")),
+        .addCommonMixins("betterquesting.MixinPartyInstance", "betterquesting.MixinRewardItemTeamReward")),
 
     BLOODMAGIC(new MixinBuilder("BloodMagic").addRequiredMod(TargetMod.BLOODMAGIC)
         .setPhase(Phase.LATE)
@@ -33,12 +33,17 @@ public enum LateMixins implements IMixins {
         .setPhase(Phase.LATE)
         .addCommonMixins("mattermanipulator.MixinAbstractBuildable")),
 
+    PERSONALSPACE(new MixinBuilder("PersonalSpace").addRequiredMod(TargetMod.PERSONALSPACE)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("personalspace.MixinPortalTileEntityTeamBinding")),
+
     SERVERUTILITIES(new MixinBuilder("ServerUtilities").addRequiredMod(TargetMod.SERVERUTILITIES)
         .setPhase(Phase.LATE)
         .addCommonMixins(
             "serverutilities.MixinCmdHome",
             "serverutilities.MixinCmdSetHome",
-            "serverutilities.MixinServerUtilitiesTeamData")
+            "serverutilities.MixinServerUtilitiesTeamData",
+            "serverutilities.MixinForgeTeamPDimReward")
         .addClientMixins("serverutilities.MixinMessageUpdateTabName")),
 
     THAUMICEXPLORATION(new MixinBuilder("Thaumic Exploration").addRequiredMod(TargetMod.THAUMICEXPLORATION)

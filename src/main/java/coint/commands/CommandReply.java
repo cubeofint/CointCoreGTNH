@@ -17,6 +17,7 @@ import net.minecraft.util.IChatComponent;
 
 import coint.commands.spy.DmLogger;
 import coint.commands.spy.PersonalSpyRegistry;
+import coint.integration.discord.DiscordModerationWebhook;
 import serverutils.ranks.ICommandWithPermission;
 
 /**
@@ -145,6 +146,7 @@ public class CommandReply extends CommandBase {
 
         // Append to the dedicated DM log file and notify in-game spies.
         DmLogger.log("REPLY", senderDisplay, targetDisplay, text.getUnformattedText());
+        DiscordModerationWebhook.logDm(senderDisplay, targetDisplay, text.getUnformattedText());
         PersonalSpyRegistry.notifySpies(senderDisplay, targetDisplay, text);
     }
 }

@@ -28,6 +28,7 @@ public class CointConfig {
     public static final Api api = new Api();
     public static final MobLimiter limiter = new MobLimiter();
     public static final Chat chat = new Chat();
+    public static final Discord discord = new Discord();
     public static final Cleaner cleaner = new Cleaner();
     public static final ArcaneBore arcaneBore = new ArcaneBore();
 
@@ -188,6 +189,34 @@ public class CointConfig {
         @Config.Reloadable(RELOAD)
         public boolean staticVanillaCap;
 
+    }
+
+    public static class Discord {
+
+        @Config.Comment("Enable Discord moderation log")
+        @Config.DefaultBoolean(false)
+        @Config.Reloadable(RELOAD)
+        public boolean enabled;
+
+        @Config.Comment("Discord bot token. Do not share it")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String botToken;
+
+        @Config.Comment("Discord channel ID for local chat and private messages log")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String logChannelId;
+
+        @Config.Comment("Send local Minecraft chat to the Discord moderation log")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean sendLocalChat;
+
+        @Config.Comment("Send private Minecraft messages to the Discord moderation log")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean sendPrivateChat;
     }
 
     // TODO: move to client mod

@@ -11,6 +11,7 @@ public enum TargetMod implements ITargetMod {
     FORESTRY("Forestry"),
     GALACTICRAFT("GalacticraftCore"),
     MATTERMANIPULATOR("matter-manipulator"),
+    PERSONALSPACE("personalspace"),
     SERVERUTILITIES("serverutilities"),
     THAUMCRAFT("Thaumcraft"),
     THAUMICEXPLORATION("ThaumicExploration");
