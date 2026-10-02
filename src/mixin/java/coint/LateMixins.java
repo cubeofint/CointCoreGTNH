@@ -41,6 +41,10 @@ public enum LateMixins implements IMixins {
             "serverutilities.MixinServerUtilitiesTeamData")
         .addClientMixins("serverutilities.MixinMessageUpdateTabName")),
 
+    THAUMICEXPLORATION(new MixinBuilder("Thaumic Exploration").addRequiredMod(TargetMod.THAUMICEXPLORATION)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("thaumicexploration.MixinTXBootsEventHandler")),
+
     THAUMCRAFT(new MixinBuilder("Thaumcraft").addRequiredMod(TargetMod.THAUMCRAFT)
         .setPhase(Phase.LATE)
         .addCommonMixins(

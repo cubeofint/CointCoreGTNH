@@ -12,7 +12,8 @@ public enum TargetMod implements ITargetMod {
     GALACTICRAFT("GalacticraftCore"),
     MATTERMANIPULATOR("matter-manipulator"),
     SERVERUTILITIES("serverutilities"),
-    THAUMCRAFT("Thaumcraft");
+    THAUMCRAFT("Thaumcraft"),
+    THAUMICEXPLORATION("ThaumicExploration");
 
     private final TargetModBuilder builder;
 

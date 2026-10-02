@@ -61,6 +61,9 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".thaumcraft.")) {
             return isClassAvailable(targetClassName);
         }
+        if (mixinClassName.contains(".thaumicexploration.")) {
+            return isClassAvailable(targetClassName);
+        }
         if (mixinClassName.contains(".dreamcraft.")) {
             return isClassAvailable(targetClassName);
         }

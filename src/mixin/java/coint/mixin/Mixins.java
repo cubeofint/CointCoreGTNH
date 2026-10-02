@@ -7,6 +7,9 @@ public enum Mixins implements IMixins {
 
     VANILLA(new MixinBuilder("Vanilla/Forge").addCommonMixins(
         "minecraft.MixinCommandMessage",
+        "minecraft.MixinEntityItemMeteorBoots",
+        "minecraft.MixinEntityMeteorBootsSetDead",
+        "minecraft.MixinWorldMeteorBoots",
         "minecraft.MixinEntityLivingBase",
         "minecraft.MixinEntityPlayer",
         "minecraft.MixinEntityPlayerForestryDupTrace",
