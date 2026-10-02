@@ -160,7 +160,7 @@ public class ChatSplitHandler {
 
     private static void send(EntityPlayerMP sender, String text, boolean isGlobal) {
         String senderName = ChatUtil.getRankFormattedName(sender);
-        var origin = isGlobal ? "G" : "";
+        var origin = isGlobal ? "G" : "L";
         ChatComponentText component = ChatUtil.getChatMessage(senderName, text, origin);
 
         var server = MinecraftServer.getServer();

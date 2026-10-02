@@ -206,8 +206,8 @@ public class CointConfig {
         @Config.DefaultString("!")
         public String prefix;
 
-        @Config.Comment("Formatting of chat message. Required params: {name}, {msg}. Optional: {time}, {origin_sep}|{sep_origin} (with separator)")
-        @Config.DefaultString("§7[{origin_sep}{time}]§r {name}: {msg}")
+        @Config.Comment("Formatting of chat message. Required params: {name}, {msg}. Optional: {time}, {origin}, {origin_sep}|{sep_origin} (with separator)")
+        @Config.DefaultString("§7[{time}][{origin}]§r {name}: {msg}")
         @Config.Reloadable(RELOAD)
         public String msgFormat;
 

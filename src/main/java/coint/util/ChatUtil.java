@@ -33,10 +33,15 @@ public class ChatUtil {
         String time = now.format(formatter);
 
         var sep = origin.isEmpty() ? "" : " ";
+        var format = CointConfig.chat.msgFormat;
+        if ("§7[{origin_sep}{time}]§r {name}: {msg}".equals(format)) {
+            format = "§7[{time}][{origin}]§r {name}: {msg}";
+        }
 
-        var msg = CointConfig.chat.msgFormat.replace("{msg}", text)
+        var msg = format.replace("{msg}", text)
             .replace("{name}", senderFormatted)
             .replace("{time}", time)
+            .replace("{origin}", origin)
             .replace("{origin_sep}", origin + sep)
             .replace("{sep_origin}", sep + origin);
 
