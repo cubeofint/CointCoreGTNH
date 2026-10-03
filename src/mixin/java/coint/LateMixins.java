@@ -21,6 +21,14 @@ public enum LateMixins implements IMixins {
             "bloodmagic.MixinSacrificialDagger",
             "bloodmagic.MixinPlayerSacrificeHandler")),
 
+    CROPSNH(new MixinBuilder("CropsNH").addRequiredMod(TargetMod.CROPSNH)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("cropsnh.MixinCropStickPhase")),
+
+    ENDERIO(new MixinBuilder("EnderIO").addRequiredMod(TargetMod.ENDERIO)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("enderio.MixinRedstoneConduitRebuild")),
+
     FORESTRY(new MixinBuilder("Forestry").addRequiredMod(TargetMod.FORESTRY)
         .setPhase(Phase.LATE)
         .addCommonMixins("forestry.MixinItemInventoryUidFix")),
@@ -57,7 +65,9 @@ public enum LateMixins implements IMixins {
             "thaumcraft.MixinItemFocusPortableHole",
             "thaumcraft.MixinItemFocusTrade",
             "thaumcraft.MixinItemFocusWarding",
-            "thaumcraft.MixinTileArcaneBoreSleep"));
+            "thaumcraft.MixinTileArcaneBoreSleep",
+            "thaumcraft.MixinTileInfusionMatrixScan",
+            "thaumcraft.MixinEssentiaHandlerSearch"));
 
     private final MixinBuilder builder;
 

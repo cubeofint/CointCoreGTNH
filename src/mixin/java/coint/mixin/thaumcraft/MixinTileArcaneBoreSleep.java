@@ -24,7 +24,7 @@ public abstract class MixinTileArcaneBoreSleep {
     @Unique
     private boolean cointcore$foundWorkThisTick;
 
-    @Inject(method = "updateEntity", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "updateEntity", at = @At("HEAD"), cancellable = true, remap = true)
     private void cointcore$skipIdleTicks(CallbackInfo ci) {
         TileArcaneBore bore = (TileArcaneBore) (Object) this;
         if (bore.getWorldObj() == null || bore.getWorldObj().isRemote) {
@@ -52,7 +52,7 @@ public abstract class MixinTileArcaneBoreSleep {
         cointcore$sleepCheckTicks = 0;
     }
 
-    @Inject(method = "updateEntity", at = @At("RETURN"), remap = false)
+    @Inject(method = "updateEntity", at = @At("RETURN"), remap = true)
     private void cointcore$trackIdleState(CallbackInfo ci) {
         TileArcaneBore bore = (TileArcaneBore) (Object) this;
         if (bore.getWorldObj() == null || bore.getWorldObj().isRemote) {
@@ -94,7 +94,7 @@ public abstract class MixinTileArcaneBoreSleep {
         cointcore$sleeping = false;
     }
 
-    @Inject(method = "setInventorySlotContents", at = @At("RETURN"), remap = false)
+    @Inject(method = "setInventorySlotContents", at = @At("RETURN"), remap = true)
     private void cointcore$wakeOnInventoryChange(int slot, net.minecraft.item.ItemStack stack, CallbackInfo ci) {
         cointcore$resetSleep();
     }

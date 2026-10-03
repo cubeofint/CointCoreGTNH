@@ -31,6 +31,9 @@ public class CointConfig {
     public static final Discord discord = new Discord();
     public static final Cleaner cleaner = new Cleaner();
     public static final ArcaneBore arcaneBore = new ArcaneBore();
+    public static final Infusion infusion = new Infusion();
+    public static final Conduits conduits = new Conduits();
+    public static final Crops crops = new Crops();
 
     public static class General {
 
@@ -76,6 +79,47 @@ public class CointConfig {
         @Config.RangeInt(min = 1, max = 1200)
         @Config.Reloadable(RELOAD)
         public int sleepCheckIntervalTicks;
+    }
+
+    public static class Infusion {
+
+        @Config.Comment("Replace the infusion altar block scan with a loaded-tile search, and skip repeat scans during an active craft")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean fastSurroundings;
+
+        @Config.Comment("Minimum ticks between infusion surroundings scans while crafting. Starting a craft always scans immediately")
+        @Config.DefaultInt(80)
+        @Config.RangeInt(min = 1, max = 1200)
+        @Config.Reloadable(RELOAD)
+        public int surroundingsIntervalTicks;
+
+        @Config.Comment("Find essentia sources from tile entities in already loaded chunks. Jars in unloaded chunks are ignored instead of loading those chunks")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean fastEssentiaSearch;
+    }
+
+    public static class Conduits {
+
+        @Config.Comment("Coalesce EnderIO redstone conduit network rebuilds. The first change still rebuilds immediately; later changes within the interval share one rebuild. Interval 1 disables coalescing")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean redstoneRebuildThrottle;
+
+        @Config.Comment("Minimum ticks between redstone conduit network rebuilds after a neighbor block change")
+        @Config.DefaultInt(5)
+        @Config.RangeInt(min = 1, max = 200)
+        @Config.Reloadable(RELOAD)
+        public int redstoneRebuildIntervalTicks;
+    }
+
+    public static class Crops {
+
+        @Config.Comment("Spread CropsNH growth ticks by crop position so a whole field does not grow on the same server tick")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean spreadGrowthTicks;
     }
 
     public static class Cleaner {

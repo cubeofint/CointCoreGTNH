@@ -8,6 +8,8 @@ public enum TargetMod implements ITargetMod {
     BACKPACK("Backpack"),
     BETTERQUESTING("betterquesting"),
     BLOODMAGIC("AWWayofTime"),
+    CROPSNH("cropsnh"),
+    ENDERIO("EnderIO"),
     FORESTRY("Forestry"),
     GALACTICRAFT("GalacticraftCore"),
     MATTERMANIPULATOR("matter-manipulator"),

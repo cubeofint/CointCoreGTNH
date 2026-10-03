@@ -76,6 +76,12 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".forestry.")) {
             return isClassAvailable(targetClassName);
         }
+        if (mixinClassName.contains(".enderio.")) {
+            return isClassAvailable(targetClassName);
+        }
+        if (mixinClassName.contains(".cropsnh.")) {
+            return isClassAvailable(targetClassName);
+        }
 
         if (mixinClassName.contains(".bloodmagic.")) {
             LOG.info(
