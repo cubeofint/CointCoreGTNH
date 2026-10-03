@@ -20,8 +20,6 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 import coint.CointConfig;
 import coint.CointCore;
 import coint.commands.spy.LocalSpyRegistry;
-import coint.http.HubWebSocket;
-import coint.http.WebSocketMessage;
 import coint.integration.discord.DiscordModerationWebhook;
 import coint.util.ChatUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
@@ -53,11 +51,6 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
  */
 @EventBusSubscriber
 public class ChatSplitHandler {
-
-    @EventBusSubscriber.Condition
-    public static boolean isEnabled() {
-        return CointConfig.chat.splitEnabled;
-    }
 
     public static final Pattern URL_PATTERN = Pattern
         .compile("((https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|])", Pattern.CASE_INSENSITIVE);
@@ -137,8 +130,7 @@ public class ChatSplitHandler {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onServerChat(ServerChatEvent event) {
-        // Если мьют-хэндлер (HIGHEST) уже отменил событие — не трогаем.
-        if (event.isCanceled()) {
+        if (!CointConfig.chat.splitEnabled || event.isCanceled()) {
             return;
         }
         event.setCanceled(true);
@@ -148,15 +140,23 @@ public class ChatSplitHandler {
             return;
         }
 
-        String prefix = CointConfig.chat.prefix;
-        boolean isGlobal = !prefix.isEmpty() && event.message.startsWith(prefix);
+        String message = event.message == null ? "" : event.message;
+        String configuredPrefix = CointConfig.chat.prefix;
+        if (configuredPrefix == null || configuredPrefix.isEmpty()) {
+            configuredPrefix = "!";
+        }
 
-        String text = isGlobal ? event.message.substring(prefix.length())
-            .trim() : event.message;
+        boolean usesConfiguredPrefix = message.startsWith(configuredPrefix);
+        boolean usesBangPrefix = message.startsWith("!");
+        boolean isGlobal = usesConfiguredPrefix || usesBangPrefix;
+        int prefixLength = usesConfiguredPrefix ? configuredPrefix.length() : usesBangPrefix ? 1 : 0;
+
+        String text = isGlobal ? message.substring(prefixLength)
+            .trim() : message;
         if (text.isEmpty()) return;
 
         String colorCode = ChatUtil.getTextColorCode(event.player);
-        send(event.player, text.replaceAll("(?<=^|\\s)", colorCode), isGlobal);
+        send(event.player, colorCode + text, isGlobal);
     }
 
     private static void send(EntityPlayerMP sender, String text, boolean isGlobal) {
@@ -168,9 +168,8 @@ public class ChatSplitHandler {
         if (isGlobal) {
             server.getConfigurationManager()
                 .sendChatMsg(component);
-
-            HubWebSocket.get()
-                .send(WebSocketMessage.ChatMessage.create(sender, senderName, text));
+            CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
+            DiscordModerationWebhook.logGlobal(sender, text);
         } else {
             double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
             int senderDim = sender.dimension;

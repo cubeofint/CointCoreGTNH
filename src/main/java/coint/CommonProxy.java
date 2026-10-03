@@ -8,6 +8,7 @@ import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
 import coint.epochsync.EpochRegistry;
 import coint.http.HubWebSocket;
+import coint.integration.discord.DiscordGlobalBridge;
 import coint.integration.discord.DiscordModerationWebhook;
 import coint.integration.personalspace.PDimRewardSyncEvents;
 import coint.integration.personalspace.PersonalSpaceTeamReward;
@@ -108,6 +109,7 @@ public class CommonProxy {
 
     @SuppressWarnings("unused")
     public void serverStarted(FMLServerStartedEvent event) {
+        DiscordGlobalBridge.start();
         if (CointConfig.api.wsEnabled) {
             HubWebSocket.get();
         }
@@ -137,6 +139,7 @@ public class CommonProxy {
         RestartManager.INSTANCE.reset();
         PlayerResetEvents.INSTANCE.reset();
         DmLogger.close();
+        DiscordGlobalBridge.shutdown();
         DiscordModerationWebhook.shutdown();
         if (CointConfig.api.wsEnabled) {
             HubWebSocket.get()

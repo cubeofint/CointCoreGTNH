@@ -59,6 +59,12 @@ public class CointConfig {
         @Config.DefaultBoolean(true)
         public boolean unloadEmptyDimensions;
 
+        @Config.Comment("Number of player slots reserved for ranks with cointcore.reserved_slot permission")
+        @Config.DefaultInt(5)
+        @Config.RangeInt(min = 0, max = 1000)
+        @Config.Reloadable(RELOAD)
+        public int reservedSlots;
+
     }
 
     public static class ArcaneBore {
@@ -228,6 +234,35 @@ public class CointConfig {
         @Config.Reloadable(RELOAD)
         public int hostileCup;
 
+        @Config.Comment("Run natural mob spawn scans once every N world ticks. 1 = vanilla")
+        @Config.DefaultInt(2)
+        @Config.RangeInt(min = 1, max = 20)
+        @Config.Reloadable(RELOAD)
+        public int spawnCheckInterval;
+
+        @Config.Comment("Natural mob spawn cap as a percentage of vanilla")
+        @Config.DefaultInt(75)
+        @Config.RangeInt(min = 0, max = 100)
+        @Config.Reloadable(RELOAD)
+        public int naturalSpawnCapPercent;
+
+        @Config.Comment("Throttle full hostile mob AI ticks when no player is nearby")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean aiThrottleEnabled;
+
+        @Config.Comment("Hostile mobs within this distance of a player keep full-speed AI")
+        @Config.DefaultInt(64)
+        @Config.RangeInt(min = 16, max = 256)
+        @Config.Reloadable(RELOAD)
+        public int aiFullSpeedDistance;
+
+        @Config.Comment("Run full AI once every N ticks for hostile mobs farther than aiFullSpeedDistance. 1 = vanilla")
+        @Config.DefaultInt(2)
+        @Config.RangeInt(min = 1, max = 20)
+        @Config.Reloadable(RELOAD)
+        public int aiThrottleInterval;
+
         @Config.Comment("Make the vanilla per-dimension natural spawn cap static, ignoring player spread")
         @Config.DefaultBoolean(false)
         @Config.Reloadable(RELOAD)
@@ -237,7 +272,7 @@ public class CointConfig {
 
     public static class Discord {
 
-        @Config.Comment("Enable Discord moderation log")
+        @Config.Comment("Enable Discord chat bridge")
         @Config.DefaultBoolean(false)
         @Config.Reloadable(RELOAD)
         public boolean enabled;
@@ -247,20 +282,41 @@ public class CointConfig {
         @Config.Reloadable(RELOAD)
         public String botToken;
 
-        @Config.Comment("Discord channel ID for local chat and private messages log")
+        @Config.Comment("Main Discord chat channel ID for LOCAL/GLOBAL and Discord -> Minecraft GLOBAL")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String channelId;
+
+        @Config.Comment("Legacy main Discord chat channel ID fallback")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String globalChannelId;
+
+        @Config.Comment("Discord channel ID for private-message log")
         @Config.DefaultString("")
         @Config.Reloadable(RELOAD)
         public String logChannelId;
 
-        @Config.Comment("Send local Minecraft chat to the Discord moderation log")
+        @Config.Comment("Send global Minecraft chat to the main Discord channel")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean sendGlobalChat;
+
+        @Config.Comment("Send local Minecraft chat to the main Discord channel")
         @Config.DefaultBoolean(true)
         @Config.Reloadable(RELOAD)
         public boolean sendLocalChat;
 
-        @Config.Comment("Send private Minecraft messages to the Discord moderation log")
+        @Config.Comment("Send private Minecraft messages to the private-message Discord channel")
         @Config.DefaultBoolean(true)
         @Config.Reloadable(RELOAD)
         public boolean sendPrivateChat;
+
+        @Config.Comment("Discord -> Minecraft poll interval in seconds")
+        @Config.DefaultInt(2)
+        @Config.RangeInt(min = 1, max = 30)
+        @Config.Reloadable(RELOAD)
+        public int pollIntervalSeconds;
     }
 
     // TODO: move to client mod
@@ -268,15 +324,18 @@ public class CointConfig {
 
         @Config.Comment("Enable chat splitting")
         @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
         public boolean splitEnabled;
 
         @Config.Comment("Radius of local chat")
         @Config.DefaultInt(300)
         @Config.RangeInt(min = 50, max = 10000)
+        @Config.Reloadable(RELOAD)
         public int radius;
 
         @Config.Comment("Prefix for global chat")
         @Config.DefaultString("!")
+        @Config.Reloadable(RELOAD)
         public String prefix;
 
         @Config.Comment("Formatting of chat message. Required params: {name}, {msg}. Optional: {time}, {origin}, {origin_sep}|{sep_origin} (with separator)")

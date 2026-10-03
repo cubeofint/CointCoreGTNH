@@ -2,7 +2,6 @@ package coint.mixin.minecraft;
 
 import java.net.SocketAddress;
 import java.text.SimpleDateFormat;
-import java.util.stream.Collectors;
 
 import net.minecraft.server.management.BanList;
 import net.minecraft.server.management.IPBanEntry;
@@ -16,7 +15,8 @@ import org.spongepowered.asm.mixin.Shadow;
 
 import com.mojang.authlib.GameProfile;
 
-import serverutils.lib.data.Universe;
+import coint.CointConfig;
+import coint.integration.serverutilities.CointSUPermissions;
 import serverutils.lib.util.permission.PermissionAPI;
 
 @Mixin(targets = "net.minecraft.server.management.ServerConfigurationManager", remap = true)
@@ -33,12 +33,12 @@ public class MixinServerConfigurationManager {
 
     /**
      * @author EternalQ
-     * @reason Control teammate connection
+     * @reason Control player connection and reserved slots
      */
     @Overwrite(aliases = { "func_148542_a" })
     public String allowUserToConnect(SocketAddress address, GameProfile profile) {
         var mgr = (ServerConfigurationManager) (Object) this;
-        var dateFormat = new SimpleDateFormat("yyyy-MM-dd \'в\' HH:mm:ss МСК");
+        var dateFormat = new SimpleDateFormat("yyyy-MM-dd 'в' HH:mm:ss МСК");
         String s;
 
         if (this.bannedPlayers.func_152702_a(profile)) {
@@ -61,24 +61,20 @@ public class MixinServerConfigurationManager {
             }
 
             return s;
-        } else if (PermissionAPI.hasPermission(profile, "cointcore.kit.uranium", null)) {
-            return null;
-        } else {
-            return getCurrentPlayerCount() >= this.maxPlayers ? "Сервер переполнен!" : null;
         }
-    }
 
-    /**
-     * @author EternalQ
-     * @reason show online teams
-     */
-    @Overwrite(aliases = { "func_72394_k" })
-    public int getCurrentPlayerCount() {
-        return Universe.get()
-            .getOnlinePlayers()
-            .stream()
-            .map(player -> player.team)
-            .collect(Collectors.toSet())
-            .size();
+        int online = mgr.getCurrentPlayerCount();
+        int reserved = Math.max(0, CointConfig.general.reservedSlots);
+        boolean hasReservedSlot = PermissionAPI.hasPermission(profile, CointSUPermissions.RESERVED_SLOT, null);
+
+        if (online < this.maxPlayers) {
+            return null;
+        }
+
+        if (!hasReservedSlot) {
+            return reserved > 0 ? "На сервере остались только резервные слоты!" : "Сервер переполнен!";
+        }
+
+        return online >= this.maxPlayers + reserved ? "Сервер переполнен!" : null;
     }
 }

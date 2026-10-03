@@ -52,4 +52,5 @@ public final class CointSUPermissions {
     public static final String TPL_TO_PROTECTED = "cointcore.tpl.to_protected";
 
     public static final String WORLD_TRAVEL_BYPASS = "cointcore.worldtravel.bypass";
+    public static final String RESERVED_SLOT = "cointcore.reserved_slot";
 }

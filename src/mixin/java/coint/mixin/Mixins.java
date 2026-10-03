@@ -11,6 +11,7 @@ public enum Mixins implements IMixins {
         "minecraft.MixinEntityMeteorBootsSetDead",
         "minecraft.MixinWorldMeteorBoots",
         "minecraft.MixinEntityLivingBase",
+        "minecraft.MixinEntityLivingAIThrottle",
         "minecraft.MixinEntityPlayer",
         "minecraft.MixinEntityPlayerForestryDupTrace",
         "minecraft.MixinNetHandlerPlayServerForestryBackpackClickBlock",

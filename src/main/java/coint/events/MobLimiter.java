@@ -25,12 +25,20 @@ public class MobLimiter {
         if (!CointConfig.limiter.enabled) return;
 
         double radius = CointConfig.limiter.radius;
-        List<EntityLiving> nearby = event.world.getEntitiesWithinAABB(EntityLiving.class, box(event, radius));
+        AxisAlignedBB narrow = box(event, radius);
+        List<EntityLiving> nearby = event.world.getEntitiesWithinAABB(EntityLiving.class, box(event, radius * 2));
+
+        if (nearby.size() >= CointConfig.limiter.totalCup) {
+            event.setResult(Result.DENY);
+            return;
+        }
 
         int passive = 0;
         int hostile = 0;
 
         for (EntityLiving entity : nearby) {
+            if (entity.boundingBox == null || !entity.boundingBox.intersectsWith(narrow)) continue;
+
             if (isPassive(entity) && ++passive >= CointConfig.limiter.passiveCup) {
                 event.setResult(Result.DENY);
                 return;
@@ -39,11 +47,6 @@ public class MobLimiter {
                 event.setResult(Result.DENY);
                 return;
             }
-        }
-
-        List<EntityLiving> wide = event.world.getEntitiesWithinAABB(EntityLiving.class, box(event, radius * 2));
-        if (wide.size() >= CointConfig.limiter.totalCup) {
-            event.setResult(Result.DENY);
         }
     }
 

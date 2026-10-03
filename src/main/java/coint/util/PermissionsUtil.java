@@ -40,5 +40,7 @@ public class PermissionsUtil {
             CointSUPermissions.WORLD_TRAVEL_BYPASS,
             DefaultPermissionLevel.OP,
             "Bypass CointCore world travel quest requirements");
+        PermissionAPI
+            .registerNode(CointSUPermissions.RESERVED_SLOT, DefaultPermissionLevel.OP, "Use reserved player slots");
     }
 }

@@ -8,7 +8,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.MathHelper;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -23,52 +22,47 @@ public final class DiscordModerationWebhook {
 
     private DiscordModerationWebhook() {}
 
+    public static void logGlobal(EntityPlayerMP sender, String text) {
+        if (!CointConfig.discord.enabled || !CointConfig.discord.sendGlobalChat) return;
+
+        String message = sender.getCommandSenderName() + ": " + stripFormatting(text);
+        sendTo(mainChannelId(), message);
+    }
+
     public static void logLocal(EntityPlayerMP sender, String text) {
         if (!CointConfig.discord.enabled || !CointConfig.discord.sendLocalChat) return;
 
-        String cleanText = stripFormatting(text);
-        String message = "[" + CointConfig.api.serverTag
-            + "] [LOCAL] "
-            + sender.getCommandSenderName()
-            + " (dim:"
-            + sender.dimension
-            + " x:"
-            + MathHelper.floor_double(sender.posX)
-            + " y:"
-            + MathHelper.floor_double(sender.posY)
-            + " z:"
-            + MathHelper.floor_double(sender.posZ)
-            + "): "
-            + cleanText;
-        send(message);
+        String message = sender.getCommandSenderName() + " (dim:" + sender.dimension + "): " + stripFormatting(text);
+        sendTo(CointConfig.discord.logChannelId, message);
     }
 
     public static void logDm(String sender, String target, String text) {
         if (!CointConfig.discord.enabled || !CointConfig.discord.sendPrivateChat) return;
 
-        String message = "[" + CointConfig.api.serverTag
-            + "] [DM] "
-            + stripFormatting(sender)
-            + " -> "
-            + stripFormatting(target)
-            + ": "
-            + stripFormatting(text);
-        send(message);
+        String message = stripFormatting(sender) + " -> " + stripFormatting(target) + ": " + stripFormatting(text);
+        sendTo(CointConfig.discord.logChannelId, message);
     }
 
     public static synchronized void shutdown() {
+        DiscordGlobalBridge.shutdown();
         if (executor != null) {
-            executor.shutdown();
+            executor.shutdownNow();
             executor = null;
         }
     }
 
-    private static void send(String content) {
+    static String mainChannelId() {
+        String channelId = trim(CointConfig.discord.channelId);
+        if (!channelId.isEmpty()) return channelId;
+        return trim(CointConfig.discord.globalChannelId);
+    }
+
+    private static void sendTo(String configuredChannelId, String content) {
         String token = trim(CointConfig.discord.botToken);
-        String channelId = trim(CointConfig.discord.logChannelId);
+        String channelId = trim(configuredChannelId);
         if (token.isEmpty() || channelId.isEmpty()) return;
         if (!channelId.matches("\\d{15,25}")) {
-            CointCore.LOG.warn("[DiscordModeration] Invalid Discord channel ID");
+            CointCore.LOG.warn("[Discord] Invalid Discord channel ID: {}", channelId);
             return;
         }
 
@@ -78,7 +72,7 @@ public final class DiscordModerationWebhook {
     private static synchronized ExecutorService executor() {
         if (executor == null || executor.isShutdown()) {
             executor = Executors.newSingleThreadExecutor(r -> {
-                Thread thread = new Thread(r, "CointCore-DiscordModeration");
+                Thread thread = new Thread(r, "CointCore-DiscordSend");
                 thread.setDaemon(true);
                 return thread;
             });
@@ -128,18 +122,16 @@ public final class DiscordModerationWebhook {
                     continue;
                 }
 
-                CointCore.LOG.warn("[DiscordModeration] Discord API returned HTTP {}", response);
+                CointCore.LOG.warn("[Discord] Discord API returned HTTP {} for channel {}", response, channelId);
                 return;
             } catch (Exception e) {
                 if (attempt >= 2) {
-                    CointCore.LOG.warn("[DiscordModeration] Failed to send message: {}", e.getMessage());
+                    CointCore.LOG.warn("[Discord] Failed to send message to channel {}: {}", channelId, e.getMessage());
                     return;
                 }
                 sleepRetry(null);
             } finally {
-                if (connection != null) {
-                    connection.disconnect();
-                }
+                if (connection != null) connection.disconnect();
             }
         }
     }
@@ -161,11 +153,11 @@ public final class DiscordModerationWebhook {
         }
     }
 
-    private static String trim(String value) {
+    static String trim(String value) {
         return value == null ? "" : value.trim();
     }
 
-    private static String stripFormatting(String text) {
+    static String stripFormatting(String text) {
         if (text == null || text.isEmpty()) return "";
 
         StringBuilder clean = new StringBuilder(text.length());
