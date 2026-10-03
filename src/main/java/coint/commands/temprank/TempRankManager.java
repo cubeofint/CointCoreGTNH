@@ -251,6 +251,16 @@ public class TempRankManager {
         return null;
     }
 
+    public int clearPlayer(UUID playerUuid) {
+        int before = entries.size();
+        entries.removeIf(entry -> entry.playerUuid.equals(playerUuid));
+        int removed = before - entries.size();
+        if (removed > 0) {
+            save();
+        }
+        return removed;
+    }
+
     /** Returns all active entries for a specific player. */
     public List<TempRankEntry> getEntries(UUID playerUuid) {
         return entries.stream()

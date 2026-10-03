@@ -14,6 +14,7 @@ import coint.integration.personalspace.PersonalSpaceTeamReward;
 import coint.integration.serverutilities.RanksManager;
 import coint.network.PacketOpenWorlds;
 import coint.network.WorldTravelNetwork;
+import coint.player.PlayerResetEvents;
 import coint.restart.RestartManager;
 import coint.util.PermissionsUtil;
 import coint.worldtravel.WorldTravelManager;
@@ -72,6 +73,9 @@ public class CommonProxy {
             FMLCommonHandler.instance()
                 .bus()
                 .register(RestartManager.INSTANCE);
+            FMLCommonHandler.instance()
+                .bus()
+                .register(PlayerResetEvents.INSTANCE);
         }
     }
 
@@ -131,6 +135,7 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
         RestartManager.INSTANCE.reset();
+        PlayerResetEvents.INSTANCE.reset();
         DmLogger.close();
         DiscordModerationWebhook.shutdown();
         if (CointConfig.api.wsEnabled) {

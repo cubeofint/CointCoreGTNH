@@ -30,6 +30,7 @@ public class CmdRegistry {
         event.registerServerCommand(new CommandWorlds());
         event.registerServerCommand(new CommandWorldsAdmin());
         event.registerServerCommand(new CommandPDim());
+        event.registerServerCommand(new CommandPlayerReset());
         event.registerServerCommand(new CommandRestart());
         CointCore.LOG.debug("Registered server commands");
     }

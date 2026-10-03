@@ -25,11 +25,13 @@ public class TeamsManager extends WorldSavedData {
     private static final String NBT_PDIM_REWARD_PLAYERS = "pdimRewardPlayers";
     private static final String NBT_PDIM_REWARD_TEAMS = "pdimRewardTeams";
     private static final String NBT_PDIM_REWARD_QUESTS = "pdimRewardQuests";
+    private static final String NBT_RETIRED_PDIM_IDS = "retiredPDimIds";
 
     public HashMap<Short, Integer> pdBinds = new HashMap<>();
     private final Set<UUID> pdimRewardConsumedPlayers = new HashSet<>();
     private final Set<String> pdimRewardClaimedTeams = new HashSet<>();
     private final Set<UUID> pdimRewardQuestIds = new HashSet<>();
+    private final Set<Integer> retiredPDimIds = new HashSet<>();
 
     public static TeamsManager get() {
         WorldServer overworld = MinecraftServer.getServer()
@@ -163,12 +165,42 @@ public class TeamsManager extends WorldSavedData {
         return new HashSet<>(pdimRewardQuestIds);
     }
 
+    public boolean isRetiredPDim(int dimId) {
+        return retiredPDimIds.contains(dimId);
+    }
+
+    public boolean resetPDimState(ForgeTeam team, int retiredDimId) {
+        if (team == null || !team.isValid()) return false;
+
+        boolean changed = pdBinds.remove(team.getUID()) != null;
+        changed |= pdimRewardClaimedTeams.remove(team.getId());
+
+        for (ForgePlayer member : team.getMembers()) {
+            changed |= pdimRewardConsumedPlayers.remove(member.getId());
+        }
+
+        if (retiredDimId > 0) {
+            changed |= retiredPDimIds.add(retiredDimId);
+        }
+
+        if (changed) markDirty();
+        return changed;
+    }
+
+    public boolean resetPDimPlayerState(UUID playerId) {
+        if (playerId == null) return false;
+        boolean changed = pdimRewardConsumedPlayers.remove(playerId);
+        if (changed) markDirty();
+        return changed;
+    }
+
     @Override
     public void readFromNBT(NBTTagCompound nbt) {
         pdBinds.clear();
         pdimRewardConsumedPlayers.clear();
         pdimRewardClaimedTeams.clear();
         pdimRewardQuestIds.clear();
+        retiredPDimIds.clear();
 
         NBTTagCompound list = nbt.getCompoundTag(NBT_PDS);
         for (String key : list.func_150296_c()) {
@@ -178,6 +210,7 @@ public class TeamsManager extends WorldSavedData {
         readUuidSet(nbt.getCompoundTag(NBT_PDIM_REWARD_PLAYERS), pdimRewardConsumedPlayers);
         readStringSet(nbt.getCompoundTag(NBT_PDIM_REWARD_TEAMS), pdimRewardClaimedTeams);
         readUuidSet(nbt.getCompoundTag(NBT_PDIM_REWARD_QUESTS), pdimRewardQuestIds);
+        readIntSet(nbt.getCompoundTag(NBT_RETIRED_PDIM_IDS), retiredPDimIds);
     }
 
     @Override
@@ -193,6 +226,7 @@ public class TeamsManager extends WorldSavedData {
         nbt.setTag(NBT_PDIM_REWARD_PLAYERS, writeUuidSet(pdimRewardConsumedPlayers));
         nbt.setTag(NBT_PDIM_REWARD_TEAMS, writeStringSet(pdimRewardClaimedTeams));
         nbt.setTag(NBT_PDIM_REWARD_QUESTS, writeUuidSet(pdimRewardQuestIds));
+        nbt.setTag(NBT_RETIRED_PDIM_IDS, writeIntSet(retiredPDimIds));
     }
 
     private static void readUuidSet(NBTTagCompound nbt, Set<UUID> target) {
@@ -207,6 +241,14 @@ public class TeamsManager extends WorldSavedData {
         target.addAll(nbt.func_150296_c());
     }
 
+    private static void readIntSet(NBTTagCompound nbt, Set<Integer> target) {
+        for (String key : nbt.func_150296_c()) {
+            try {
+                target.add(Integer.parseInt(key));
+            } catch (NumberFormatException ignored) {}
+        }
+    }
+
     private static NBTTagCompound writeUuidSet(Set<UUID> values) {
         NBTTagCompound nbt = new NBTTagCompound();
         for (UUID value : values) {
@@ -219,6 +261,14 @@ public class TeamsManager extends WorldSavedData {
         NBTTagCompound nbt = new NBTTagCompound();
         for (String value : values) {
             nbt.setBoolean(value, true);
+        }
+        return nbt;
+    }
+
+    private static NBTTagCompound writeIntSet(Set<Integer> values) {
+        NBTTagCompound nbt = new NBTTagCompound();
+        for (Integer value : values) {
+            nbt.setBoolean(value.toString(), true);
         }
         return nbt;
     }
