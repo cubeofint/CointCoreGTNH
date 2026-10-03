@@ -5,6 +5,7 @@ import com.gtnewhorizon.gtnhmixins.builders.TargetModBuilder;
 
 public enum TargetMod implements ITargetMod {
 
+    APPLIEDENERGISTICS2("appliedenergistics2"),
     BACKPACK("Backpack"),
     BETTERQUESTING("betterquesting"),
     BLOODMAGIC("AWWayofTime"),

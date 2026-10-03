@@ -59,6 +59,7 @@ dependencies {
     mixinCompileOnly("com.github.GTNewHorizons:BloodMagic:1.7.52:dev") { transitive = false }
     mixinCompileOnly("com.github.GTNewHorizons:EnderIO:2.10.48:dev") { transitive = false }
     mixinCompileOnly("com.github.GTNewHorizons:CropsNH:2.0.133:dev") { transitive = false }
+    mixinCompileOnly("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-1074-GTNH:dev") { transitive = false }
 
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.8.101-GTNH:dev") { transitive = false }
     runtimeOnly("com.github.GTNewHorizons:Baubles-Expanded:2.2.21-GTNH:dev")

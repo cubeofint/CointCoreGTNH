@@ -5,6 +5,14 @@ import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
 public enum LateMixins implements IMixins {
 
+    APPLIEDENERGISTICS2(new MixinBuilder("Applied Energistics 2").addRequiredMod(TargetMod.APPLIEDENERGISTICS2)
+        .setPhase(Phase.LATE)
+        .addCommonMixins(
+            "appliedenergistics2.MixinAEBaseTileChunkUnload",
+            "appliedenergistics2.MixinGridNodeBatchDestroy",
+            "appliedenergistics2.MixinGridConnectionBatchDestroy",
+            "appliedenergistics2.MixinTickHandlerUnloadFlush")),
+
     BACKPACK(new MixinBuilder("Backpacks").addRequiredMod(TargetMod.BACKPACK)
         .setPhase(Phase.LATE)
         .addCommonMixins("backpackmod.MixinContainerAdvancedAudit")),
