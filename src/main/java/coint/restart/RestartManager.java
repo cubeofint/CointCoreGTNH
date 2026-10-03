@@ -58,14 +58,12 @@ public final class RestartManager {
         backupFile = null;
         backupStartedAt = 0L;
 
-        MinecraftServer server = MinecraftServer.getServer();
         int remaining = getRemainingSeconds();
-        broadcastChat(
-            server,
-            "§c[Restart] §fРестарт сервера запланирован через §e" + formatDuration(remaining) + "§f.");
+        MinecraftServer server = MinecraftServer.getServer();
+        broadcastChat(server, "§c[Restart] §fРучной рестарт запланирован через §e" + formatDuration(remaining) + "§f.");
         broadcastState(true, remaining, "countdown");
         CointCore.LOG.info("[Restart] Scheduled in {} seconds", seconds);
-        return "Рестарт запланирован через " + formatDuration(remaining) + ".";
+        return "Ручной рестарт запланирован через " + formatDuration(remaining) + ".";
     }
 
     public synchronized String cancel() {
@@ -139,8 +137,7 @@ public final class RestartManager {
             return;
         }
         if (joinsLocked) {
-            player.playerNetServerHandler
-                .kickPlayerFromServer("§cСервер перезапускается. Попробуйте зайти через несколько минут.");
+            player.playerNetServerHandler.kickPlayerFromServer("§cИдёт рестарт. Зайдите через пару минут.");
             return;
         }
         if (phase == Phase.COUNTDOWN) {
@@ -157,9 +154,6 @@ public final class RestartManager {
         if (remaining != lastSecond) {
             lastSecond = remaining;
             broadcastState(true, remaining, "countdown");
-            if (shouldAnnounce(remaining)) {
-                broadcastChat(server, "§c[Restart] §fДо рестарта: §e" + formatDuration(remaining) + "§f.");
-            }
         }
 
         if (remaining <= 10 && !joinsLocked) {
@@ -171,12 +165,12 @@ public final class RestartManager {
             return;
         }
 
-        broadcastState(true, 0, "saving");
+        broadcastState(true, 0, "restarting");
         try {
             saveEverything(server);
         } catch (Exception e) {
             CointCore.LOG.error("[Restart] Failed to save worlds before backup", e);
-            failAndUnlock(server, "Не удалось сохранить миры перед рестартом. Рестарт отменён.");
+            failAndUnlock(server);
             return;
         }
 
@@ -195,7 +189,7 @@ public final class RestartManager {
             CointCore.LOG.warn("[Restart] Could not remove existing backup file {}", backupFile.getAbsolutePath());
         }
 
-        broadcastState(true, 0, "backup");
+        broadcastState(true, 0, "restarting");
         phase = Phase.BACKUP;
         backupStartedAt = System.currentTimeMillis();
         CointCore.LOG.info("[Restart] Starting final backup {}", backupName);
@@ -204,7 +198,7 @@ public final class RestartManager {
             new BackupTask(server, backupName).execute(Universe.get());
         } catch (Throwable t) {
             CointCore.LOG.error("[Restart] Could not start ServerUtilities backup", t);
-            failAndUnlock(server, "Не удалось запустить резервное копирование. Рестарт отменён.");
+            failAndUnlock(server);
         }
     }
 
@@ -218,7 +212,7 @@ public final class RestartManager {
 
         if (backupFile == null || !backupFile.isFile() || backupFile.length() <= 0L) {
             CointCore.LOG.error("[Restart] Final backup file was not created successfully: {}", backupFile);
-            failAndUnlock(server, "Финальный бэкап не был создан. Рестарт отменён.");
+            failAndUnlock(server);
             return;
         }
 
@@ -228,33 +222,30 @@ public final class RestartManager {
             phase = Phase.IDLE;
             cancelAfterBackup = false;
             broadcastState(false, 0, "");
-            broadcastChat(server, "§a[Restart] §fБэкап завершён. Рестарт отменён, вход на сервер снова открыт.");
+            broadcastChat(server, "§a[Restart] §fРестарт отменён. Вход на сервер снова открыт.");
             return;
         }
 
         phase = Phase.STOPPING;
-        broadcastState(true, 0, "stopping");
+        broadcastState(true, 0, "restarting");
         CointCore.LOG.info("[Restart] Final backup verified at {}. Stopping server.", backupFile.getAbsolutePath());
         server.initiateShutdown();
     }
 
-    private void failAndUnlock(MinecraftServer server, String message) {
+    private void failAndUnlock(MinecraftServer server) {
         phase = Phase.IDLE;
         joinsLocked = false;
         cancelAfterBackup = false;
         broadcastState(false, 0, "");
-        broadcastChat(server, "§c[Restart] §f" + message);
+        broadcastChat(server, "§c[Restart] §fРестарт отменён. Сервер продолжает работу.");
     }
 
     private void kickAll(MinecraftServer server) {
-        broadcastChat(
-            server,
-            "§c[Restart] §fСервер перезапускается. Все игроки отключаются перед сохранением и бэкапом.");
+        broadcastState(true, 0, "restarting");
         List<?> players = new ArrayList<>(server.getConfigurationManager().playerEntityList);
         for (Object object : players) {
             if (object instanceof EntityPlayerMP player) {
-                player.playerNetServerHandler
-                    .kickPlayerFromServer("§cСервер перезапускается. Зайдите через несколько минут.");
+                player.playerNetServerHandler.kickPlayerFromServer("§cИдёт рестарт. Зайдите через пару минут.");
             }
         }
         CointCore.LOG.info("[Restart] Player logins locked and {} players kicked", players.size());
@@ -279,23 +270,6 @@ public final class RestartManager {
         }
         long seconds = (millis + 999L) / 1000L;
         return seconds > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) seconds;
-    }
-
-    private static boolean shouldAnnounce(int seconds) {
-        return seconds == 3600 || seconds == 1800
-            || seconds == 900
-            || seconds == 600
-            || seconds == 300
-            || seconds == 120
-            || seconds == 60
-            || seconds == 30
-            || seconds == 15
-            || seconds == 10
-            || seconds == 5
-            || seconds == 4
-            || seconds == 3
-            || seconds == 2
-            || seconds == 1;
     }
 
     private static String formatDuration(int seconds) {
