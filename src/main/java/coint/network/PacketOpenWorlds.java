@@ -34,6 +34,7 @@ public class PacketOpenWorlds implements IMessage {
             entry.name = ByteBufUtils.readUTF8String(buf);
             entry.description = ByteBufUtils.readUTF8String(buf);
             entry.requirementText = ByteBufUtils.readUTF8String(buf);
+            entry.tier = buf.readInt();
             entry.dimension = buf.readInt();
             entry.accessible = buf.readBoolean();
             entries.add(entry);
@@ -49,6 +50,7 @@ public class PacketOpenWorlds implements IMessage {
             ByteBufUtils.writeUTF8String(buf, entry.name == null ? "" : entry.name);
             ByteBufUtils.writeUTF8String(buf, entry.description == null ? "" : entry.description);
             ByteBufUtils.writeUTF8String(buf, entry.requirementText == null ? "" : entry.requirementText);
+            buf.writeInt(entry.tier);
             buf.writeInt(entry.dimension);
             buf.writeBoolean(entry.accessible);
         }

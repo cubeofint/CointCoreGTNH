@@ -22,6 +22,14 @@ public final class ChunkLoadGuard {
         return isBlockChunkLoaded(world, x, z) ? world.getBlock(x, y, z) : Blocks.air;
     }
 
+    public static int getLoadedBlockMetadataOrZero(World world, int x, int y, int z) {
+        return isBlockChunkLoaded(world, x, z) ? world.getBlockMetadata(x, y, z) : 0;
+    }
+
+    public static boolean isLoadedAirBlockOrUnloaded(World world, int x, int y, int z) {
+        return !isBlockChunkLoaded(world, x, z) || world.isAirBlock(x, y, z);
+    }
+
     public static TileEntity getLoadedTileEntity(World world, int x, int y, int z) {
         return isBlockChunkLoaded(world, x, z) ? world.getTileEntity(x, y, z) : null;
     }

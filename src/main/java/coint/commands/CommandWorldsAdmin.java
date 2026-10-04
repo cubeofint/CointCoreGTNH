@@ -29,7 +29,7 @@ public class CommandWorldsAdmin extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/worldsadmin add <id> <name...> | setpos <id> | quest <id> <questId|none> | requirement <id> <text...|none> | protect <id> <true|false> | enable <id> <true|false> | remove <id> | info <id> | list";
+        return "/worldsadmin add <id> <name...> | setpos <id> | tier <id> <0+> | quest <id> <questId|none> | requirement <id> <text...|none> | protect <id> <true|false> | enable <id> <true|false> | remove <id> | info <id> | list";
     }
 
     @Override
@@ -47,6 +47,7 @@ public class CommandWorldsAdmin extends CommandBase {
                 args,
                 "add",
                 "setpos",
+                "tier",
                 "quest",
                 "requirement",
                 "protect",
@@ -79,6 +80,7 @@ public class CommandWorldsAdmin extends CommandBase {
         switch (args[0].toLowerCase()) {
             case "add" -> add(sender, args);
             case "setpos" -> setPosition(sender, args);
+            case "tier" -> setTier(sender, args);
             case "quest" -> setQuest(sender, args);
             case "requirement" -> setRequirement(sender, args);
             case "protect" -> setProtect(sender, args);
@@ -116,6 +118,25 @@ public class CommandWorldsAdmin extends CommandBase {
         sender.addChatMessage(
             new ChatComponentText(
                 "§aПозиция §f" + args[1] + " §aобновлена: DIM §f" + player.dimension + "§a, текущие координаты."));
+    }
+
+    private void setTier(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 3) {
+            throw new WrongUsageException("/worldsadmin tier <id> <0+>");
+        }
+        int tier;
+        try {
+            tier = Integer.parseInt(args[2]);
+        } catch (NumberFormatException e) {
+            throw new CommandException("Тир должен быть целым числом от 0 до 99");
+        }
+        if (tier < 0 || tier > 99) {
+            throw new CommandException("Тир должен быть целым числом от 0 до 99");
+        }
+        if (!WorldTravelManager.setDestinationTier(args[1], tier)) {
+            throw new CommandException("Точка '" + args[1] + "' не найдена");
+        }
+        sender.addChatMessage(new ChatComponentText("§aТир точки §f" + args[1] + "§a: §fT" + tier));
     }
 
     private void setQuest(ICommandSender sender, String[] args) throws CommandException {

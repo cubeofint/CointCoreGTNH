@@ -20,6 +20,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChunkCoordinates;
+import net.minecraft.util.MathHelper;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 
@@ -97,6 +98,7 @@ public final class WorldTravelManager {
         example.name = "Пример точки";
         example.description = "Отключённый пример записи. Скопируйте и настройте его.";
         example.enabled = false;
+        example.tier = 0;
         example.dimension = 0;
         example.x = 0.5D;
         example.y = 80.0D;
@@ -141,6 +143,7 @@ public final class WorldTravelManager {
         destination.description = "";
         destination.enabled = true;
         destination.order = getNextOrder();
+        destination.tier = 0;
         copyPlayerPosition(player, destination);
         destination.requiredQuest = "";
         destination.requirementText = "";
@@ -216,6 +219,16 @@ public final class WorldTravelManager {
         return true;
     }
 
+    public static synchronized boolean setDestinationTier(String id, int tier) {
+        WorldTravelDestination destination = BY_ID.get(normalize(id));
+        if (destination == null) {
+            return false;
+        }
+        destination.tier = Math.max(0, tier);
+        save();
+        return true;
+    }
+
     public static synchronized List<String> getDestinationIds() {
         List<WorldTravelDestination> destinations = new ArrayList<>(BY_ID.values());
         destinations.sort(
@@ -235,6 +248,8 @@ public final class WorldTravelManager {
         }
         return destination.id + " | "
             + safe(destination.name, destination.id)
+            + " | T"
+            + Math.max(0, destination.tier)
             + " | DIM "
             + destination.dimension
             + " | "
@@ -260,7 +275,8 @@ public final class WorldTravelManager {
             }
         }
         destinations.sort(
-            Comparator.comparingInt((WorldTravelDestination d) -> d.order)
+            Comparator.comparingInt((WorldTravelDestination d) -> Math.max(0, d.tier))
+                .thenComparingInt(d -> d.order)
                 .thenComparing(d -> d.name));
 
         List<WorldTravelViewEntry> result = new ArrayList<>();
@@ -271,6 +287,7 @@ public final class WorldTravelManager {
                     safe(destination.name, destination.id),
                     safe(destination.description, ""),
                     buildRequirementText(destination),
+                    Math.max(0, destination.tier),
                     destination.dimension,
                     hasAccess(player, destination)));
         }
@@ -306,6 +323,8 @@ public final class WorldTravelManager {
             return false;
         }
 
+        prepareDestinationChunk(target, destination.x, destination.z);
+
         if (player.dimension == destination.dimension) {
             player.playerNetServerHandler
                 .setPlayerLocation(destination.x, destination.y, destination.z, destination.yaw, destination.pitch);
@@ -314,6 +333,14 @@ public final class WorldTravelManager {
                 .transferPlayerToDimension(player, destination.dimension, new FixedTeleporter(target, destination));
             player.playerNetServerHandler
                 .setPlayerLocation(destination.x, destination.y, destination.z, destination.yaw, destination.pitch);
+            WorldTravelServerEvents.schedulePositionResync(
+                player,
+                destination.dimension,
+                destination.x,
+                destination.y,
+                destination.z,
+                destination.yaw,
+                destination.pitch);
         }
         return true;
     }
@@ -365,12 +392,15 @@ public final class WorldTravelManager {
         temp.y = spawn.posY + 1.0D;
         temp.z = spawn.posZ + 0.5D;
 
+        prepareDestinationChunk(target, temp.x, temp.z);
+
         if (player.dimension == dimension) {
             player.playerNetServerHandler.setPlayerLocation(temp.x, temp.y, temp.z, 0.0F, 0.0F);
         } else {
             server.getConfigurationManager()
                 .transferPlayerToDimension(player, dimension, new FixedTeleporter(target, temp));
             player.playerNetServerHandler.setPlayerLocation(temp.x, temp.y, temp.z, 0.0F, 0.0F);
+            WorldTravelServerEvents.schedulePositionResync(player, dimension, temp.x, temp.y, temp.z, 0.0F, 0.0F);
         }
     }
 
@@ -414,6 +444,12 @@ public final class WorldTravelManager {
         } catch (RuntimeException ignored) {
             return null;
         }
+    }
+
+    private static void prepareDestinationChunk(WorldServer world, double x, double z) {
+        int chunkX = MathHelper.floor_double(x) >> 4;
+        int chunkZ = MathHelper.floor_double(z) >> 4;
+        world.getChunkFromChunkCoords(chunkX, chunkZ);
     }
 
     private static int getNextOrder() {

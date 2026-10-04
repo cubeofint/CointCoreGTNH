@@ -68,6 +68,7 @@ public final class TabRankSorter {
         PROGRESS_RANKS.add("lv");
         PROGRESS_RANKS.add("steam");
         PROGRESS_RANKS.add("stone");
+        PROGRESS_RANKS.add("bravebro");
     }
 
     private static int ticks;
@@ -253,7 +254,7 @@ public final class TabRankSorter {
             name.append(progress).append(' ');
         }
 
-        name.append(entry.name).append("§r");
+        name.append("§r").append(entry.name).append("§r");
 
         return name.toString();
     }
@@ -262,7 +263,7 @@ public final class TabRankSorter {
         if (rank == null) return "";
 
         String prefix = normalizeFormatting(rank.getLocalPermission(DONOR_PREFIX_NODE));
-        if (!prefix.isEmpty()) return prefix;
+        if (!prefix.isEmpty()) return ensureReset(prefix);
 
         String id = rank.getId();
         if (id == null) return "";
@@ -294,15 +295,20 @@ public final class TabRankSorter {
             format = format.substring(0, nameIndex);
         }
 
-        return format.replace("<", "")
+        return ensureReset(format.replace("<", "")
             .replace(">", "")
             .replaceAll(":\\s*$", "")
-            .trim();
+            .trim());
     }
 
     private static String normalizeFormatting(String value) {
         if (value == null || value.isEmpty()) return "";
         return value.replace('&', '§').trim();
+    }
+
+    private static String ensureReset(String value) {
+        if (value == null || value.isEmpty()) return "";
+        return value.endsWith("§r") ? value : value + "§r";
     }
 
     private static void sendSnapshot(EntityPlayerMP viewer, Snapshot snapshot, Set<String> removedCustom) {

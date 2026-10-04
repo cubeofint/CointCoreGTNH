@@ -22,6 +22,7 @@ public final class WorldTravelServerEvents {
     private static final ConcurrentLinkedQueue<UUID> OPEN_QUEUE = new ConcurrentLinkedQueue<>();
     private static final ConcurrentLinkedQueue<TravelRequest> TRAVEL_QUEUE = new ConcurrentLinkedQueue<>();
     private static final ConcurrentLinkedQueue<ReturnRequest> RETURN_QUEUE = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<PositionSync> POSITION_SYNCS = new ConcurrentLinkedQueue<>();
     private static final Set<UUID> ROLLBACK = Collections.synchronizedSet(new HashSet<>());
 
     private WorldTravelServerEvents() {}
@@ -36,6 +37,16 @@ public final class WorldTravelServerEvents {
         if (playerId != null && destinationId != null && destinationId.length() <= 128) {
             TRAVEL_QUEUE.add(new TravelRequest(playerId, destinationId));
         }
+    }
+
+    public static void schedulePositionResync(EntityPlayerMP player, int dimension, double x, double y, double z,
+        float yaw, float pitch) {
+        if (player == null) {
+            return;
+        }
+        UUID playerId = player.getUniqueID();
+        POSITION_SYNCS.add(new PositionSync(playerId, dimension, x, y, z, yaw, pitch, 2));
+        POSITION_SYNCS.add(new PositionSync(playerId, dimension, x, y, z, yaw, pitch, 10));
     }
 
     @SubscribeEvent
@@ -67,6 +78,8 @@ public final class WorldTravelServerEvents {
             return;
         }
 
+        processPositionSyncs();
+
         UUID openPlayerId;
         while ((openPlayerId = OPEN_QUEUE.poll()) != null) {
             EntityPlayerMP player = getPlayer(openPlayerId);
@@ -91,6 +104,30 @@ public final class WorldTravelServerEvents {
             }
             ROLLBACK.add(rollback.playerId);
             WorldTravelManager.returnToDimensionSpawn(player, rollback.dimension);
+        }
+    }
+
+    private static void processPositionSyncs() {
+        int count = POSITION_SYNCS.size();
+        for (int i = 0; i < count; i++) {
+            PositionSync sync = POSITION_SYNCS.poll();
+            if (sync == null) {
+                return;
+            }
+            if (sync.ticksRemaining > 0) {
+                sync.ticksRemaining--;
+                POSITION_SYNCS.add(sync);
+                continue;
+            }
+
+            EntityPlayerMP player = getPlayer(sync.playerId);
+            if (player == null || player.dimension != sync.dimension || player.playerNetServerHandler == null) {
+                continue;
+            }
+            if (player.getDistanceSq(sync.x, sync.y, sync.z) > 4.0D) {
+                continue;
+            }
+            player.playerNetServerHandler.setPlayerLocation(sync.x, sync.y, sync.z, sync.yaw, sync.pitch);
         }
     }
 
@@ -126,6 +163,30 @@ public final class WorldTravelServerEvents {
         private ReturnRequest(UUID playerId, int dimension) {
             this.playerId = playerId;
             this.dimension = dimension;
+        }
+    }
+
+    private static final class PositionSync {
+
+        private final UUID playerId;
+        private final int dimension;
+        private final double x;
+        private final double y;
+        private final double z;
+        private final float yaw;
+        private final float pitch;
+        private int ticksRemaining;
+
+        private PositionSync(UUID playerId, int dimension, double x, double y, double z, float yaw, float pitch,
+            int ticksRemaining) {
+            this.playerId = playerId;
+            this.dimension = dimension;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.yaw = yaw;
+            this.pitch = pitch;
+            this.ticksRemaining = ticksRemaining;
         }
     }
 }

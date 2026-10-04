@@ -7,6 +7,7 @@ public class WorldTravelDestination {
     public String description = "";
     public boolean enabled = true;
     public int order = 0;
+    public int tier = 0;
     public int dimension = 0;
     public double x = 0.5D;
     public double y = 80.0D;
