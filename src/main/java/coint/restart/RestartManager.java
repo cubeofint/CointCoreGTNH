@@ -2,6 +2,12 @@ package coint.restart;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -13,6 +19,7 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.storage.ThreadedFileIOBase;
 
+import coint.CointConfig;
 import coint.CointCore;
 import coint.network.WorldTravelNetwork;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -25,6 +32,8 @@ public final class RestartManager {
 
     public static final RestartManager INSTANCE = new RestartManager();
 
+    private static final DateTimeFormatter AUTO_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT);
+
     private enum Phase {
         IDLE,
         COUNTDOWN,
@@ -33,7 +42,14 @@ public final class RestartManager {
         STOPPING
     }
 
+    private enum Source {
+        NONE,
+        MANUAL,
+        AUTO
+    }
+
     private Phase phase = Phase.IDLE;
+    private Source source = Source.NONE;
     private long targetMillis;
     private int lastSecond = -1;
     private boolean joinsLocked;
@@ -41,6 +57,9 @@ public final class RestartManager {
     private String backupName = "";
     private File backupFile;
     private long backupStartedAt;
+    private long autoSkipUntilMillis;
+    private int autoCheckTicks;
+    private String autoConfigFingerprint = "";
 
     private RestartManager() {}
 
@@ -51,6 +70,7 @@ public final class RestartManager {
 
         targetMillis = System.currentTimeMillis() + Math.max(0L, seconds) * 1000L;
         phase = Phase.COUNTDOWN;
+        source = Source.MANUAL;
         lastSecond = -1;
         joinsLocked = false;
         cancelAfterBackup = false;
@@ -62,7 +82,7 @@ public final class RestartManager {
         MinecraftServer server = MinecraftServer.getServer();
         broadcastChat(server, "§c[Restart] §fРучной рестарт запланирован через §e" + formatDuration(remaining) + "§f.");
         broadcastState(true, remaining, "countdown");
-        CointCore.LOG.info("[Restart] Scheduled in {} seconds", seconds);
+        CointCore.LOG.info("[Restart] Manual restart scheduled in {} seconds", seconds);
         return "Ручной рестарт запланирован через " + formatDuration(remaining) + ".";
     }
 
@@ -79,18 +99,28 @@ public final class RestartManager {
         }
 
         MinecraftServer server = MinecraftServer.getServer();
+        boolean automatic = source == Source.AUTO;
+        if (automatic) {
+            autoSkipUntilMillis = Math.max(autoSkipUntilMillis, targetMillis + 60_000L);
+        }
         clear(false);
-        broadcastChat(server, "§a[Restart] §fЗапланированный рестарт отменён.");
+        broadcastChat(
+            server,
+            automatic ? "§a[Restart] §fТекущий автоматический рестарт отменён."
+                : "§a[Restart] §fЗапланированный рестарт отменён.");
         broadcastState(false, 0, "");
-        return "Рестарт отменён.";
+        return automatic ? "Текущий автоматический рестарт отменён." : "Рестарт отменён.";
     }
 
     public synchronized String getStatus() {
         switch (phase) {
             case IDLE:
-                return "Рестарт не запланирован.";
+                return CointConfig.restart.autoEnabled ? "Автоматический рестарт пока не рассчитан."
+                    : "Рестарт не запланирован.";
             case COUNTDOWN:
-                return "До рестарта: " + formatDuration(getRemainingSeconds()) + ".";
+                return (source == Source.AUTO ? "До автоматического рестарта: " : "До рестарта: ")
+                    + formatDuration(getRemainingSeconds())
+                    + ".";
             case WAITING_BACKUP:
                 return "Рестарт: сохранение завершено, ожидается освобождение системы бэкапов.";
             case BACKUP:
@@ -103,14 +133,35 @@ public final class RestartManager {
         }
     }
 
+    public synchronized String getTabStatus() {
+        if (phase == Phase.COUNTDOWN) {
+            int remaining = getRemainingSeconds();
+            String color = remaining <= 300 ? "&c" : remaining <= 1800 ? "&e" : "&a";
+            return "&7До рестарта: " + color + formatDuration(remaining);
+        }
+        if (phase == Phase.WAITING_BACKUP || phase == Phase.BACKUP || phase == Phase.STOPPING) {
+            return "&cИдёт рестарт...";
+        }
+        return "";
+    }
+
     @SubscribeEvent
     public synchronized void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || phase == Phase.IDLE || phase == Phase.STOPPING) {
+        if (event.phase != TickEvent.Phase.END || phase == Phase.STOPPING) {
             return;
         }
 
         MinecraftServer server = MinecraftServer.getServer();
         if (server == null) {
+            return;
+        }
+
+        if (++autoCheckTicks >= 20) {
+            autoCheckTicks = 0;
+            refreshAutomaticSchedule(server);
+        }
+
+        if (phase == Phase.IDLE) {
             return;
         }
 
@@ -146,7 +197,120 @@ public final class RestartManager {
     }
 
     public synchronized void reset() {
+        autoSkipUntilMillis = 0L;
+        autoConfigFingerprint = "";
+        autoCheckTicks = 0;
         clear(false);
+    }
+
+    private void refreshAutomaticSchedule(MinecraftServer server) {
+        String fingerprint = buildAutoConfigFingerprint();
+
+        if (!server.isDedicatedServer() || !CointConfig.restart.autoEnabled
+            || CointConfig.restart.autoTimes == null
+            || CointConfig.restart.autoTimes.length == 0) {
+            if (source == Source.AUTO && phase == Phase.COUNTDOWN) {
+                clear(true);
+            }
+            autoConfigFingerprint = fingerprint;
+            return;
+        }
+
+        if (source == Source.MANUAL || phase == Phase.WAITING_BACKUP || phase == Phase.BACKUP) {
+            autoConfigFingerprint = fingerprint;
+            return;
+        }
+
+        if (source == Source.AUTO && phase == Phase.COUNTDOWN && fingerprint.equals(autoConfigFingerprint)) {
+            return;
+        }
+
+        long next = findNextAutomaticRestartMillis();
+        autoConfigFingerprint = fingerprint;
+        if (next <= 0L) {
+            if (source == Source.AUTO && phase == Phase.COUNTDOWN) {
+                clear(true);
+            }
+            return;
+        }
+
+        targetMillis = next;
+        phase = Phase.COUNTDOWN;
+        source = Source.AUTO;
+        lastSecond = -1;
+        joinsLocked = false;
+        cancelAfterBackup = false;
+        backupName = "";
+        backupFile = null;
+        backupStartedAt = 0L;
+
+        int remaining = getRemainingSeconds();
+        broadcastState(true, remaining, "countdown");
+        CointCore.LOG
+            .info("[Restart] Next automatic restart scheduled in {} ({})", formatDuration(remaining), new Date(next));
+    }
+
+    private long findNextAutomaticRestartMillis() {
+        String[] times = CointConfig.restart.autoTimes;
+        if (times == null || times.length == 0) {
+            return -1L;
+        }
+
+        ZoneId zone = ZoneId.systemDefault();
+        LocalDateTime now = LocalDateTime.now(zone);
+        long nowMillis = System.currentTimeMillis();
+        long threshold = Math.max(nowMillis + 1000L, autoSkipUntilMillis);
+        long best = Long.MAX_VALUE;
+
+        for (String raw : times) {
+            LocalTime time = parseAutoTime(raw);
+            if (time == null) {
+                continue;
+            }
+
+            LocalDate date = now.toLocalDate();
+            LocalDateTime candidate = LocalDateTime.of(date, time);
+            long millis = candidate.atZone(zone)
+                .toInstant()
+                .toEpochMilli();
+            if (millis <= threshold) {
+                candidate = LocalDateTime.of(date.plusDays(1), time);
+                millis = candidate.atZone(zone)
+                    .toInstant()
+                    .toEpochMilli();
+            }
+            if (millis < best) {
+                best = millis;
+            }
+        }
+
+        return best == Long.MAX_VALUE ? -1L : best;
+    }
+
+    private static LocalTime parseAutoTime(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = raw.trim();
+        if (value.equals("24:00")) {
+            return LocalTime.MIDNIGHT;
+        }
+        try {
+            return LocalTime.parse(value, AUTO_TIME_FORMAT);
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
+    private static String buildAutoConfigFingerprint() {
+        StringBuilder builder = new StringBuilder(Boolean.toString(CointConfig.restart.autoEnabled));
+        if (CointConfig.restart.autoTimes != null) {
+            for (String value : CointConfig.restart.autoTimes) {
+                builder.append('|')
+                    .append(value == null ? "" : value.trim());
+            }
+        }
+        return builder.toString();
     }
 
     private void tickCountdown(MinecraftServer server) {
@@ -220,6 +384,7 @@ public final class RestartManager {
             CointCore.LOG.info("[Restart] Backup completed, restart was cancelled");
             joinsLocked = false;
             phase = Phase.IDLE;
+            source = Source.NONE;
             cancelAfterBackup = false;
             broadcastState(false, 0, "");
             broadcastChat(server, "§a[Restart] §fРестарт отменён. Вход на сервер снова открыт.");
@@ -234,6 +399,7 @@ public final class RestartManager {
 
     private void failAndUnlock(MinecraftServer server) {
         phase = Phase.IDLE;
+        source = Source.NONE;
         joinsLocked = false;
         cancelAfterBackup = false;
         broadcastState(false, 0, "");
@@ -298,6 +464,7 @@ public final class RestartManager {
 
     private void clear(boolean notify) {
         phase = Phase.IDLE;
+        source = Source.NONE;
         targetMillis = 0L;
         lastSecond = -1;
         joinsLocked = false;

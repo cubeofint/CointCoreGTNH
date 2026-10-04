@@ -34,6 +34,7 @@ public class CointConfig {
     public static final Infusion infusion = new Infusion();
     public static final Conduits conduits = new Conduits();
     public static final Crops crops = new Crops();
+    public static final Restart restart = new Restart();
 
     public static class General {
 
@@ -58,6 +59,16 @@ public class CointConfig {
         @Config.Comment("Unload empty non-critical dimensions (no players, no forced chunks) after server start")
         @Config.DefaultBoolean(true)
         public boolean unloadEmptyDimensions;
+
+        @Config.Comment("Prevent IC2 water kinetic generators from synchronously loading chunks while checking rotor space")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean preventIc2WaterKineticChunkLoading;
+
+        @Config.Comment("Prevent Magic Bees apiaries from synchronously loading chunks while searching for aura providers")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean preventMagicApiaryChunkLoading;
 
         @Config.Comment("Number of player slots reserved for ranks with cointcore.reserved_slot permission")
         @Config.DefaultInt(5)
@@ -85,6 +96,11 @@ public class CointConfig {
         @Config.RangeInt(min = 1, max = 1200)
         @Config.Reloadable(RELOAD)
         public int sleepCheckIntervalTicks;
+
+        @Config.Comment("Prevent Arcane Bore scans from synchronously loading unloaded chunks")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean preventChunkLoading;
     }
 
     public static class Infusion {
@@ -126,6 +142,24 @@ public class CointConfig {
         @Config.DefaultBoolean(true)
         @Config.Reloadable(RELOAD)
         public boolean spreadGrowthTicks;
+    }
+
+    public static class Restart {
+
+        @Config.Comment("Enable safe automatic restarts through CointCore")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean autoEnabled;
+
+        @Config.Comment("Automatic restart times in server local time. Use HH:mm; midnight is 00:00")
+        @Config.DefaultStringList({ "00:00", "06:00", "12:00", "18:00" })
+        @Config.Reloadable(RELOAD)
+        public String[] autoTimes;
+
+        @Config.Comment("Show time remaining until the next restart in the ServerUtilities TAB footer")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean showInTab;
     }
 
     public static class Cleaner {
@@ -262,6 +296,16 @@ public class CointConfig {
         @Config.RangeInt(min = 1, max = 20)
         @Config.Reloadable(RELOAD)
         public int aiThrottleInterval;
+
+        @Config.Comment("Skip Forge LivingUpdateEvent on throttled far-entity ticks")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean livingUpdateThrottleEnabled;
+
+        @Config.Comment("Prevent vanilla chest adjacency checks from synchronously loading neighboring chunks")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean preventChestChunkLoading;
 
         @Config.Comment("Make the vanilla per-dimension natural spawn cap static, ignoring player spread")
         @Config.DefaultBoolean(false)

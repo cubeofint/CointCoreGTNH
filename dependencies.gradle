@@ -45,6 +45,7 @@ dependencies {
     implementation("com.github.GTNewHorizons:BetterQuesting:3.8.71-GTNH:dev") { transitive = false }
     implementation("com.github.GTNewHorizons:ServerUtilities:2.3.1:dev") { transitive = false }
     implementation("com.github.GTNewHorizons:Galacticraft:3.4.29-GTNH:dev") { transitive = false }
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:TinkersConstruct:1.14.91-GTNH:dev")
     implementation("com.github.GTNewHorizons:PersonalSpace:1.0.39:dev") { transitive = false }
     implementation("com.github.GTNewHorizons:BloodMagic:1.7.52:dev") { transitive = false }
     implementation("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev")
