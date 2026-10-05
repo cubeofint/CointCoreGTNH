@@ -14,6 +14,7 @@ public enum TargetMod implements ITargetMod {
     ENDERIO("EnderIO"),
     FORESTRY("Forestry"),
     GALACTICRAFT("GalacticraftCore"),
+    GREGTECH("gregtech"),
     HARVESTCRAFT("harvestcraft"),
     MATTERMANIPULATOR("matter-manipulator"),
     PERSONALSPACE("personalspace"),

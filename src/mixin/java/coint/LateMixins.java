@@ -49,6 +49,13 @@ public enum LateMixins implements IMixins {
         .setPhase(Phase.LATE)
         .addCommonMixins("galacticraft.MixinGCPlayerHandler")),
 
+    GREGTECH(new MixinBuilder("GregTech").addRequiredMod(TargetMod.GREGTECH)
+        .setPhase(Phase.LATE)
+        .addCommonMixins(
+            "gregtech.AccessorNodeList",
+            "gregtech.MixinNodePowerRoutingCache",
+            "gregtech.MixinMTECablePowerRouting")),
+
     HARVESTCRAFT(new MixinBuilder("Pam's HarvestCraft").addRequiredMod(TargetMod.HARVESTCRAFT)
         .setPhase(Phase.LATE)
         .addCommonMixins("harvestcraft.MixinPamFishTrapChunkGuard")),
