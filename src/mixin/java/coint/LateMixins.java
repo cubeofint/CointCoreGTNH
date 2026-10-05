@@ -29,6 +29,10 @@ public enum LateMixins implements IMixins {
             "bloodmagic.MixinSacrificialDagger",
             "bloodmagic.MixinPlayerSacrificeHandler")),
 
+    BOTANIA(new MixinBuilder("Botania").addRequiredMod(TargetMod.BOTANIA)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("botania.MixinTileSpreaderChunkGuard", "botania.MixinEntityManaBurstChunkGuard")),
+
     CROPSNH(new MixinBuilder("CropsNH").addRequiredMod(TargetMod.CROPSNH)
         .setPhase(Phase.LATE)
         .addCommonMixins("cropsnh.MixinCropStickPhase")),
@@ -44,6 +48,10 @@ public enum LateMixins implements IMixins {
     GALACTICRAFT(new MixinBuilder("GalactiCraft").addRequiredMod(TargetMod.GALACTICRAFT)
         .setPhase(Phase.LATE)
         .addCommonMixins("galacticraft.MixinGCPlayerHandler")),
+
+    HARVESTCRAFT(new MixinBuilder("Pam's HarvestCraft").addRequiredMod(TargetMod.HARVESTCRAFT)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("harvestcraft.MixinPamFishTrapChunkGuard")),
 
     MATTERMANIPULATOR(new MixinBuilder("MatterManipulator").addRequiredMod(TargetMod.MATTERMANIPULATOR)
         .setPhase(Phase.LATE)
@@ -62,12 +70,15 @@ public enum LateMixins implements IMixins {
             "serverutilities.MixinCmdHome",
             "serverutilities.MixinCmdSetHome",
             "serverutilities.MixinServerUtilitiesTeamData",
-            "serverutilities.MixinForgeTeamPDimReward")
+            "serverutilities.MixinForgeTeamPDimReward",
+            "serverutilities.MixinClaimedChunksDisabledRightClick")
         .addClientMixins("serverutilities.MixinMessageUpdateTabName")),
 
     THAUMICEXPLORATION(new MixinBuilder("Thaumic Exploration").addRequiredMod(TargetMod.THAUMICEXPLORATION)
         .setPhase(Phase.LATE)
-        .addCommonMixins("thaumicexploration.MixinTXBootsEventHandler")),
+        .addCommonMixins(
+            "thaumicexploration.MixinTXBootsEventHandler",
+            "thaumicexploration.MixinEverfullUrnChunkGuard")),
 
     THAUMCRAFT(new MixinBuilder("Thaumcraft").addRequiredMod(TargetMod.THAUMCRAFT)
         .setPhase(Phase.LATE)

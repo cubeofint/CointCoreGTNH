@@ -3,6 +3,7 @@ package coint;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import coint.integration.discord.DiscordServerStatus;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
@@ -69,10 +70,12 @@ public class CointCore {
         // At this point ServerUtilities is fully started and Universe is valid.
         serverUtilitiesUniverse = Universe.get();
         proxy.serverStarted(event);
+        DiscordServerStatus.start();
     }
 
     @Mod.EventHandler
     public void serverStopping(FMLServerStoppingEvent event) {
+        DiscordServerStatus.shutdown();
         // Because CointCore loads after ServerUtilities, ServerUtilities has already
         // set Universe.INSTANCE to null by the time this callback runs. Use the
         // object cached in serverStarted instead of calling Universe.get() here.

@@ -361,6 +361,27 @@ public class CointConfig {
         @Config.RangeInt(min = 1, max = 30)
         @Config.Reloadable(RELOAD)
         public int pollIntervalSeconds;
+
+        @Config.Comment("Discord channel ID for the pinned server-status message. Empty = use the main Discord chat channel")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String statusChannelId;
+
+        @Config.Comment("Server name shown in the Discord status message. Empty = derive it from api.serverTag")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String statusServerName;
+
+        @Config.Comment("Server-status message update interval in seconds")
+        @Config.DefaultInt(10)
+        @Config.RangeInt(min = 5, max = 300)
+        @Config.Reloadable(RELOAD)
+        public int statusUpdateSeconds;
+
+        @Config.Comment("Send Discord messages when this server starts and stops")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean announceServerLifecycle;
     }
 
     // TODO: move to client mod

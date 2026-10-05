@@ -95,7 +95,8 @@ public final class TabRankSorter {
         Set<String> removedCustom = new HashSet<>(lastCustomNames);
         removedCustom.removeAll(snapshot.customNames);
 
-        for (var forgePlayer : Universe.get().getOnlinePlayers()) {
+        for (var forgePlayer : Universe.get()
+            .getOnlinePlayers()) {
             EntityPlayerMP viewer = forgePlayer.getPlayer();
             if (viewer != null) {
                 sendSnapshot(viewer, snapshot, removedCustom);
@@ -109,7 +110,8 @@ public final class TabRankSorter {
     private static Snapshot buildSnapshot() {
         List<PlayerEntry> entries = new ArrayList<>();
         if (Ranks.INSTANCE != null) {
-            for (var forgePlayer : Universe.get().getOnlinePlayers()) {
+            for (var forgePlayer : Universe.get()
+                .getOnlinePlayers()) {
                 EntityPlayerMP player = forgePlayer.getPlayer();
                 if (player != null) {
                     entries.add(createEntry(player));
@@ -180,7 +182,8 @@ public final class TabRankSorter {
         Rank progressRank = null;
 
         try {
-            for (Rank rank : Ranks.INSTANCE.getPlayerRank(player).getActualParents()) {
+            for (Rank rank : Ranks.INSTANCE.getPlayerRank(player)
+                .getActualParents()) {
                 String id = rank.getId();
                 if (id == null) continue;
 
@@ -211,7 +214,8 @@ public final class TabRankSorter {
                     continue;
                 }
 
-                if (!rank.getLocalPermission(ServerUtilitiesPermissions.CHAT_NAME_FORMAT).isEmpty()) {
+                if (!rank.getLocalPermission(ServerUtilitiesPermissions.CHAT_NAME_FORMAT)
+                    .isEmpty()) {
                     otherPriority = Math.max(otherPriority, priority);
                 }
             }
@@ -247,14 +251,18 @@ public final class TabRankSorter {
         StringBuilder name = new StringBuilder();
 
         if (!prefix.isEmpty()) {
-            name.append(prefix).append(' ');
+            name.append(prefix)
+                .append(' ');
         }
 
         if (!progress.isEmpty()) {
-            name.append(progress).append(' ');
+            name.append(progress)
+                .append(' ');
         }
 
-        name.append("§r").append(entry.name).append("§r");
+        name.append("§r")
+            .append(entry.name)
+            .append("§r");
 
         return name.toString();
     }
@@ -295,15 +303,17 @@ public final class TabRankSorter {
             format = format.substring(0, nameIndex);
         }
 
-        return ensureReset(format.replace("<", "")
-            .replace(">", "")
-            .replaceAll(":\\s*$", "")
-            .trim());
+        return ensureReset(
+            format.replace("<", "")
+                .replace(">", "")
+                .replaceAll(":\\s*$", "")
+                .trim());
     }
 
     private static String normalizeFormatting(String value) {
         if (value == null || value.isEmpty()) return "";
-        return value.replace('&', '§').trim();
+        return value.replace('&', '§')
+            .trim();
     }
 
     private static String ensureReset(String value) {
@@ -347,15 +357,8 @@ public final class TabRankSorter {
         private final Rank primaryRank;
         private final Rank progressRank;
 
-        private PlayerEntry(
-            String name,
-            int category,
-            int staffPriority,
-            int donorPriority,
-            int progressPriority,
-            int otherPriority,
-            Rank primaryRank,
-            Rank progressRank) {
+        private PlayerEntry(String name, int category, int staffPriority, int donorPriority, int progressPriority,
+            int otherPriority, Rank primaryRank, Rank progressRank) {
             this.name = name;
             this.category = category;
             this.staffPriority = staffPriority;
