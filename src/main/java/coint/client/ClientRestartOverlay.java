@@ -55,7 +55,8 @@ public final class ClientRestartOverlay {
             return;
         }
 
-        int milestone = crossedMilestone(lastSeconds, seconds);
+        int milestone = lastSeconds >= 0 && Math.abs(lastSeconds - seconds) > 10 ? exactMilestone(seconds)
+            : crossedMilestone(lastSeconds, seconds);
         if (milestone > 0) {
             centerText = milestoneText(milestone);
             centerUntil = now + CENTER_DURATION_MS;
@@ -80,6 +81,18 @@ public final class ClientRestartOverlay {
             }
         }
         return 0;
+    }
+
+    private static int exactMilestone(int seconds) {
+        switch (seconds) {
+            case 1800:
+            case 900:
+            case 300:
+            case 60:
+                return seconds;
+            default:
+                return 0;
+        }
     }
 
     private static String milestoneText(int seconds) {

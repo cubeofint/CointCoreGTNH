@@ -155,7 +155,8 @@ public final class DiscordServerStatus {
             for (Object value : server.getConfigurationManager().playerEntityList) {
                 if (value instanceof EntityPlayerMP) {
                     String name = ((EntityPlayerMP) value).getCommandSenderName();
-                    if (name != null && !name.trim().isEmpty()) players.add(name.trim());
+                    if (name != null && !name.trim()
+                        .isEmpty()) players.add(name.trim());
                 }
             }
         }
@@ -169,7 +170,9 @@ public final class DiscordServerStatus {
             JsonObject payload = buildStatusPayload(current == null ? null : current.message, snapshot, config);
 
             if (current == null) {
-                warnRateLimited("[DiscordStatus] Existing status message was not found; no new message will be created", new Object[0]);
+                warnRateLimited(
+                    "[DiscordStatus] Existing status message was not found; no new message will be created",
+                    new Object[0]);
                 return;
             }
 
@@ -205,6 +208,9 @@ public final class DiscordServerStatus {
             if (response.code == 403 || response.code == 404) statusMessageId = null;
         }
 
+        StatusMessage pinned = resolvePinnedStatusMessage(config);
+        if (pinned != null) return pinned;
+
         HttpResult response = requestWithRetry(
             "GET",
             API_BASE + config.channelId + "/messages?limit=100",
@@ -227,14 +233,21 @@ public final class DiscordServerStatus {
             JsonObject message = element.getAsJsonObject();
             if (!isBotMessage(message)) continue;
             JsonObject embed = firstEmbed(message);
-            if (embed == null || !embed.has("title") || !STATUS_TITLE.equals(embed.get("title").getAsString())) continue;
+            if (embed == null || !embed.has("title")
+                || !STATUS_TITLE.equals(
+                    embed.get("title")
+                        .getAsString()))
+                continue;
 
             if (hasMarker(embed)) {
-                String id = message.get("id").getAsString();
+                String id = message.get("id")
+                    .getAsString();
                 statusMessageId = id;
                 return new StatusMessage(id, message);
             }
-            if (pinnedFallback == null && message.has("pinned") && message.get("pinned").getAsBoolean()) {
+            if (pinnedFallback == null && message.has("pinned")
+                && message.get("pinned")
+                    .getAsBoolean()) {
                 pinnedFallback = message;
             }
             if (fallback == null) fallback = message;
@@ -242,9 +255,58 @@ public final class DiscordServerStatus {
 
         JsonObject selected = pinnedFallback == null ? fallback : pinnedFallback;
         if (selected != null && selected.has("id")) {
-            String id = selected.get("id").getAsString();
+            String id = selected.get("id")
+                .getAsString();
             statusMessageId = id;
             return new StatusMessage(id, selected);
+        }
+        return null;
+    }
+
+    private static StatusMessage resolvePinnedStatusMessage(ConfigState config) throws IOException {
+        HttpResult response = requestWithRetry(
+            "GET",
+            API_BASE + config.channelId + "/messages/pins?limit=50",
+            config.token,
+            null);
+        if (!response.success()) return null;
+
+        JsonObject root = parseObject(response.body);
+        if (root == null || !root.has("items")
+            || !root.get("items")
+                .isJsonArray())
+            return null;
+
+        JsonObject fallback = null;
+        for (JsonElement element : root.getAsJsonArray("items")) {
+            if (!element.isJsonObject()) continue;
+            JsonObject pin = element.getAsJsonObject();
+            if (!pin.has("message") || !pin.get("message")
+                .isJsonObject()) continue;
+
+            JsonObject message = pin.getAsJsonObject("message");
+            if (!isBotMessage(message)) continue;
+            JsonObject embed = firstEmbed(message);
+            if (embed == null || !embed.has("title")
+                || !STATUS_TITLE.equals(
+                    embed.get("title")
+                        .getAsString()))
+                continue;
+
+            if (hasMarker(embed) && message.has("id")) {
+                String id = message.get("id")
+                    .getAsString();
+                statusMessageId = id;
+                return new StatusMessage(id, message);
+            }
+            if (fallback == null && message.has("id")) fallback = message;
+        }
+
+        if (fallback != null) {
+            String id = fallback.get("id")
+                .getAsString();
+            statusMessageId = id;
+            return new StatusMessage(id, fallback);
         }
         return null;
     }
@@ -254,11 +316,14 @@ public final class DiscordServerStatus {
         boolean replaced = false;
 
         JsonObject oldEmbed = firstEmbed(current);
-        if (oldEmbed != null && oldEmbed.has("fields") && oldEmbed.get("fields").isJsonArray()) {
+        if (oldEmbed != null && oldEmbed.has("fields")
+            && oldEmbed.get("fields")
+                .isJsonArray()) {
             for (JsonElement element : oldEmbed.getAsJsonArray("fields")) {
                 if (!element.isJsonObject()) continue;
                 JsonObject field = element.getAsJsonObject();
-                String name = field.has("name") ? field.get("name").getAsString() : "";
+                String name = field.has("name") ? field.get("name")
+                    .getAsString() : "";
                 if (matchesServerField(name, snapshot.serverName)) {
                     if (!replaced) {
                         fields.add(buildServerField(snapshot));
@@ -277,7 +342,9 @@ public final class DiscordServerStatus {
             if (!element.isJsonObject()) continue;
             JsonObject field = element.getAsJsonObject();
             if (!field.has("value")) continue;
-            totalOnline += parseOnline(field.get("value").getAsString());
+            totalOnline += parseOnline(
+                field.get("value")
+                    .getAsString());
         }
 
         JsonObject embed = new JsonObject();
@@ -285,7 +352,8 @@ public final class DiscordServerStatus {
         embed.addProperty(
             "description",
             "Общий онлайн игроков: " + totalOnline
-                + ".\nИнформация обновляется раз " + config.updateSeconds
+                + ".\nИнформация обновляется раз "
+                + config.updateSeconds
                 + " сек.\nСлоты на серверах измеряются в командах (SU Teams).");
         embed.add("fields", fields);
 
@@ -317,7 +385,9 @@ public final class DiscordServerStatus {
         if (snapshot.players.isEmpty()) return "Игроков: 0\nЗдесь пусто(";
 
         StringBuilder value = new StringBuilder();
-        value.append("Игроков: ").append(snapshot.players.size()).append('\n');
+        value.append("Игроков: ")
+            .append(snapshot.players.size())
+            .append('\n');
         for (String player : snapshot.players) {
             if (value.length() > 950) {
                 value.append("…");
@@ -348,22 +418,34 @@ public final class DiscordServerStatus {
     }
 
     private static boolean isBotMessage(JsonObject message) {
-        if (message == null || !message.has("author") || !message.get("author").isJsonObject()) return false;
+        if (message == null || !message.has("author")
+            || !message.get("author")
+                .isJsonObject())
+            return false;
         JsonObject author = message.getAsJsonObject("author");
-        return author.has("bot") && author.get("bot").getAsBoolean();
+        return author.has("bot") && author.get("bot")
+            .getAsBoolean();
     }
 
     private static boolean hasMarker(JsonObject embed) {
-        if (!embed.has("footer") || !embed.get("footer").isJsonObject()) return false;
+        if (!embed.has("footer") || !embed.get("footer")
+            .isJsonObject()) return false;
         JsonObject footer = embed.getAsJsonObject("footer");
-        return footer.has("text") && STATUS_MARKER.equals(footer.get("text").getAsString());
+        return footer.has("text") && STATUS_MARKER.equals(
+            footer.get("text")
+                .getAsString());
     }
 
     private static JsonObject firstEmbed(JsonObject message) {
-        if (message == null || !message.has("embeds") || !message.get("embeds").isJsonArray()) return null;
+        if (message == null || !message.has("embeds")
+            || !message.get("embeds")
+                .isJsonArray())
+            return null;
         JsonArray embeds = message.getAsJsonArray("embeds");
-        if (embeds.size() == 0 || !embeds.get(0).isJsonObject()) return null;
-        return embeds.get(0).getAsJsonObject();
+        if (embeds.size() == 0 || !embeds.get(0)
+            .isJsonObject()) return null;
+        return embeds.get(0)
+            .getAsJsonObject();
     }
 
     private static void postPlainMessage(ConfigState config, String text) {
@@ -380,7 +462,9 @@ public final class DiscordServerStatus {
                 config.token,
                 payload);
             if (!response.success()) {
-                warnRateLimited("[DiscordStatus] Discord API returned HTTP {} while sending lifecycle message", response.code);
+                warnRateLimited(
+                    "[DiscordStatus] Discord API returned HTTP {} while sending lifecycle message",
+                    response.code);
             }
         } catch (IOException e) {
             warnRateLimited("[DiscordStatus] Failed to send lifecycle message: {}", e.getMessage());
@@ -405,7 +489,8 @@ public final class DiscordServerStatus {
 
         int updateSeconds = Math.max(5, CointConfig.discord.statusUpdateSeconds);
         boolean valid = CointConfig.discord.enabled && !token.isEmpty() && channelId.matches("\\d{15,25}");
-        String key = Integer.toHexString(token.hashCode()) + "\n" + channelId + "\n" + serverName + "\n" + tag + "\n" + updateSeconds;
+        String key = Integer.toHexString(
+            token.hashCode()) + "\n" + channelId + "\n" + serverName + "\n" + tag + "\n" + updateSeconds;
         return new ConfigState(
             token,
             channelId,
@@ -425,8 +510,11 @@ public final class DiscordServerStatus {
     }
 
     private static String cleanLabel(String value) {
-        String clean = trim(value).replace('§', '?').replace('\r', ' ').replace('\n', ' ');
-        clean = clean.replaceAll("\\s{2,}", " ").trim();
+        String clean = trim(value).replace('§', '?')
+            .replace('\r', ' ')
+            .replace('\n', ' ');
+        clean = clean.replaceAll("\\s{2,}", " ")
+            .trim();
         if (clean.length() > 80) clean = clean.substring(0, 80);
         return clean;
     }
@@ -462,15 +550,19 @@ public final class DiscordServerStatus {
             try {
                 Thread.sleep(1000L);
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                Thread.currentThread()
+                    .interrupt();
                 return last;
             }
         }
         return last == null ? new HttpResult(599, "") : last;
     }
 
-    private static HttpResult request(String method, String endpoint, String token, JsonObject payload) throws IOException {
-        byte[] data = payload == null ? null : payload.toString().getBytes(StandardCharsets.UTF_8);
+    private static HttpResult request(String method, String endpoint, String token, JsonObject payload)
+        throws IOException {
+        byte[] data = payload == null ? null
+            : payload.toString()
+                .getBytes(StandardCharsets.UTF_8);
         if ("PATCH".equals(method)) return patch(endpoint, token, data == null ? new byte[0] : data);
 
         HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
@@ -503,7 +595,8 @@ public final class DiscordServerStatus {
     private static HttpResult patch(String endpoint, String token, byte[] data) throws IOException {
         URL url = new URL(endpoint);
         int port = url.getPort() > 0 ? url.getPort() : 443;
-        SSLSocket socket = (SSLSocket) SSLSocketFactory.getDefault().createSocket(url.getHost(), port);
+        SSLSocket socket = (SSLSocket) SSLSocketFactory.getDefault()
+            .createSocket(url.getHost(), port);
         try {
             socket.setSoTimeout(7000);
             socket.setTcpNoDelay(true);
@@ -512,13 +605,20 @@ public final class DiscordServerStatus {
             String path = url.getFile();
             if (path == null || path.isEmpty()) path = "/";
             String host = port == 443 ? url.getHost() : url.getHost() + ":" + port;
-            String headers = "PATCH " + path + " HTTP/1.1\r\n"
-                + "Host: " + host + "\r\n"
-                + "Authorization: Bot " + token + "\r\n"
+            String headers = "PATCH " + path
+                + " HTTP/1.1\r\n"
+                + "Host: "
+                + host
+                + "\r\n"
+                + "Authorization: Bot "
+                + token
+                + "\r\n"
                 + "User-Agent: CointCoreGTNH\r\n"
                 + "Accept: application/json\r\n"
                 + "Content-Type: application/json; charset=UTF-8\r\n"
-                + "Content-Length: " + data.length + "\r\n"
+                + "Content-Length: "
+                + data.length
+                + "\r\n"
                 + "Connection: close\r\n\r\n";
 
             BufferedOutputStream output = new BufferedOutputStream(socket.getOutputStream());
@@ -614,15 +714,8 @@ public final class DiscordServerStatus {
         private final String key;
         private final boolean valid;
 
-        private ConfigState(
-            String token,
-            String channelId,
-            String serverName,
-            String tag,
-            int updateSeconds,
-            boolean announceLifecycle,
-            String key,
-            boolean valid) {
+        private ConfigState(String token, String channelId, String serverName, String tag, int updateSeconds,
+            boolean announceLifecycle, String key, boolean valid) {
             this.token = token;
             this.channelId = channelId;
             this.serverName = serverName;

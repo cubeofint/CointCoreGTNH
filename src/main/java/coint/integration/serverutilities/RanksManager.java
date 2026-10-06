@@ -1,11 +1,18 @@
 package coint.integration.serverutilities;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.mojang.authlib.GameProfile;
 
 import betterquesting.api.questing.party.IParty;
 import coint.epochsync.EpochEntry;
@@ -85,10 +92,96 @@ public class RanksManager {
                 epochRanks.put(entry.rankName, createEpoch(entry));
             }
         }
+        recoverMissingPlayerRanks(ranks);
         ranks.ranks.putAll(epochRanks);
         ranks.clearCache();
         ranks.save();
         LOG.info("[EpochSync] Registered {} epoch ranks into ServerUtilities", epochRanks.size());
+    }
+
+    private static void recoverMissingPlayerRanks(Ranks ranks) {
+        File playersFile = ranks.universe.server.getFile("serverutilities/server/players.txt");
+        if (!playersFile.isFile()) {
+            return;
+        }
+
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(playersFile.toPath(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            LOG.warn("[EpochSync] Failed to inspect ServerUtilities players.txt before rank save", e);
+            return;
+        }
+
+        String lastComment = "";
+        PlayerRank current = null;
+        int recovered = 0;
+
+        for (String line : lines) {
+            String value = line.trim();
+            if (value.isEmpty()) {
+                lastComment = "";
+                current = null;
+                continue;
+            }
+            if (value.startsWith("//")) {
+                lastComment = value.substring(2)
+                    .trim();
+                continue;
+            }
+            if (value.startsWith("[") && value.endsWith("]")) {
+                String idText = value.substring(1, value.length() - 1)
+                    .trim();
+                UUID id = parsePlayerUuid(idText);
+                current = null;
+                if (id != null && !ranks.playerRanks.containsKey(id)) {
+                    current = ranks.getPlayerRank(new GameProfile(id, lastComment));
+                    ranks.ranks.remove(idText);
+                    ranks.ranks.remove(id.toString());
+                    recovered++;
+                }
+                lastComment = "";
+                continue;
+            }
+            if (current == null) {
+                continue;
+            }
+
+            int split = value.indexOf(':');
+            if (split <= 0) {
+                continue;
+            }
+            String node = value.substring(0, split)
+                .trim();
+            String permissionValue = value.substring(split + 1)
+                .trim();
+            if (!node.isEmpty() && !permissionValue.isEmpty()) {
+                current.setPermission(node, permissionValue);
+            }
+        }
+
+        if (recovered > 0) {
+            LOG.warn("[EpochSync] Recovered {} ServerUtilities player rank entries before save", recovered);
+        }
+    }
+
+    private static UUID parsePlayerUuid(String value) {
+        String normalized = value;
+        if (normalized.length() == 32) {
+            normalized = normalized.substring(0, 8) + "-"
+                + normalized.substring(8, 12)
+                + "-"
+                + normalized.substring(12, 16)
+                + "-"
+                + normalized.substring(16, 20)
+                + "-"
+                + normalized.substring(20);
+        }
+        try {
+            return UUID.fromString(normalized);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     /**

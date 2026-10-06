@@ -5,7 +5,12 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.spongepowered.asm.lib.Opcodes;
 import org.spongepowered.asm.lib.tree.ClassNode;
+import org.spongepowered.asm.lib.tree.InsnNode;
+import org.spongepowered.asm.lib.tree.MethodInsnNode;
+import org.spongepowered.asm.lib.tree.MethodNode;
+import org.spongepowered.asm.lib.tree.VarInsnNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
@@ -26,6 +31,9 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
 
     public static final Logger LOG = LogManager.getLogger("cointcore-mixin");
     private static final String BLOODMAGIC_MIXIN_PREFIX = "coint.mixin.bloodmagic.";
+    private static final String HODGEPODGE_FAST_PATH_MIXIN = "coint.mixin.minecraft.MixinWorldServerHodgepodgeFastPath";
+    private static final String HODGEPODGE_TICK_DESC = "(Lnet/minecraft/block/Block;Lnet/minecraft/world/World;IIILjava/util/Random;"
+        + "Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;)V";
 
     @Override
     public void onLoad(String mixinPackage) {}
@@ -127,6 +135,45 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
                 mixinClassName,
                 targetClassName,
                 mixinInfo == null ? "null" : mixinInfo.getName());
+        }
+        if (HODGEPODGE_FAST_PATH_MIXIN.equals(mixinClassName)) {
+            patchHodgepodgeUpdateTick(targetClass);
+        }
+    }
+
+    private void patchHodgepodgeUpdateTick(ClassNode targetClass) {
+        for (MethodNode method : targetClass.methods) {
+            if (!method.name.contains("hodgepodge$onUpdateTick") || !HODGEPODGE_TICK_DESC.equals(method.desc)) {
+                continue;
+            }
+
+            method.instructions.clear();
+            method.tryCatchBlocks.clear();
+            if (method.localVariables != null) {
+                method.localVariables.clear();
+            }
+
+            method.instructions.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            method.instructions.add(new VarInsnNode(Opcodes.ALOAD, 1));
+            method.instructions.add(new VarInsnNode(Opcodes.ALOAD, 2));
+            method.instructions.add(new VarInsnNode(Opcodes.ILOAD, 3));
+            method.instructions.add(new VarInsnNode(Opcodes.ILOAD, 4));
+            method.instructions.add(new VarInsnNode(Opcodes.ILOAD, 5));
+            method.instructions.add(new VarInsnNode(Opcodes.ALOAD, 6));
+            method.instructions.add(new VarInsnNode(Opcodes.ALOAD, 7));
+            method.instructions.add(
+                new MethodInsnNode(
+                    Opcodes.INVOKESTATIC,
+                    "coint/performance/HodgepodgeBlockTickFastPath",
+                    "run",
+                    "(Lnet/minecraft/world/WorldServer;Lnet/minecraft/block/Block;Lnet/minecraft/world/World;"
+                        + "IIILjava/util/Random;Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;)V",
+                    false));
+            method.instructions.add(new InsnNode(Opcodes.RETURN));
+            method.maxStack = 8;
+            method.maxLocals = 8;
+            LOG.info("[Perf] Hodgepodge block update wrapper fast path installed");
+            return;
         }
     }
 

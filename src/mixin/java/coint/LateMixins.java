@@ -11,7 +11,8 @@ public enum LateMixins implements IMixins {
             "appliedenergistics2.MixinAEBaseTileChunkUnload",
             "appliedenergistics2.MixinGridNodeBatchDestroy",
             "appliedenergistics2.MixinGridConnectionBatchDestroy",
-            "appliedenergistics2.MixinTickHandlerUnloadFlush")),
+            "appliedenergistics2.MixinTickHandlerUnloadFlush",
+            "appliedenergistics2.MixinSlotCraftingTermBatchRefresh")),
 
     BACKPACK(new MixinBuilder("Backpacks").addRequiredMod(TargetMod.BACKPACK)
         .setPhase(Phase.LATE)
@@ -54,7 +55,8 @@ public enum LateMixins implements IMixins {
         .addCommonMixins(
             "gregtech.AccessorNodeList",
             "gregtech.MixinNodePowerRoutingCache",
-            "gregtech.MixinMTECablePowerRouting")),
+            "gregtech.MixinMTECablePowerRouting",
+            "gregtech.MixinBaseMetaTileEntityEUIOFaces")),
 
     HARVESTCRAFT(new MixinBuilder("Pam's HarvestCraft").addRequiredMod(TargetMod.HARVESTCRAFT)
         .setPhase(Phase.LATE)
@@ -77,6 +79,7 @@ public enum LateMixins implements IMixins {
             "serverutilities.MixinCmdHome",
             "serverutilities.MixinCmdSetHome",
             "serverutilities.MixinServerUtilitiesTeamData",
+            "serverutilities.MixinUniverseDottedPlayerName",
             "serverutilities.MixinForgeTeamPDimReward",
             "serverutilities.MixinClaimedChunksDisabledRightClick")
         .addClientMixins("serverutilities.MixinMessageUpdateTabName")),
