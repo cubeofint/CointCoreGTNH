@@ -76,6 +76,14 @@ public class CointConfig {
         @Config.Reloadable(RELOAD)
         public int reservedSlots;
 
+        @Config.Comment("Radius in chunks around each player for random block ticks (crop growth, grass, leaves, snow, "
+            + "lightning). Chunks further away but within view-distance are still sent and their tile entities and "
+            + "entities still tick. Chunk-loaded chunks always tick. 0 = use server view-distance (vanilla)")
+        @Config.DefaultInt(0)
+        @Config.RangeInt(min = 0, max = 32)
+        @Config.Reloadable(RELOAD)
+        public int randomTickChunkRadius;
+
     }
 
     public static class ArcaneBore {

@@ -413,19 +413,47 @@ public final class WorldTravelManager {
             return true;
         }
 
-        UUID quest = decodeQuestId(destination.requiredQuest);
-        if (quest == null) {
-            CointCore.LOG.error(
-                "[WorldTravel] Destination '{}' has invalid requiredQuest '{}'",
-                destination.id,
-                destination.requiredQuest);
-            return false;
+        // Several quests separated by '|' or ',' are alternatives: any completed one grants access
+        // (e.g. rocket quest OR space elevator quest).
+        for (String raw : splitQuestIds(destination.requiredQuest)) {
+            UUID quest = decodeQuestId(raw);
+            if (quest == null) {
+                CointCore.LOG
+                    .error("[WorldTravel] Destination '{}' has invalid requiredQuest '{}'", destination.id, raw);
+                continue;
+            }
+            if (BetterQuestingAccess.isQuestComplete(player, quest)) {
+                return true;
+            }
         }
-        return BetterQuestingAccess.isQuestComplete(player, quest);
+        return false;
     }
 
     public static boolean isValidQuestId(String value) {
-        return decodeQuestId(value) != null;
+        List<String> ids = splitQuestIds(value);
+        if (ids.isEmpty()) {
+            return false;
+        }
+        for (String id : ids) {
+            if (decodeQuestId(id) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static List<String> splitQuestIds(String raw) {
+        List<String> ids = new ArrayList<>();
+        if (raw == null) {
+            return ids;
+        }
+        for (String part : raw.split("[|,]")) {
+            String id = part.trim();
+            if (!id.isEmpty()) {
+                ids.add(id);
+            }
+        }
+        return ids;
     }
 
     private static UUID decodeQuestId(String raw) {
@@ -487,6 +515,10 @@ public final class WorldTravelManager {
         if (destination.requirementText != null && !destination.requirementText.trim()
             .isEmpty()) {
             return destination.requirementText.trim();
+        }
+        List<String> ids = splitQuestIds(destination.requiredQuest);
+        if (ids.size() > 1) {
+            return "Требуется один из квестов: " + String.join(" или ", ids);
         }
         return "Требуется квест " + destination.requiredQuest.trim();
     }

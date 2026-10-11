@@ -12,7 +12,8 @@ public enum LateMixins implements IMixins {
             "appliedenergistics2.MixinGridNodeBatchDestroy",
             "appliedenergistics2.MixinGridConnectionBatchDestroy",
             "appliedenergistics2.MixinTickHandlerUnloadFlush",
-            "appliedenergistics2.MixinSlotCraftingTermBatchRefresh")),
+            "appliedenergistics2.MixinSlotCraftingTermBatchRefresh",
+            "appliedenergistics2.MixinPartExportBusOreCache")),
 
     BACKPACK(new MixinBuilder("Backpacks").addRequiredMod(TargetMod.BACKPACK)
         .setPhase(Phase.LATE)
@@ -20,7 +21,12 @@ public enum LateMixins implements IMixins {
 
     BETTERQUESTING(new MixinBuilder("BetterQuesting").addRequiredMod(TargetMod.BETTERQUESTING)
         .setPhase(Phase.LATE)
-        .addCommonMixins("betterquesting.MixinPartyInstance", "betterquesting.MixinRewardItemTeamReward")),
+        .addCommonMixins(
+            "betterquesting.MixinPartyInstance",
+            "betterquesting.MixinRewardItemTeamReward",
+            "betterquesting.MixinQuestCacheUpdateMemo",
+            "betterquesting.MixinQuestInstanceStateMemo",
+            "betterquesting.MixinBQStandardInventoryThrottle")),
 
     BLOODMAGIC(new MixinBuilder("BloodMagic").addRequiredMod(TargetMod.BLOODMAGIC)
         .setPhase(Phase.LATE)

@@ -29,7 +29,7 @@ public class CommandWorldsAdmin extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/worldsadmin add <id> <name...> | setpos <id> | tier <id> <0+> | quest <id> <questId|none> | requirement <id> <text...|none> | protect <id> <true|false> | enable <id> <true|false> | remove <id> | info <id> | list";
+        return "/worldsadmin add <id> <name...> | setpos <id> | tier <id> <0+> | quest <id> <questId...|none> | requirement <id> <text...|none> | protect <id> <true|false> | enable <id> <true|false> | remove <id> | info <id> | list";
     }
 
     @Override
@@ -140,10 +140,11 @@ public class CommandWorldsAdmin extends CommandBase {
     }
 
     private void setQuest(ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 3) {
-            throw new WrongUsageException("/worldsadmin quest <id> <questId|none>");
+        if (args.length < 3) {
+            throw new WrongUsageException("/worldsadmin quest <id> <questId...|none>");
         }
-        String quest = args[2];
+        // Several quest IDs (separated by space, ',' or '|') are OR alternatives.
+        String quest = String.join(" | ", join(args, 2).split("[\\s|,]+"));
         if ("none".equalsIgnoreCase(quest)) {
             quest = "";
         } else if (!WorldTravelManager.isValidQuestId(quest)) {
