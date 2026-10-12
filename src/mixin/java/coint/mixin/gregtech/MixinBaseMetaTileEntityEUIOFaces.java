@@ -7,6 +7,7 @@ import net.minecraftforge.common.util.ForgeDirection;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -32,8 +33,23 @@ public abstract class MixinBaseMetaTileEntityEUIOFaces {
     @Shadow
     private boolean mReleaseEnergy;
 
+    /** Facing the faces were last computed for; null until the first full computation. */
+    @Unique
+    private ForgeDirection cointcore$euFacesFacing;
+
     @Inject(method = "updateActiveEUIOFaces", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
     private void cointcore$fastUpdateActiveEUIOFaces(CallbackInfo ci) {
+        BaseMetaTileEntity self = (BaseMetaTileEntity) (Object) this;
+        // Faces only change with facing (recomputed at once) or covers (picked up within a second), so recompute
+        // every 20 ticks, staggered per machine, instead of every tick.
+        ForgeDirection facing = self.getFrontFacing();
+        if (!this.mReleaseEnergy && facing == this.cointcore$euFacesFacing
+            && (self.mTickTimer + (System.identityHashCode(this) & 0xFF)) % 20 != 0) {
+            ci.cancel();
+            return;
+        }
+        this.cointcore$euFacesFacing = facing;
+
         MetaTileEntity meta = this.mMetaTileEntity;
         boolean enetInput = meta.isEnetInput();
         boolean enetOutput = meta.isEnetOutput();
@@ -42,7 +58,6 @@ public abstract class MixinBaseMetaTileEntityEUIOFaces {
             return;
         }
 
-        BaseMetaTileEntity self = (BaseMetaTileEntity) (Object) this;
         if (this.mReleaseEnergy) {
             Arrays.fill(this.mActiveEUInputs, false);
             for (ForgeDirection side : ForgeDirection.VALID_DIRECTIONS) {

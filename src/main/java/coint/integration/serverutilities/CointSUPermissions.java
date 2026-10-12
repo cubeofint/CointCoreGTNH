@@ -53,4 +53,7 @@ public final class CointSUPermissions {
 
     public static final String WORLD_TRAVEL_BYPASS = "cointcore.worldtravel.bypass";
     public static final String RESERVED_SLOT = "cointcore.reserved_slot";
+
+    /** Allows placing vanilla mob spawners and moving them with a JABBA dolly. */
+    public static final String SPAWNER_PLACE = "cointcore.spawner.place";
 }

@@ -16,6 +16,8 @@ public enum TargetMod implements ITargetMod {
     GALACTICRAFT("GalacticraftCore"),
     GREGTECH("gregtech"),
     HARVESTCRAFT("harvestcraft"),
+    HEE("HardcoreEnderExpansion"),
+    JABBA("JABBA"),
     HODGEPODGE("hodgepodge"),
     MATTERMANIPULATOR("matter-manipulator"),
     PERSONALSPACE("personalspace"),

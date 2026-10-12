@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 import micdoodle8.mods.galacticraft.core.entities.player.GCPlayerHandler;
+import micdoodle8.mods.galacticraft.core.entities.player.GCPlayerStats;
 import serverutils.lib.util.NBTUtils;
 
 /**
@@ -80,6 +81,27 @@ public class MixinGCPlayerHandler {
     private void cointcore$suppressThermalPotions(EntityPlayerMP player, PotionEffect effect) {
         if (!cointcore$isGodMode(player)) {
             player.addPotionEffect(effect);
+        }
+    }
+
+    // ── Performance: gear render packets ────────────────────────────────────
+
+    /**
+     * {@code checkGear} runs every tick for every player and ends with {@code checkRenderGear}, which sends nine
+     * show/hide gear packets to everyone around (each after a linear player lookup by name). Those packets only drive
+     * how the gear looks to others, so send them once a second, or immediately on a forced resync.
+     */
+    @Redirect(
+        method = "checkGear",
+        at = @At(
+            value = "INVOKE",
+            target = "Lmicdoodle8/mods/galacticraft/core/entities/player/GCPlayerHandler;checkRenderGear(Lnet/minecraft/entity/player/EntityPlayerMP;)V"),
+        require = 0)
+    @SuppressWarnings("unused")
+    private static void cointcore$throttleRenderGear(EntityPlayerMP player, EntityPlayerMP p, GCPlayerStats stats,
+        boolean forceSend) {
+        if (forceSend || player.ticksExisted % 20 == 0) {
+            GCPlayerHandler.checkRenderGear(player);
         }
     }
 }

@@ -13,7 +13,9 @@ public enum LateMixins implements IMixins {
             "appliedenergistics2.MixinGridConnectionBatchDestroy",
             "appliedenergistics2.MixinTickHandlerUnloadFlush",
             "appliedenergistics2.MixinSlotCraftingTermBatchRefresh",
-            "appliedenergistics2.MixinPartExportBusOreCache")),
+            "appliedenergistics2.AccessorNetworkMonitor",
+            "appliedenergistics2.MixinPartExportBusOreCache",
+            "appliedenergistics2.MixinMultiCraftingTrackerRetry")),
 
     BACKPACK(new MixinBuilder("Backpacks").addRequiredMod(TargetMod.BACKPACK)
         .setPhase(Phase.LATE)
@@ -26,7 +28,11 @@ public enum LateMixins implements IMixins {
             "betterquesting.MixinRewardItemTeamReward",
             "betterquesting.MixinQuestCacheUpdateMemo",
             "betterquesting.MixinQuestInstanceStateMemo",
-            "betterquesting.MixinBQStandardInventoryThrottle")),
+            "betterquesting.MixinBQStandardInventoryThrottle",
+            "betterquesting.MixinBQPeriodicCacheRefresh",
+            "betterquesting.MixinQuestInstanceProgressSave",
+            "betterquesting.MixinTaskBaseProgressSave",
+            "betterquesting.MixinTaskProgressableBaseProgressSave")),
 
     BLOODMAGIC(new MixinBuilder("BloodMagic").addRequiredMod(TargetMod.BLOODMAGIC)
         .setPhase(Phase.LATE)
@@ -68,6 +74,14 @@ public enum LateMixins implements IMixins {
         .setPhase(Phase.LATE)
         .addCommonMixins("harvestcraft.MixinPamFishTrapChunkGuard")),
 
+    HEE(new MixinBuilder("Hardcore Ender Expansion").addRequiredMod(TargetMod.HEE)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("hee.MixinHEEWorldDataAsyncSave")),
+
+    JABBA(new MixinBuilder("JABBA").addRequiredMod(TargetMod.JABBA)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("jabba.MixinJabbaDollySpawnerGuard")),
+
     MATTERMANIPULATOR(new MixinBuilder("MatterManipulator").addRequiredMod(TargetMod.MATTERMANIPULATOR)
         .setPhase(Phase.LATE)
         .addCommonMixins("mattermanipulator.MixinAbstractBuildable")),
@@ -83,6 +97,7 @@ public enum LateMixins implements IMixins {
         .setPhase(Phase.LATE)
         .addCommonMixins(
             "serverutilities.MixinCmdHome",
+            "serverutilities.MixinCmdVanishSameDimension",
             "serverutilities.MixinCmdSetHome",
             "serverutilities.MixinServerUtilitiesTeamData",
             "serverutilities.MixinUniverseDottedPlayerName",
@@ -104,6 +119,7 @@ public enum LateMixins implements IMixins {
             "thaumcraft.MixinItemFocusTrade",
             "thaumcraft.MixinItemFocusWarding",
             "thaumcraft.MixinTileArcaneBoreSleep",
+            "thaumcraft.MixinTileArcaneBorePowerCache",
             "thaumcraft.MixinTileInfusionMatrixScan",
             "thaumcraft.MixinEssentiaHandlerSearch"));
 

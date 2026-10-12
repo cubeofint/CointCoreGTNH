@@ -42,5 +42,9 @@ public class PermissionsUtil {
             "Bypass CointCore world travel quest requirements");
         PermissionAPI
             .registerNode(CointSUPermissions.RESERVED_SLOT, DefaultPermissionLevel.OP, "Use reserved player slots");
+        PermissionAPI.registerNode(
+            CointSUPermissions.SPAWNER_PLACE,
+            DefaultPermissionLevel.OP,
+            "Place vanilla mob spawners and move them with a JABBA dolly");
     }
 }

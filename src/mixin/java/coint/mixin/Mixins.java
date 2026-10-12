@@ -24,6 +24,7 @@ public enum Mixins implements IMixins {
         "minecraft.MixinSpawnerAnimals",
         "minecraft.MixinWorldServerHodgepodgeFastPath",
         "minecraft.MixinWorldRandomTickRadius",
+        "minecraft.MixinItemInWorldManagerVanishPatch",
         "backpackmod.MixinEntityPlayerBackpackAudit",
         "backpackmod.MixinNetHandlerPlayServerBackpackAudit"));
 

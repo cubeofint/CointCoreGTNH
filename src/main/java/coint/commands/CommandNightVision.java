@@ -2,19 +2,19 @@ package coint.commands;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.potion.Potion;
-import net.minecraft.potion.PotionEffect;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
+import coint.events.NightVisionHandler;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
 import serverutils.lib.util.permission.PermissionAPI;
 
 public class CommandNightVision extends CommandBase {
 
     public static final String PERMISSION = "cointcore.command.nv";
-    private static final int INFINITE_DURATION = Integer.MAX_VALUE;
 
     public CommandNightVision() {
         PermissionAPI.registerNode(PERMISSION, DefaultPermissionLevel.OP, "CointCore night vision permission");
@@ -40,14 +40,14 @@ public class CommandNightVision extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
-        EntityPlayer player = (EntityPlayer) sender;
-        if (player.isPotionActive(Potion.nightVision)) {
-            player.removePotionEffect(Potion.nightVision.id);
-            sendSuccess(sender, "Ночное видение выключено");
-        } else {
-            player.addPotionEffect(new PotionEffect(Potion.nightVision.id, INFINITE_DURATION, 0, true));
-            sendSuccess(sender, "Ночное видение включено");
+        if (!(sender instanceof EntityPlayerMP player)) {
+            throw new WrongUsageException("Команда доступна только игроку");
         }
+        // The toggle is the stored flag, not the potion: the client drops a long effect on its own after ~27 min
+        // (packet duration is a short) while the server still has it, so checking the potion toggled the wrong way.
+        boolean enable = !NightVisionHandler.isEnabled(player);
+        NightVisionHandler.setEnabled(player, enable);
+        sendSuccess(sender, enable ? "Ночное видение включено" : "Ночное видение выключено");
     }
 
     private void sendSuccess(ICommandSender sender, String message) {

@@ -6,6 +6,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.lib.Opcodes;
+import org.spongepowered.asm.lib.tree.AbstractInsnNode;
 import org.spongepowered.asm.lib.tree.ClassNode;
 import org.spongepowered.asm.lib.tree.InsnNode;
 import org.spongepowered.asm.lib.tree.MethodInsnNode;
@@ -32,6 +33,7 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
     public static final Logger LOG = LogManager.getLogger("cointcore-mixin");
     private static final String BLOODMAGIC_MIXIN_PREFIX = "coint.mixin.bloodmagic.";
     private static final String HODGEPODGE_FAST_PATH_MIXIN = "coint.mixin.minecraft.MixinWorldServerHodgepodgeFastPath";
+    private static final String VANISH_PATCH_MIXIN = "coint.mixin.minecraft.MixinItemInWorldManagerVanishPatch";
     private static final String HODGEPODGE_TICK_DESC = "(Lnet/minecraft/block/Block;Lnet/minecraft/world/World;IIILjava/util/Random;"
         + "Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;)V";
 
@@ -93,6 +95,12 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".ic2.")) {
             return isClassAvailable(targetClassName);
         }
+        if (mixinClassName.contains(".jabba.")) {
+            return isClassAvailable(targetClassName);
+        }
+        if (mixinClassName.contains(".hee.")) {
+            return isClassAvailable(targetClassName);
+        }
         if (mixinClassName.contains(".magicbees.")) {
             return isClassAvailable(targetClassName);
         }
@@ -139,6 +147,34 @@ public class CointMixinPlugin implements IMixinConfigPlugin {
         if (HODGEPODGE_FAST_PATH_MIXIN.equals(mixinClassName)) {
             patchHodgepodgeUpdateTick(targetClass);
         }
+        if (VANISH_PATCH_MIXIN.equals(mixinClassName)) {
+            patchVanishBlockActivation(targetClass);
+        }
+    }
+
+    /**
+     * ServerUtilities' vanish wrapper around {@code Block.onBlockActivated} returns false for every non-container block
+     * while vanished, ignoring the "interact" vanish option. Point its vanish check at
+     * {@code VanishBridge.restrictsBlockActivation}, which is false when "interact" is on, so the block is activated
+     * normally then.
+     */
+    private void patchVanishBlockActivation(ClassNode targetClass) {
+        for (MethodNode method : targetClass.methods) {
+            if (!method.name.contains("serverutilities$vanishReadOnly")) {
+                continue;
+            }
+            for (AbstractInsnNode insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call && call.getOpcode() == Opcodes.INVOKESTATIC
+                    && "serverutils/lib/util/ServerUtils".equals(call.owner)
+                    && "isVanished".equals(call.name)) {
+                    call.owner = "coint/vanish/VanishBridge";
+                    call.name = "restrictsBlockActivation";
+                    LOG.info("[Vanish] Block interaction while vanished follows the 'interact' option");
+                    return;
+                }
+            }
+        }
+        LOG.warn("[Vanish] ServerUtilities vanish block activation wrapper not found, patch skipped");
     }
 
     private void patchHodgepodgeUpdateTick(ClassNode targetClass) {

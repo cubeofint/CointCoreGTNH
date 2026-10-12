@@ -73,11 +73,16 @@ public abstract class MixinPartExportBusOreCache extends PartBaseExportBus<IAEIt
             cointcore$oreCandidatesExpire = now + REFRESH_TICKS;
         }
 
-        IItemList<IAEItemStack> available = gridInv.getStorageList();
+        // getStorageList() rebuilds the whole network list after every change; between refreshes read the last built
+        // list instead. Amounts may be stale, the extraction itself checks what is really there.
+        @SuppressWarnings("unchecked")
+        IItemList<IAEItemStack> available = gridInv instanceof AccessorNetworkMonitor accessor
+            ? (IItemList<IAEItemStack>) accessor.cointcore$getCachedList()
+            : gridInv.getStorageList();
         for (IAEItemStack stack : cointcore$oreCandidates) {
             IAEItemStack current = available.findPrecise(stack);
             if (current == null || current.getStackSize() <= 0) {
-                continue; // no longer stored; skip the target simulation
+                continue; // not stored; skip the target simulation
             }
             this.pushItemIntoTarget(energy, gridInv, current);
             if (this.itemToSend <= 0) {
