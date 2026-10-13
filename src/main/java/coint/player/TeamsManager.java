@@ -81,12 +81,10 @@ public class TeamsManager extends WorldSavedData {
         if (team == null || dimId <= 0) return false;
         int current = getDim(team);
         if (current == dimId) {
-            markPDimRewardTeamClaimed(team);
             return true;
         }
         if (current != 0 || getTeamUidForDim(dimId) != null) return false;
         pdBinds.put(team.getUID(), dimId);
-        markPDimRewardTeamClaimed(team);
         markDirty();
         return true;
     }
@@ -94,7 +92,6 @@ public class TeamsManager extends WorldSavedData {
     public void bindDim(ForgeTeam team, int dimId) {
         if (team == null) return;
         pdBinds.put(team.getUID(), dimId);
-        markPDimRewardTeamClaimed(team);
         markDirty();
     }
 
@@ -129,30 +126,24 @@ public class TeamsManager extends WorldSavedData {
         return true;
     }
 
+    /**
+     * The portal is a team reward (like FTB Quests): once any member of the team claimed it, nobody else in the team
+     * can. Only the claim itself counts — dimension bindings, visits or homes in other personal worlds do not.
+     */
     public boolean isPDimRewardTeamClaimed(ForgeTeam team) {
-        return team != null && (getDim(team) != 0 || pdimRewardClaimedTeams.contains(team.getId()));
-    }
-
-    public boolean hasPDimRewardConsumedMember(ForgeTeam team) {
-        if (team == null || !team.isValid()) return false;
-        for (ForgePlayer member : team.getMembers()) {
-            if (pdimRewardConsumedPlayers.contains(member.getId())) return true;
-        }
-        return false;
-    }
-
-    public boolean isPDimRewardTeamBlocked(ForgeTeam team) {
-        return isPDimRewardTeamClaimed(team) || hasPDimRewardConsumedMember(team);
+        return team != null && pdimRewardClaimedTeams.contains(team.getId());
     }
 
     public boolean markPDimRewardTeamClaimed(ForgeTeam team) {
-        if (team == null || !team.isValid()) return false;
-        boolean changed = pdimRewardClaimedTeams.add(team.getId());
-        for (ForgePlayer member : team.getMembers()) {
-            changed |= pdimRewardConsumedPlayers.add(member.getId());
-        }
-        if (changed) markDirty();
-        return changed;
+        if (team == null || !team.isValid() || !pdimRewardClaimedTeams.add(team.getId())) return false;
+        markDirty();
+        return true;
+    }
+
+    public boolean unmarkPDimRewardTeamClaimed(ForgeTeam team) {
+        if (team == null || !pdimRewardClaimedTeams.remove(team.getId())) return false;
+        markDirty();
+        return true;
     }
 
     public boolean registerPDimRewardQuest(UUID questId) {

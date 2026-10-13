@@ -2,15 +2,14 @@ package coint.integration.personalspace;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.questing.IQuest;
@@ -60,16 +59,18 @@ public final class PersonalSpaceTeamReward {
         return !isBlocked(player);
     }
 
+    /**
+     * Team reward, like FTB Quests: one portal per ServerUtilities team, claimed by whichever member gets there first.
+     * Players without a team claim for themselves (BetterQuesting's own claimed state stops a second claim).
+     */
     public static boolean isBlocked(EntityPlayer player) {
         if (player == null || player.worldObj == null || player.worldObj.isRemote) return false;
         ForgePlayer forgePlayer = Universe.get()
             .getPlayer(player);
         if (forgePlayer == null) return true;
-        TeamsManager manager = TeamsManager.get();
         ForgeTeam team = forgePlayer.hasTeam() ? forgePlayer.team : null;
-        migrateHistoricalTeam(team);
-        return manager.isPDimRewardConsumed(forgePlayer.getId())
-            || team != null && manager.isPDimRewardTeamBlocked(team);
+        return team != null && TeamsManager.get()
+            .isPDimRewardTeamClaimed(team);
     }
 
     public static void syncClientState(EntityPlayerMP player) {
@@ -90,31 +91,20 @@ public final class PersonalSpaceTeamReward {
             .getPlayer(player);
         if (forgePlayer == null) return false;
         ForgeTeam team = forgePlayer.hasTeam() ? forgePlayer.team : null;
-        migrateHistoricalTeam(team);
+        if (team == null) {
+            return true; // solo: BetterQuesting marks the quest claimed for this player
+        }
 
-        boolean blocked = manager.isPDimRewardConsumed(forgePlayer.getId())
-            || team != null && manager.isPDimRewardTeamBlocked(team);
-        if (blocked) {
-            if (team != null && manager.isPDimRewardTeamBlocked(team)) {
-                manager.markPDimRewardTeamClaimed(team);
-                syncCompletedMembers(team, questId, quest);
-                syncTeamClientState(team);
-            } else {
-                markClaimedIfComplete(forgePlayer.getId(), questId, quest);
-                if (player instanceof EntityPlayerMP) syncClientState((EntityPlayerMP) player);
-            }
+        if (manager.isPDimRewardTeamClaimed(team)) {
+            // Someone in the team already took the portal: close the quest for this member without an item
+            markClaimedIfComplete(forgePlayer.getId(), questId, quest);
+            if (player instanceof EntityPlayerMP) syncClientState((EntityPlayerMP) player);
             return false;
         }
 
-        if (team != null) {
-            manager.markPDimRewardTeamClaimed(team);
-            syncCompletedMembers(team, questId, quest);
-            syncTeamClientState(team);
-        } else {
-            manager.markPDimRewardConsumed(forgePlayer.getId());
-            markClaimedIfComplete(forgePlayer.getId(), questId, quest);
-            if (player instanceof EntityPlayerMP) syncClientState((EntityPlayerMP) player);
-        }
+        manager.markPDimRewardTeamClaimed(team);
+        syncCompletedMembers(team, questId, quest);
+        syncTeamClientState(team);
         return true;
     }
 
@@ -130,12 +120,7 @@ public final class PersonalSpaceTeamReward {
         if (forgePlayer == null) return;
 
         ForgeTeam team = forgePlayer.hasTeam() ? forgePlayer.team : null;
-        migrateHistoricalTeam(team);
-        if (team != null && manager.isPDimRewardTeamBlocked(team)) {
-            manager.markPDimRewardTeamClaimed(team);
-            syncCompletedMembers(team, questId, quest);
-            syncTeamClientState(team);
-        } else if (manager.isPDimRewardConsumed(forgePlayer.getId())) {
+        if (team != null && manager.isPDimRewardTeamClaimed(team)) {
             markClaimedIfComplete(forgePlayer.getId(), questId, quest);
             EntityPlayerMP online = QuestingAPI.getPlayer(forgePlayer.getId());
             if (online != null) syncClientState(online);
@@ -144,46 +129,65 @@ public final class PersonalSpaceTeamReward {
 
     public static void onServerStarted() {
         TeamsManager manager = TeamsManager.get();
-        Set<String> seenTeams = new HashSet<>();
-        for (ForgePlayer player : Universe.get()
-            .getPlayers()) {
-            if (!player.hasTeam()) continue;
-            ForgeTeam team = player.team;
-            if (!seenTeams.add(team.getId())) continue;
-            if (manager.getDim(team) != 0 || manager.isPDimRewardTeamClaimed(team)
-                || manager.hasPDimRewardConsumedMember(team)) {
-                manager.markPDimRewardTeamClaimed(team);
-            }
-        }
-
         for (UUID questId : manager.getPDimRewardQuestIds()) {
             IQuest quest = getQuest(questId);
             if (quest == null || !isPortalRewardQuest(quest)) continue;
             for (ForgePlayer player : Universe.get()
                 .getPlayers()) {
                 ForgeTeam team = player.hasTeam() ? player.team : null;
-                if (team != null && manager.isPDimRewardTeamBlocked(team)) {
-                    syncCompletedMembers(team, questId, quest);
-                } else if (manager.isPDimRewardConsumed(player.getId())) {
+                if (team != null && manager.isPDimRewardTeamClaimed(team)) {
                     markClaimedIfComplete(player.getId(), questId, quest);
                 }
             }
         }
     }
 
+    /** A player joining a team that already took its portal cannot claim another one. */
     public static void onServerUtilitiesTeamJoined(ForgePlayer player) {
         if (player == null || !player.hasTeam()) return;
         TeamsManager manager = TeamsManager.get();
-        ForgeTeam team = player.team;
-        if (!manager.isPDimRewardTeamBlocked(team) && !manager.isPDimRewardConsumed(player.getId())) return;
-        manager.markPDimRewardTeamClaimed(team);
-        syncTeamClientState(team);
+        if (!manager.isPDimRewardTeamClaimed(player.team)) return;
         for (UUID questId : manager.getPDimRewardQuestIds()) {
             IQuest quest = getQuest(questId);
             if (quest != null && isPortalRewardQuest(quest)) {
-                syncCompletedMembers(team, questId, quest);
+                markClaimedIfComplete(player.getId(), questId, quest);
             }
         }
+        EntityPlayerMP online = QuestingAPI.getPlayer(player.getId());
+        if (online != null) syncClientState(online);
+    }
+
+    /**
+     * Admin fix for a team blocked by mistake: frees the team's reward and reopens the claim for this player if the
+     * quest was closed without the portal. Returns a short description of what changed.
+     */
+    public static String resetReward(ForgePlayer player) {
+        if (player == null) return "игрок не найден";
+        TeamsManager manager = TeamsManager.get();
+        StringBuilder result = new StringBuilder();
+        if (player.hasTeam() && manager.unmarkPDimRewardTeamClaimed(player.team)) {
+            result.append("награда команды ")
+                .append(player.team.getId())
+                .append(" снова доступна");
+        }
+        int reopened = 0;
+        for (UUID questId : manager.getPDimRewardQuestIds()) {
+            IQuest quest = getQuest(questId);
+            if (quest == null || !isPortalRewardQuest(quest) || !quest.hasClaimed(player.getId())) continue;
+            NBTTagCompound info = quest.getCompletionInfo(player.getId());
+            if (info != null) {
+                info.setBoolean("claimed", false);
+                markQuestDirty(player.getId(), questId);
+                reopened++;
+            }
+        }
+        if (reopened > 0) {
+            if (result.length() > 0) result.append(", ");
+            result.append("квест можно забрать заново");
+        }
+        EntityPlayerMP online = QuestingAPI.getPlayer(player.getId());
+        if (online != null) syncClientState(online);
+        return result.length() == 0 ? "менять нечего: награда не заблокирована" : result.toString();
     }
 
     private static void syncTeamClientState(ForgeTeam team) {
@@ -194,21 +198,6 @@ public final class PersonalSpaceTeamReward {
                 syncClientState(online);
             }
         }
-    }
-
-    private static void migrateHistoricalTeam(ForgeTeam team) {
-        if (team == null || !team.isValid()) return;
-        TeamsManager manager = TeamsManager.get();
-        if (manager.isPDimRewardTeamBlocked(team)) return;
-        Set<Integer> dimensions = PersonalSpaceBinding.findHistoricalPersonalDimensions(team);
-        if (dimensions.isEmpty()) return;
-        if (dimensions.size() == 1) {
-            manager.bindDimIfFree(
-                team,
-                dimensions.iterator()
-                    .next());
-        }
-        manager.markPDimRewardTeamClaimed(team);
     }
 
     private static void syncCompletedMembers(ForgeTeam team, UUID questId, IQuest quest) {

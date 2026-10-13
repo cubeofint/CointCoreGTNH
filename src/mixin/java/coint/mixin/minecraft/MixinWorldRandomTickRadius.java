@@ -1,13 +1,18 @@
 package coint.mixin.minecraft;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import net.minecraft.world.ChunkCoordIntPair;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.IChunkProvider;
 
+import org.apache.logging.log4j.LogManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -48,10 +53,42 @@ public abstract class MixinWorldRandomTickRadius {
 
     @Inject(method = "setActivePlayerChunksAndCheckLight", at = @At("TAIL"), require = 1)
     private void cointcore$dropUnloadedActiveChunks(CallbackInfo ci) {
-        if (((World) (Object) this).isRemote) {
+        if (cointcore$dropUnloadedDisabled || ((World) (Object) this).isRemote) {
             return;
         }
-        IChunkProvider provider = this.chunkProvider;
-        this.activeChunkSet.removeIf(pos -> !provider.chunkExists(pos.chunkXPos, pos.chunkZPos));
+        // Hodgepodge replaces the set with one whose iterator cannot remove (removeIf crashed the server), so collect
+        // first and remove through Set.remove, which it does support. Iterated pairs are fresh objects, safe to keep.
+        try {
+            IChunkProvider provider = this.chunkProvider;
+            // Forced chunks must stay: ForgeChunkManager.forceChunk does not load a chunk, it is loaded exactly here,
+            // when the tick reaches it in the active set (ServerUtilities forces chunk-loaded bases after startup).
+            Map<ChunkCoordIntPair, ?> forced = ((World) (Object) this).getPersistentChunks()
+                .asMap();
+            List<ChunkCoordIntPair> unloaded = null;
+            for (ChunkCoordIntPair pos : this.activeChunkSet) {
+                if (!provider.chunkExists(pos.chunkXPos, pos.chunkZPos) && !forced.containsKey(pos)) {
+                    if (unloaded == null) {
+                        unloaded = new ArrayList<>();
+                    }
+                    unloaded.add(pos);
+                }
+            }
+            if (unloaded != null) {
+                for (ChunkCoordIntPair pos : unloaded) {
+                    this.activeChunkSet.remove(pos);
+                }
+            }
+        } catch (RuntimeException e) {
+            cointcore$dropUnloadedDisabled = true;
+            LogManager.getLogger("cointcore")
+                .warn(
+                    "[Perf] Active chunk set of {} cannot be filtered, skipping unloaded-chunk filter",
+                    this.activeChunkSet.getClass()
+                        .getName(),
+                    e);
+        }
     }
+
+    @Unique
+    private static boolean cointcore$dropUnloadedDisabled;
 }

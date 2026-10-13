@@ -21,7 +21,11 @@ public abstract class MixinTileArcaneBorePowerCache {
     private static final int CACHE_TICKS = 10;
 
     @Unique
-    private long cointcore$powerCheckedAt = Long.MIN_VALUE;
+    private long cointcore$powerCheckedAt;
+
+    /** False until the first real check (a Long.MIN_VALUE sentinel overflowed and never ran the check). */
+    @Unique
+    private boolean cointcore$powerKnown;
 
     @Unique
     private boolean cointcore$powered;
@@ -34,9 +38,10 @@ public abstract class MixinTileArcaneBorePowerCache {
         }
         long now = self.getWorldObj()
             .getTotalWorldTime();
-        if (now - cointcore$powerCheckedAt >= CACHE_TICKS || now < cointcore$powerCheckedAt) {
+        if (!cointcore$powerKnown || now - cointcore$powerCheckedAt >= CACHE_TICKS || now < cointcore$powerCheckedAt) {
             cointcore$powered = original.call();
             cointcore$powerCheckedAt = now;
+            cointcore$powerKnown = true;
         }
         return cointcore$powered;
     }

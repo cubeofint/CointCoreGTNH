@@ -13,6 +13,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 
 import coint.integration.personalspace.PersonalSpaceBinding;
+import coint.integration.personalspace.PersonalSpaceTeamReward;
 import coint.player.TeamsManager;
 import me.eigenraven.personalspace.world.DimensionConfig;
 import serverutils.lib.data.ForgePlayer;
@@ -36,7 +37,7 @@ public class CommandPDim extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/pdim <player> | /pdim bind <player> <dim> | /pdim unbind <player>";
+        return "/pdim <player> | /pdim bind <player> <dim> | /pdim unbind <player> | /pdim resetreward <player>";
     }
 
     @Override
@@ -57,6 +58,13 @@ public class CommandPDim extends CommandBase {
             bind(sender, args[1], args[2]);
             return;
         }
+        if (args.length == 2 && "resetreward".equalsIgnoreCase(args[0])) {
+            ForgePlayer player = requireForgePlayer(args[1]);
+            sender.addChatMessage(
+                new ChatComponentText(
+                    "§aНаграда-портал §f" + player.getName() + "§a: " + PersonalSpaceTeamReward.resetReward(player)));
+            return;
+        }
         if (args.length == 2 && "unbind".equalsIgnoreCase(args[0])) {
             unbind(sender, args[1]);
             return;
@@ -70,13 +78,15 @@ public class CommandPDim extends CommandBase {
             List<String> values = new ArrayList<>();
             values.add("bind");
             values.add("unbind");
+            values.add("resetreward");
             for (ForgePlayer player : Universe.get()
                 .getPlayers()) {
                 values.add(player.getName());
             }
             return getListOfStringsMatchingLastWord(args, values.toArray(new String[0]));
         }
-        if (args.length == 2 && ("bind".equalsIgnoreCase(args[0]) || "unbind".equalsIgnoreCase(args[0]))) {
+        if (args.length == 2 && ("bind".equalsIgnoreCase(args[0]) || "unbind".equalsIgnoreCase(args[0])
+            || "resetreward".equalsIgnoreCase(args[0]))) {
             List<String> values = new ArrayList<>();
             for (ForgePlayer player : Universe.get()
                 .getPlayers()) {
