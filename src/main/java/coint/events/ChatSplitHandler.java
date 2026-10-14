@@ -19,6 +19,7 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
 import coint.CointCore;
+import coint.cluster.ClusterService;
 import coint.commands.spy.LocalSpyRegistry;
 import coint.integration.discord.DiscordModerationWebhook;
 import coint.util.ChatUtil;
@@ -170,6 +171,7 @@ public class ChatSplitHandler {
                 .sendChatMsg(component);
             CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
             DiscordModerationWebhook.logGlobal(sender, text);
+            ClusterService.publishPlayerChat(sender, senderName, text);
         } else {
             double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
             int senderDim = sender.dimension;

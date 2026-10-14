@@ -35,12 +35,18 @@ public class CointConfig {
     public static final Conduits conduits = new Conduits();
     public static final Crops crops = new Crops();
     public static final Restart restart = new Restart();
+    public static final Cluster cluster = new Cluster();
 
     public static class General {
 
         @Config.Comment("Is GTNH version 2.9+")
         @Config.DefaultBoolean(false)
         public boolean isNew;
+
+        @Config.Comment("Client, AMD cards only: keep GL_FRAMEBUFFER_SRGB off each frame (fixes colors too bright when sRGB is applied twice)")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean amdSrgbFix;
 
         @Config.Comment("Enable entity cleanup")
         @Config.DefaultBoolean(true)
@@ -424,5 +430,61 @@ public class CointConfig {
         @Config.DefaultStringList({ "&6&m————————————————————————————————————————————",
             "&fWelcome to our server, %player%!", "&7Configure these lines in cointcore.cfg -> [login_message]" })
         public String[] loginMessageLines;
+    }
+
+    public static class Cluster {
+
+        @Config.Comment("Link this server with the other servers of the network through a shared MySQL database "
+            + "(cross-server chat, shared tab list)")
+        @Config.DefaultBoolean(false)
+        public boolean enabled;
+
+        @Config.Comment("Unique id of this server in the network, e.g. main, endgame, hub")
+        @Config.DefaultString("main")
+        public String nodeId;
+
+        @Config.Comment("Name of this server shown to players on the other servers (chat, tab list)")
+        @Config.DefaultString("Main")
+        public String displayName;
+
+        @Config.Comment("host:port players are sent to when they move to this server")
+        @Config.DefaultString("127.0.0.1:25565")
+        public String address;
+
+        @Config.Comment("JDBC url of the shared cluster database")
+        @Config.DefaultString("jdbc:mysql://127.0.0.1:3306/coint_cluster")
+        public String jdbcUrl;
+
+        @Config.Comment("Database user")
+        @Config.DefaultString("coint")
+        public String username;
+
+        @Config.Comment("Database password. Do not share it")
+        @Config.DefaultString("")
+        public String password;
+
+        @Config.Comment("How often this server reports itself and its players to the database (seconds)")
+        @Config.DefaultInt(5)
+        @Config.RangeInt(min = 1, max = 60)
+        public int heartbeatSeconds;
+
+        @Config.Comment("A server not heard from for this long is treated as offline (seconds)")
+        @Config.DefaultInt(30)
+        @Config.RangeInt(min = 5, max = 600)
+        public int nodeTimeoutSeconds;
+
+        @Config.Comment("How often new chat messages from the other servers are fetched (milliseconds)")
+        @Config.DefaultInt(500)
+        @Config.RangeInt(min = 100, max = 10000)
+        public int chatPollMillis;
+
+        @Config.Comment("Share global chat with the other servers. Discord relay runs only on servers with discord.enabled: "
+            + "enable Discord on one server only, it relays the chat of all servers")
+        @Config.DefaultBoolean(true)
+        public boolean chatEnabled;
+
+        @Config.Comment("Show players of the other servers in the tab list")
+        @Config.DefaultBoolean(true)
+        public boolean tabEnabled;
     }
 }

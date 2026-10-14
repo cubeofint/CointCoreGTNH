@@ -29,6 +29,15 @@ public final class DiscordModerationWebhook {
         sendTo(mainChannelId(), message);
     }
 
+    /** Global chat of another server of the network, relayed by the server that runs the Discord bridge. */
+    public static void logRemoteGlobal(String serverName, String sender, String text) {
+        if (!CointConfig.discord.enabled || !CointConfig.discord.sendGlobalChat) return;
+
+        String message = "[" + stripFormatting(
+            serverName) + "] " + stripFormatting(sender) + ": " + stripFormatting(text);
+        sendTo(mainChannelId(), message);
+    }
+
     public static void logLocal(EntityPlayerMP sender, String text) {
         if (!CointConfig.discord.enabled || !CointConfig.discord.sendLocalChat) return;
 

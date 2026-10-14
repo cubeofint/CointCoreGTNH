@@ -151,6 +151,22 @@ public final class TabRankSorter {
         for (PlayerEntry entry : entries) {
             order.add(new JsonPrimitive(entry.name));
         }
+        // Players of the other servers of the network go last, greyed, with their server.
+        java.util.Map<String, String> remote = coint.cluster.ClusterService.remoteTab();
+        List<String> remoteNames = new ArrayList<>();
+        Set<String> localNames = new HashSet<>();
+        for (PlayerEntry entry : entries) {
+            localNames.add(entry.name);
+        }
+        for (String name : remote.keySet()) {
+            if (!localNames.contains(name)) {
+                remoteNames.add(name);
+            }
+        }
+        remoteNames.sort(String.CASE_INSENSITIVE_ORDER);
+        for (String name : remoteNames) {
+            order.add(new JsonPrimitive(name));
+        }
         sortPacket.add("order", order);
 
         JsonObject updatePacket = new JsonObject();
@@ -163,6 +179,12 @@ public final class TabRankSorter {
             playerData.addProperty("displayName", buildDisplayName(entry));
             players.add(entry.name, playerData);
             customNames.add(entry.name);
+        }
+        for (String name : remoteNames) {
+            JsonObject playerData = new JsonObject();
+            playerData.addProperty("displayName", "§7[" + remote.get(name) + "] " + name);
+            players.add(name, playerData);
+            customNames.add(name);
         }
         updatePacket.add("players", players);
 

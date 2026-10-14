@@ -67,6 +67,7 @@ public final class DiscordGlobalBridge {
             server.getConfigurationManager()
                 .sendChatMsg(component);
             CointCore.LOG.info("[GLOBAL/DISCORD] {}: {}", message.author, message.text);
+            coint.cluster.ClusterService.publishDiscordChat(message.author, message.text);
             processed++;
         }
     }

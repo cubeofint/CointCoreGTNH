@@ -5,6 +5,7 @@ import net.minecraftforge.common.MinecraftForge;
 import coint.client.ClientRestartOverlay;
 import coint.client.ClientWorldTravelEvents;
 import coint.client.ClientWorldTravelState;
+import coint.client.SrgbGuard;
 import coint.network.PacketOpenWorlds;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
@@ -20,6 +21,9 @@ public class ClientProxy extends CommonProxy {
             .bus()
             .register(new ClientWorldTravelEvents());
         MinecraftForge.EVENT_BUS.register(new ClientRestartOverlay());
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new SrgbGuard());
     }
 
     @Override
