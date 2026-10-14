@@ -52,7 +52,7 @@ public enum LateMixins implements IMixins {
 
     ENDERIO(new MixinBuilder("EnderIO").addRequiredMod(TargetMod.ENDERIO)
         .setPhase(Phase.LATE)
-        .addCommonMixins("enderio.MixinRedstoneConduitRebuild")),
+        .addCommonMixins("enderio.MixinRedstoneConduitRebuild", "enderio.MixinDarkSteelNightVisionKeep")),
 
     FORESTRY(new MixinBuilder("Forestry").addRequiredMod(TargetMod.FORESTRY)
         .setPhase(Phase.LATE)
