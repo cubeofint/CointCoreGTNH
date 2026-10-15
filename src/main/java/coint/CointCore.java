@@ -21,7 +21,9 @@ import serverutils.lib.data.Universe;
     version = CointCore.VERSION,
     name = CointCore.MOD_NAME,
     acceptedMinecraftVersions = "[1.7.10]",
-    dependencies = "after:betterquesting;" + "after:serverutilities;" + "after:thaumcraft;")
+    dependencies = "after:betterquesting;" + "after:serverutilities;"
+        + "after:thaumcraft;"
+        + "after:GregTechNightmare;")
 public class CointCore {
 
     public static final String MOD_ID = "cointcore";

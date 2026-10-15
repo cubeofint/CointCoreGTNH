@@ -10,6 +10,7 @@ import coint.epochsync.EpochRegistry;
 import coint.http.HubWebSocket;
 import coint.integration.discord.DiscordGlobalBridge;
 import coint.integration.discord.DiscordModerationWebhook;
+import coint.integration.gregtechnightmare.GTNRecipes;
 import coint.integration.personalspace.PDimRewardSyncEvents;
 import coint.integration.personalspace.PersonalSpaceTeamReward;
 import coint.integration.serverutilities.RanksManager;
@@ -91,8 +92,9 @@ public class CommonProxy {
         return false;
     }
 
-    @SuppressWarnings("unused")
-    public void postInit(FMLPostInitializationEvent event) {}
+    public void postInit(FMLPostInitializationEvent event) {
+        GTNRecipes.init();
+    }
 
     public void serverAboutToStart(FMLServerAboutToStartEvent event) {
         EpochRegistry.init(event);
