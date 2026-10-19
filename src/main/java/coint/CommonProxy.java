@@ -50,6 +50,7 @@ public class CommonProxy {
         }
 
         WorldTravelNetwork.init();
+        coint.supply.SupplyBlocks.register();
         if (event.getSide()
             .isServer()) {
             WorldTravelManager.init(event.getModConfigurationDirectory());
@@ -64,6 +65,8 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void init(FMLInitializationEvent event) {
         PermissionsUtil.register();
+        cpw.mods.fml.common.network.NetworkRegistry.INSTANCE
+            .registerGuiHandler(CointCore.instance, new coint.supply.SupplyGuiHandler());
         if (event.getSide()
             .isServer()) {
             FMLCommonHandler.instance()
@@ -113,6 +116,7 @@ public class CommonProxy {
     public void serverStarted(FMLServerStartedEvent event) {
         DiscordGlobalBridge.start();
         coint.cluster.ClusterService.start();
+        coint.supply.SupplyJournal.replay();
         if (CointConfig.api.wsEnabled) {
             HubWebSocket.get();
         }
@@ -140,6 +144,7 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
         coint.cluster.ClusterService.stop();
+        coint.supply.SupplyJournal.reset();
         RestartManager.INSTANCE.reset();
         PlayerResetEvents.INSTANCE.reset();
         DmLogger.close();

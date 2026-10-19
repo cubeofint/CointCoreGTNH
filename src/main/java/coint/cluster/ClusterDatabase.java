@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 2;
+    private static final int SCHEMA_VERSION = 3;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -125,6 +125,9 @@ final class ClusterDatabase {
                         + "updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
                         + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             }
+            if (version < 3) {
+                SupplyStore.createTables(s);
+            }
         }
         try (PreparedStatement p = c.prepareStatement(
             "INSERT INTO cluster_meta (meta_key, meta_value) VALUES ('schema_version', ?) "
@@ -135,20 +138,22 @@ final class ClusterDatabase {
     }
 
     /** Says this server is alive, and who plays on it now (its earlier list is replaced). */
-    void heartbeat(String nodeId, String displayName, String address, double tps, List<PlayerRow> players)
-        throws SQLException {
+    /** {@code first}: the first since this server started, which marks its start (claims older than it are void). */
+    void heartbeat(String nodeId, String displayName, String address, double tps, List<PlayerRow> players,
+        boolean first) throws SQLException {
         Connection c = connection();
         try (PreparedStatement p = c.prepareStatement(
             "INSERT INTO cluster_nodes (node_id, display_name, address, online_players, tps, started_at, last_seen, stopped) "
                 + "VALUES (?, ?, ?, ?, ?, NOW(3), NOW(3), FALSE) ON DUPLICATE KEY UPDATE "
                 + "display_name = VALUES(display_name), address = VALUES(address), "
                 + "online_players = VALUES(online_players), tps = VALUES(tps), "
-                + "started_at = IF(stopped, NOW(3), started_at), last_seen = NOW(3), stopped = FALSE")) {
+                + "started_at = IF(? OR stopped, NOW(3), started_at), last_seen = NOW(3), stopped = FALSE")) {
             p.setString(1, nodeId);
             p.setString(2, displayName);
             p.setString(3, address);
             p.setInt(4, players.size());
             p.setDouble(5, tps);
+            p.setBoolean(6, first);
             p.executeUpdate();
         }
         c.setAutoCommit(false);

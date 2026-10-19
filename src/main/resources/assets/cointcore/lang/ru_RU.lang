@@ -1,1 +1,4 @@
 cointcore.reward.team=Командная награда
+
+tile.cointcore.supply_buffer.name=Межсерверный буфер снабжения
+item.cointcore.supply_link_card.name=Карта связи снабжения

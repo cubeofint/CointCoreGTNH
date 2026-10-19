@@ -21,6 +21,9 @@ public class ClientProxy extends CommonProxy {
             .bus()
             .register(new ClientWorldTravelEvents());
         MinecraftForge.EVENT_BUS.register(new ClientRestartOverlay());
+        if (cpw.mods.fml.common.Loader.isModLoaded("NotEnoughItems")) {
+            coint.supply.SupplyNeiHandler.register();
+        }
         FMLCommonHandler.instance()
             .bus()
             .register(new SrgbGuard());

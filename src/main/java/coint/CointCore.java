@@ -21,7 +21,8 @@ import serverutils.lib.data.Universe;
     version = CointCore.VERSION,
     name = CointCore.MOD_NAME,
     acceptedMinecraftVersions = "[1.7.10]",
-    dependencies = "after:betterquesting;" + "after:serverutilities;"
+    dependencies = "after:betterquesting;" + "after:appliedenergistics2;"
+        + "after:serverutilities;"
         + "after:thaumcraft;"
         + "after:GregTechNightmare;")
 public class CointCore {
@@ -31,6 +32,9 @@ public class CointCore {
     public static final String MOD_NAME = "Coint Core GTNH";
 
     public static final Logger LOG = LogManager.getLogger(MOD_ID);
+
+    @Mod.Instance(MOD_ID)
+    public static CointCore instance;
 
     @SidedProxy(clientSide = "coint.ClientProxy", serverSide = "coint.CommonProxy")
     public static CommonProxy proxy;

@@ -69,6 +69,8 @@ public final class ClusterService {
     private static long nextPruneAt;
     private static long lastErrorLogAt;
     private static boolean connectedLogged;
+    /** This start was written to the database (worker thread only). */
+    private static boolean startMarked;
 
     // Server thread only.
     private static long nextHeartbeatAt, nextPollAt;
@@ -141,6 +143,7 @@ public final class ClusterService {
         });
         chatReadFrom = -1;
         shownChat.clear();
+        startMarked = false;
         connectedLogged = false;
         nextHeartbeatAt = nextPollAt = 0;
         running = true;
@@ -271,7 +274,8 @@ public final class ClusterService {
         boolean tab = config.tabEnabled;
         submit(() -> {
             try {
-                db.heartbeat(id, name, address, tps, players);
+                db.heartbeat(id, name, address, tps, players, !startMarked);
+                startMarked = true;
                 List<ClusterDatabase.RemotePlayer> remote = tab ? db.remotePlayers(id, timeout)
                     : Collections.emptyList();
                 if (!connectedLogged) {

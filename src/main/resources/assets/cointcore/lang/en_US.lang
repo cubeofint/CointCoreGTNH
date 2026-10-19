@@ -1,1 +1,4 @@
 cointcore.reward.team=Team Reward
+
+tile.cointcore.supply_buffer.name=Cross-Server Supply Buffer
+item.cointcore.supply_link_card.name=Supply Link Card
