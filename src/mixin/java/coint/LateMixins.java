@@ -26,6 +26,7 @@ public enum LateMixins implements IMixins {
         .addCommonMixins(
             "betterquesting.MixinPartyInstance",
             "betterquesting.MixinRewardItemTeamReward",
+            "betterquesting.MixinQuestInstanceGuestReward",
             "betterquesting.MixinQuestCacheUpdateMemo",
             "betterquesting.MixinQuestInstanceStateMemo",
             "betterquesting.MixinBQStandardInventoryThrottle",

@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 1;
+    private static final int SCHEMA_VERSION = 2;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -115,6 +115,14 @@ final class ClusterDatabase {
                         + "text TEXT NOT NULL, "
                         + "created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), "
                         + "INDEX idx_cluster_chat_created (created_at)"
+                        + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            }
+            if (version < 2) {
+                s.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS cluster_homes (" + "uuid CHAR(36) NOT NULL PRIMARY KEY, "
+                        + "name VARCHAR(32) NOT NULL, "
+                        + "node_id VARCHAR(64) NOT NULL, "
+                        + "updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
                         + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             }
         }
@@ -264,6 +272,80 @@ final class ClusterDatabase {
         }
     }
 
+    /**
+     * The home server of a player. When he has none yet and {@code assignTo} is set, it becomes his home: the first
+     * server that may be home and that he played on. Null when he has none and none was given.
+     */
+    String home(String uuid, String name, String assignTo) throws SQLException {
+        Connection c = connection();
+        if (assignTo != null) {
+            try (PreparedStatement p = c.prepareStatement(
+                "INSERT IGNORE INTO cluster_homes (uuid, name, node_id, updated_at) VALUES (?, ?, ?, NOW(3))")) {
+                p.setString(1, uuid);
+                p.setString(2, clip(name, 32));
+                p.setString(3, assignTo);
+                p.executeUpdate();
+            }
+        }
+        try (PreparedStatement p = c.prepareStatement("SELECT node_id FROM cluster_homes WHERE uuid = ?")) {
+            p.setString(1, uuid);
+            try (ResultSet r = p.executeQuery()) {
+                return r.next() ? r.getString(1) : null;
+            }
+        }
+    }
+
+    /** Sets the home server of a player (by name, as last seen), returning his uuid, or null when never seen. */
+    String setHome(String name, String nodeId) throws SQLException {
+        Connection c = connection();
+        String uuid = null;
+        try (PreparedStatement p = c.prepareStatement(
+            "SELECT uuid FROM cluster_homes WHERE name = ? UNION SELECT uuid FROM cluster_players WHERE name = ? LIMIT 1")) {
+            p.setString(1, name);
+            p.setString(2, name);
+            try (ResultSet r = p.executeQuery()) {
+                if (r.next()) {
+                    uuid = r.getString(1);
+                }
+            }
+        }
+        if (uuid == null) {
+            return null;
+        }
+        try (PreparedStatement p = c.prepareStatement(
+            "INSERT INTO cluster_homes (uuid, name, node_id, updated_at) VALUES (?, ?, ?, NOW(3)) "
+                + "ON DUPLICATE KEY UPDATE node_id = VALUES(node_id), updated_at = NOW(3)")) {
+            p.setString(1, uuid);
+            p.setString(2, clip(name, 32));
+            p.setString(3, nodeId);
+            p.executeUpdate();
+        }
+        return uuid;
+    }
+
+    /** All servers of the network, alive or not, by id. */
+    List<NodeRow> nodes(int timeoutSeconds) throws SQLException {
+        List<NodeRow> result = new ArrayList<>();
+        try (PreparedStatement p = connection().prepareStatement(
+            "SELECT node_id, display_name, address, online_players, tps, "
+                + "(NOT stopped AND last_seen > NOW(3) - INTERVAL ? SECOND) FROM cluster_nodes ORDER BY node_id")) {
+            p.setInt(1, timeoutSeconds);
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    result.add(
+                        new NodeRow(
+                            r.getString(1),
+                            r.getString(2),
+                            r.getString(3),
+                            r.getInt(4),
+                            r.getDouble(5),
+                            r.getBoolean(6)));
+                }
+            }
+        }
+        return result;
+    }
+
     private static String clip(String text, int max) {
         if (text == null) {
             return "";
@@ -278,6 +360,23 @@ final class ClusterDatabase {
         PlayerRow(String uuid, String name) {
             this.uuid = uuid;
             this.name = name;
+        }
+    }
+
+    static final class NodeRow {
+
+        final String id, name, address;
+        final int players;
+        final double tps;
+        final boolean online;
+
+        NodeRow(String id, String name, String address, int players, double tps, boolean online) {
+            this.id = id;
+            this.name = name;
+            this.address = address;
+            this.players = players;
+            this.tps = tps;
+            this.online = online;
         }
     }
 

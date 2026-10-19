@@ -77,6 +77,45 @@ public final class ClusterService {
 
     private ClusterService() {}
 
+    /** A call on the cluster database, run on the worker thread. */
+    interface DbCall<T> {
+
+        T call(ClusterDatabase db) throws SQLException;
+    }
+
+    /**
+     * Runs {@code call} on the worker, then {@code done} with its result on the server thread, or {@code failed} with
+     * the error. False when the cluster is off: neither runs.
+     */
+    static <T> boolean query(DbCall<T> call, java.util.function.Consumer<T> done,
+        java.util.function.Consumer<String> failed) {
+        if (!running) {
+            return false;
+        }
+        ClusterDatabase db = database;
+        submit(() -> {
+            try {
+                T value = call.call(db);
+                results.add(() -> done.accept(value));
+            } catch (SQLException e) {
+                logError("query", e);
+                if (failed != null) {
+                    results.add(() -> failed.accept(e.getMessage()));
+                }
+            }
+        });
+        return true;
+    }
+
+    /** The id of this server in the network. */
+    public static String nodeId() {
+        return nodeId;
+    }
+
+    public static String displayName() {
+        return displayName;
+    }
+
     public static boolean isRunning() {
         return running;
     }

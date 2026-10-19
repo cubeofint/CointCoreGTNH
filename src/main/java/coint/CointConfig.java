@@ -486,5 +486,20 @@ public class CointConfig {
         @Config.Comment("Show players of the other servers in the tab list")
         @Config.DefaultBoolean(true)
         public boolean tabEnabled;
+
+        @Config.Comment("A player who has no home server yet gets this one as home when he joins. "
+            + "Enable on the main server only: on the others such players stay guests")
+        @Config.DefaultBoolean(true)
+        public boolean assignHomeOnFirstJoin;
+
+        @Config.Comment("Commands a guest (a player whose home is another server) may use here")
+        @Config.DefaultStringList({ "server", "spawn", "msg", "tell", "w", "r", "list", "help", "tpa", "tpaccept",
+            "tpdeny", "warp", "warps" })
+        public String[] guestCommands;
+
+        @Config.Comment("Seconds a player has to leave on his own after /server before he is disconnected with the address")
+        @Config.DefaultInt(10)
+        @Config.RangeInt(min = 3, max = 60)
+        public int transferTimeoutSeconds;
     }
 }
