@@ -3,6 +3,7 @@ package coint;
 import net.minecraftforge.common.MinecraftForge;
 
 import coint.client.ClientRestartOverlay;
+import coint.client.ClientTransfer;
 import coint.client.ClientWorldTravelEvents;
 import coint.client.ClientWorldTravelState;
 import coint.client.SrgbGuard;
@@ -27,6 +28,9 @@ public class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(new SrgbGuard());
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new ClientTransfer.Ticker());
     }
 
     @Override

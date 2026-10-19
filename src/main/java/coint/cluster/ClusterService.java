@@ -95,7 +95,7 @@ public final class ClusterService {
             return false;
         }
         ClusterDatabase db = database;
-        submit(() -> {
+        boolean queued = submit(() -> {
             try {
                 T value = call.call(db);
                 results.add(() -> done.accept(value));
@@ -104,8 +104,17 @@ public final class ClusterService {
                 if (failed != null) {
                     results.add(() -> failed.accept(e.getMessage()));
                 }
+            } catch (RuntimeException | LinkageError e) {
+                // Whatever went wrong, the caller hears of it: a query that never answers leaves it waiting for good.
+                CointCore.LOG.error("[Cluster] Query failed", e);
+                if (failed != null) {
+                    results.add(() -> failed.accept(String.valueOf(e)));
+                }
             }
         });
+        if (!queued && failed != null) {
+            results.add(() -> failed.accept("cluster stopping"));
+        }
         return true;
     }
 
@@ -333,18 +342,20 @@ public final class ClusterService {
     }
 
     /** Runs on the worker; dropped when the cluster is stopping. */
-    private static void submit(Runnable task) {
+    private static boolean submit(Runnable task) {
         ExecutorService w = worker;
         if (w == null) {
             heartbeatInFlight.set(false);
             pollInFlight.set(false);
-            return;
+            return false;
         }
         try {
             w.execute(task);
+            return true;
         } catch (java.util.concurrent.RejectedExecutionException e) {
             heartbeatInFlight.set(false);
             pollInFlight.set(false);
+            return false;
         }
     }
 
