@@ -15,7 +15,8 @@ public enum LateMixins implements IMixins {
             "appliedenergistics2.MixinSlotCraftingTermBatchRefresh",
             "appliedenergistics2.AccessorNetworkMonitor",
             "appliedenergistics2.MixinPartExportBusOreCache",
-            "appliedenergistics2.MixinMultiCraftingTrackerRetry")),
+            "appliedenergistics2.MixinMultiCraftingTrackerRetry",
+            "appliedenergistics2.MixinSecurityCacheDisabled")),
 
     BACKPACK(new MixinBuilder("Backpacks").addRequiredMod(TargetMod.BACKPACK)
         .setPhase(Phase.LATE)
