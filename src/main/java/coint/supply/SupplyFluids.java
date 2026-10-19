@@ -3,20 +3,43 @@ package coint.supply;
 import java.lang.reflect.Method;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.fluids.FluidContainerRegistry;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.IFluidContainerItem;
 
-/** The fluid an item stands for: in a container (bucket, cell, tank item) or a fluid shown by NEI. */
+/**
+ * Fluids on the filters of the supply buffer. A fluid filter is kept as a fluid display item (GregTech's drop, what NEI
+ * shows for a fluid), so it looks like the fluid and says which it is; a container (bucket, cell) on a filter is the
+ * container itself, unless set with Ctrl.
+ */
 public final class SupplyFluids {
 
-    private static Method fromDisplay;
+    /** Without GregTech's display items: the fluid kept in the filter item's NBT under this key. */
+    private static final String MARK = "CointSupplyFluid";
+
+    private static Method fromDisplay, toDisplay;
     private static boolean looked;
 
     private SupplyFluids() {}
 
-    /** One millibucket of the fluid {@code item} holds or shows, or null when it is not about a fluid. */
-    public static FluidStack fluidOf(ItemStack item) {
+    /** The fluid a fluid filter item stands for, or null for an item filter. */
+    public static FluidStack filterFluid(ItemStack item) {
+        if (item == null) {
+            return null;
+        }
+        if (item.hasTagCompound() && item.getTagCompound()
+            .hasKey(MARK)) {
+            return one(
+                FluidStack.loadFluidStackFromNBT(
+                    item.getTagCompound()
+                        .getCompoundTag(MARK)));
+        }
+        return one(fromGregTechDisplay(item));
+    }
+
+    /** The fluid inside a container item (bucket, cell, tank item), or null. */
+    public static FluidStack containerFluid(ItemStack item) {
         if (item == null) {
             return null;
         }
@@ -24,28 +47,33 @@ public final class SupplyFluids {
         if (fluid == null && item.getItem() instanceof IFluidContainerItem container) {
             fluid = container.getFluid(item);
         }
-        if (fluid == null) {
-            fluid = fromGregTechDisplay(item);
-        }
-        if (fluid == null || fluid.getFluid() == null) {
-            return null;
-        }
-        FluidStack one = fluid.copy();
-        one.amount = 1;
-        return one;
+        return one(fluid);
     }
 
-    /** What NEI drags for a fluid in GregTech: a display item, read back by GregTech. */
-    private static FluidStack fromGregTechDisplay(ItemStack item) {
-        if (!looked) {
-            looked = true;
+    /** The item a fluid filter keeps for {@code fluid}: GregTech's display item, or {@code container} marked. */
+    public static ItemStack filterItem(FluidStack fluid, ItemStack container) {
+        lookUp();
+        if (toDisplay != null) {
             try {
-                fromDisplay = Class.forName("gregtech.api.util.GTUtility")
-                    .getMethod("getFluidFromDisplayStack", ItemStack.class);
-            } catch (ReflectiveOperationException | LinkageError e) {
-                fromDisplay = null;
+                ItemStack display = (ItemStack) toDisplay.invoke(null, fluid, false);
+                if (display != null) {
+                    display.stackSize = 1;
+                    return display;
+                }
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                // Marked container below.
             }
         }
+        ItemStack marked = container.copy();
+        marked.stackSize = 1;
+        NBTTagCompound tag = marked.hasTagCompound() ? marked.getTagCompound() : new NBTTagCompound();
+        tag.setTag(MARK, fluid.writeToNBT(new NBTTagCompound()));
+        marked.setTagCompound(tag);
+        return marked;
+    }
+
+    private static FluidStack fromGregTechDisplay(ItemStack item) {
+        lookUp();
         if (fromDisplay == null) {
             return null;
         }
@@ -56,7 +84,26 @@ public final class SupplyFluids {
         }
     }
 
-    public static boolean sameFluid(FluidStack a, FluidStack b) {
-        return a != null && b != null && a.isFluidEqual(b);
+    private static void lookUp() {
+        if (looked) {
+            return;
+        }
+        looked = true;
+        try {
+            Class<?> utility = Class.forName("gregtech.api.util.GTUtility");
+            fromDisplay = utility.getMethod("getFluidFromDisplayStack", ItemStack.class);
+            toDisplay = utility.getMethod("getFluidDisplayStack", FluidStack.class, boolean.class);
+        } catch (ReflectiveOperationException | LinkageError e) {
+            fromDisplay = toDisplay = null;
+        }
+    }
+
+    private static FluidStack one(FluidStack fluid) {
+        if (fluid == null || fluid.getFluid() == null) {
+            return null;
+        }
+        FluidStack one = fluid.copy();
+        one.amount = 1;
+        return one;
     }
 }

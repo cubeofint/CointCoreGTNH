@@ -166,11 +166,14 @@ public class GuiSupplyBuffer extends GuiContainer {
             lines.add(
                 container.tile.getFilterFluid(stockSlot) != null ? "§7Выкачать: труба с любой стороны"
                     : "§7Забрать: клик, Shift+клик или труба с любой стороны");
+        } else if (filter >= 0 && heldFluid() != null) {
+            lines.add("§eКлик§7 — фильтр на сам предмет");
+            lines.add("§eCtrl + клик§7 — запас жидкости §b" + heldFluid().getLocalizedName());
         } else if (filter >= 0) {
             if (container.tile.getFilter(filter) == null) {
                 lines.add("§7Фильтр пуст");
                 lines.add("§7Кликните предметом, чтобы держать его запас здесь");
-                lines.add("§7Ведро, ячейка с жидкостью или жидкость из NEI — запас жидкости");
+                lines.add("§7Ctrl + клик ведром/ячейкой или жидкость из NEI — запас жидкости");
             } else {
                 lines.add(name(filter));
                 lines.add(
@@ -200,8 +203,18 @@ public class GuiSupplyBuffer extends GuiContainer {
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
         int filter = slotUnder(ContainerSupplyBuffer.FILTER_SLOTS, mouseX, mouseY);
-        if (filter >= 0 && button == 0 && mc.thePlayer.inventory.getItemStack() == null) {
+        ItemStack held = mc.thePlayer.inventory.getItemStack();
+        if (filter >= 0 && button == 0 && held == null) {
             select(filter);
+        }
+        // Ctrl with a container: the fluid in it, as in AE2.
+        if (filter >= 0 && held != null && isCtrlKeyDown() && SupplyFluids.containerFluid(held) != null) {
+            ItemStack one = held.copy();
+            one.stackSize = 1;
+            WorldTravelNetwork.CHANNEL
+                .sendToServer(new coint.network.PacketSupplyFilter(container.windowId, filter, one, true));
+            select(filter);
+            return;
         }
         targetField.mouseClicked(mouseX, mouseY, button);
         thresholdField.mouseClicked(mouseX, mouseY, button);
@@ -309,7 +322,8 @@ public class GuiSupplyBuffer extends GuiContainer {
         }
         ItemStack one = item.copy();
         one.stackSize = 1;
-        WorldTravelNetwork.CHANNEL.sendToServer(new coint.network.PacketSupplyFilter(container.windowId, filter, one));
+        WorldTravelNetwork.CHANNEL
+            .sendToServer(new coint.network.PacketSupplyFilter(container.windowId, filter, one, isCtrlKeyDown()));
         select(filter);
         return true;
     }
@@ -397,7 +411,19 @@ public class GuiSupplyBuffer extends GuiContainer {
         if (value < 1_000_000) {
             return value / 1000 + "k";
         }
-        return String.format(Locale.ROOT, "%.1fM", value / 1_000_000.0)
-            .replace(".0M", "M");
+        String[] units = { "M", "G", "T" };
+        double scaled = value / 1_000_000.0;
+        int unit = 0;
+        while (scaled >= 1000 && unit < units.length - 1) {
+            scaled /= 1000;
+            unit++;
+        }
+        return (scaled < 10 ? String.format(Locale.ROOT, "%.1f", scaled)
+            .replace(".0", "") : String.valueOf((long) scaled)) + units[unit];
+    }
+
+    /** The fluid in the container held on the cursor, or null. */
+    private FluidStack heldFluid() {
+        return SupplyFluids.containerFluid(mc.thePlayer.inventory.getItemStack());
     }
 }

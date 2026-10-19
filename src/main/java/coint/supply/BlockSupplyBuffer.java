@@ -67,6 +67,28 @@ public class BlockSupplyBuffer extends BlockContainer {
         return true;
     }
 
+    /** Not while stocks are held or things are on their way: they would have to be dropped, any amount, or lost. */
+    @Override
+    public boolean removedByPlayer(World world, EntityPlayer player, int x, int y, int z, boolean willHarvest) {
+        if (!world.isRemote && world.getTileEntity(x, y, z) instanceof TileSupplyBuffer tile && !tile.canBreak()) {
+            player.addChatMessage(
+                new ChatComponentText(
+                    "§cВ буфере есть запас или операции в пути. Уберите фильтры (запас вернётся в главную ME) "
+                        + "и дождитесь, пока «в пути» станет 0."));
+            world.markBlockForUpdate(x, y, z);
+            return false;
+        }
+        return super.removedByPlayer(world, player, x, y, z, willHarvest);
+    }
+
+    @Override
+    public float getExplosionResistance(net.minecraft.entity.Entity entity, World world, int x, int y, int z,
+        double explosionX, double explosionY, double explosionZ) {
+        // Explosions would break it with its stocks in it.
+        return world.getTileEntity(x, y, z) instanceof TileSupplyBuffer tile && !tile.canBreak() ? 6000000F
+            : super.getExplosionResistance(entity, world, x, y, z, explosionX, explosionY, explosionZ);
+    }
+
     @Override
     public void breakBlock(World world, int x, int y, int z, Block block, int meta) {
         if (!world.isRemote && world.getTileEntity(x, y, z) instanceof TileSupplyBuffer tile) {

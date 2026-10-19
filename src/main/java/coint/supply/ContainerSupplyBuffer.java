@@ -68,17 +68,17 @@ public class ContainerSupplyBuffer extends Container {
             // An item names the filter; an empty hand selects it (in the window), or clears it with the right button.
             ItemStack held = player.inventory.getItemStack();
             if (!player.worldObj.isRemote && tile.canEdit(player) && (held != null || button == 1)) {
-                tile.setFilter(slotId, held);
+                tile.setFilter(slotId, held, false);
             }
             return null;
         }
         return super.slotClick(slotId, button, mode, player);
     }
 
-    /** An item dropped from NEI onto a filter. */
-    public void setFilter(EntityPlayer player, int filter, ItemStack item) {
+    /** An item dropped from NEI, or a container set with Ctrl (then its fluid). */
+    public void setFilter(EntityPlayer player, int filter, ItemStack item, boolean asFluid) {
         if (filter >= 0 && filter < TileSupplyBuffer.FILTERS && tile.canEdit(player)) {
-            tile.setFilter(filter, item);
+            tile.setFilter(filter, item, asFluid);
         }
     }
 

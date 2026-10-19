@@ -204,9 +204,17 @@ public class TileSupplyBuffer extends TileEntity
     }
 
     /** Names what a filter keeps (one of {@code item}), or clears it; what it held of the old kind goes back home. */
-    void setFilter(int index, ItemStack item) {
-        ItemStack kind = item == null ? null : item.copy();
-        FluidStack fluid = SupplyFluids.fluidOf(kind);
+    void setFilter(int index, ItemStack item, boolean asFluid) {
+        ItemStack kind = null;
+        FluidStack fluid = null;
+        if (item != null) {
+            // A fluid from NEI is a fluid; a container is itself, or with Ctrl the fluid in it.
+            fluid = SupplyFluids.filterFluid(item);
+            if (fluid == null && asFluid) {
+                fluid = SupplyFluids.containerFluid(item);
+            }
+            kind = fluid != null ? SupplyFluids.filterItem(fluid, item) : item.copy();
+        }
         if (kind != null) {
             kind.stackSize = 1;
             String key = fluid != null ? SupplyKey.encodeFluid(fluid) : SupplyKey.encodeItem(kind);
@@ -235,7 +243,7 @@ public class TileSupplyBuffer extends TileEntity
     /** Client side: the filter as the server has it, shown in the window. */
     void setFilterClient(int index, ItemStack item) {
         filters[index] = item;
-        filterFluid[index] = SupplyFluids.fluidOf(item);
+        filterFluid[index] = SupplyFluids.filterFluid(item);
     }
 
     /** The fluid a filter keeps, or null when it keeps an item (or nothing). */
@@ -564,6 +572,8 @@ public class TileSupplyBuffer extends TileEntity
     private void takeResults(SupplyStore.SyncResult result) {
         boolean changed = false;
         long now = System.currentTimeMillis();
+        // What goes home again becomes new operations of this same list: added once the walk over it is done.
+        List<SupplyStore.Op> back = new ArrayList<>();
         Iterator<Pending> it = pending.iterator();
         while (it.hasNext()) {
             Pending p = it.next();
@@ -574,7 +584,7 @@ public class TileSupplyBuffer extends TileEntity
             long delivered = r.failed() ? 0 : r.delivered;
             if (TO_MAIN.equals(p.op.direction)) {
                 if (p.op.amount - delivered > 0) {
-                    giveBack(p.op.type, p.op.payload, p.op.amount - delivered);
+                    back.add(p.op.withAmount(p.op.amount - delivered));
                 }
             } else {
                 int filter = filterOf(p.op.payload);
@@ -583,7 +593,7 @@ public class TileSupplyBuffer extends TileEntity
                         stock[filter] += delivered;
                     } else {
                         // The filter changed meanwhile: what came goes home again.
-                        giveBack(p.op.type, p.op.payload, delivered);
+                        back.add(p.op.withAmount(delivered));
                     }
                 }
                 if (filter >= 0 && delivered < p.op.amount) {
@@ -596,6 +606,9 @@ public class TileSupplyBuffer extends TileEntity
             it.remove();
             acknowledged.add(p.op.id);
             changed = true;
+        }
+        for (SupplyStore.Op op : back) {
+            giveBack(op.type, op.payload, op.amount);
         }
         if (changed) {
             markDirty();
@@ -611,54 +624,16 @@ public class TileSupplyBuffer extends TileEntity
         return -1;
     }
 
-    /** What has to go home again: items into the send slots (dropped on top when full), fluids to the send tanks. */
+    /**
+     * What has to go home again (a stock whose filter was taken off, an order that came for a filter changed meanwhile,
+     * what a full network didn't take): straight back as one operation, never as items in the world, however much.
+     */
     private void giveBack(String type, String payload, long amount) {
         if (payload == null || amount <= 0) {
             return;
         }
-        if (FLUID.equals(type)) {
-            FluidStack fluid = SupplyKey.decodeFluid(payload);
-            if (fluid != null) {
-                addSendFluid(fluid, amount);
-            }
-            return;
-        }
-        ItemStack kind = SupplyKey.decodeItem(payload);
-        if (kind == null) {
-            return;
-        }
-        while (amount > 0) {
-            ItemStack stack = kind.copy();
-            stack.stackSize = (int) Math.min(amount, kind.getMaxStackSize());
-            amount -= stack.stackSize;
-            int left = insert(stack);
-            if (left > 0) {
-                stack.stackSize = left;
-                EntityItem item = new EntityItem(worldObj, xCoord + 0.5, yCoord + 1.2, zCoord + 0.5, stack);
-                worldObj.spawnEntityInWorld(item);
-            }
-        }
-    }
-
-    private int insert(ItemStack stack) {
-        int left = stack.stackSize;
-        for (int i = 0; i < SLOTS && left > 0; i++) {
-            if (slots[i] != null && sameKind(slots[i], stack)) {
-                int room = slots[i].getMaxStackSize() - slots[i].stackSize;
-                int put = Math.min(room, left);
-                slots[i].stackSize += put;
-                left -= put;
-            }
-        }
-        for (int i = 0; i < SLOTS && left > 0; i++) {
-            if (slots[i] == null) {
-                ItemStack put = stack.copy();
-                put.stackSize = Math.min(left, stack.getMaxStackSize());
-                slots[i] = put;
-                left -= put.stackSize;
-            }
-        }
-        return left;
+        pending.add(new Pending(new SupplyStore.Op(UUID.randomUUID(), TO_MAIN, type, payload, amount)));
+        markDirty();
     }
 
     static boolean sameKind(ItemStack a, ItemStack b) {
@@ -666,20 +641,28 @@ public class TileSupplyBuffer extends TileEntity
             && ItemStack.areItemStackTagsEqual(a, b);
     }
 
-    /** What is left when the block is broken: the send slots and the stocks. */
+    /**
+     * Whether the block may be broken: not while it holds stocks or has anything on its way, which could only be
+     * dropped (any amount, at once) or lost.
+     */
+    boolean canBreak() {
+        if (!pending.isEmpty() || !sendFluids.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < FILTERS; i++) {
+            if (stock[i] > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** What is left when the block is broken: the send slots, eighteen stacks at most. */
     void dropContents() {
         for (int i = 0; i < SLOTS; i++) {
             if (slots[i] != null) {
                 drop(slots[i]);
                 slots[i] = null;
-            }
-        }
-        for (int i = 0; i < FILTERS; i++) {
-            while (filters[i] != null && filterFluid[i] == null && stock[i] > 0) {
-                ItemStack stack = filters[i].copy();
-                stack.stackSize = (int) Math.min(stock[i], stack.getMaxStackSize());
-                stock[i] -= stack.stackSize;
-                drop(stack);
             }
         }
     }
@@ -858,7 +841,7 @@ public class TileSupplyBuffer extends TileEntity
             int index = filter.getByte("Index");
             if (index >= 0 && index < FILTERS) {
                 filters[index] = filter.hasKey("id") ? ItemStack.loadItemStackFromNBT(filter) : null;
-                filterFluid[index] = SupplyFluids.fluidOf(filters[index]);
+                filterFluid[index] = SupplyFluids.filterFluid(filters[index]);
                 stock[index] = filter.getLong("stock");
                 target[index] = filter.hasKey("target") ? filter.getLong("target") : DEFAULT_TARGET;
                 threshold[index] = filter.hasKey("threshold") ? filter.getLong("threshold") : target[index] / 4;

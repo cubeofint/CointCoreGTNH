@@ -280,6 +280,11 @@ public final class SupplyStore {
             this.payload = payload;
             this.amount = amount;
         }
+
+        /** The same kind and way, another amount. */
+        public Op withAmount(long newAmount) {
+            return new Op(id, direction, type, payload, newAmount);
+        }
     }
 
     public static final class Result {
