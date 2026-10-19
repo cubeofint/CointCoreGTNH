@@ -21,6 +21,7 @@ import net.minecraft.world.storage.ThreadedFileIOBase;
 
 import coint.CointConfig;
 import coint.CointCore;
+import coint.cluster.ClusterHub;
 import coint.network.WorldTravelNetwork;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
@@ -72,7 +73,7 @@ public final class RestartManager {
         phase = Phase.COUNTDOWN;
         source = Source.MANUAL;
         lastSecond = -1;
-        joinsLocked = false;
+        unlockJoins();
         cancelAfterBackup = false;
         backupName = "";
         backupFile = null;
@@ -188,7 +189,9 @@ public final class RestartManager {
             return;
         }
         if (joinsLocked) {
-            player.playerNetServerHandler.kickPlayerFromServer("§cИдёт рестарт. Зайдите через пару минут.");
+            if (!ClusterHub.sendToHub(player)) {
+                player.playerNetServerHandler.kickPlayerFromServer("§cИдёт рестарт. Зайдите через пару минут.");
+            }
             return;
         }
         if (phase == Phase.COUNTDOWN) {
@@ -197,6 +200,8 @@ public final class RestartManager {
     }
 
     public synchronized void reset() {
+        // The server is stopping: a lock ends with it, not called off.
+        joinsLocked = false;
         autoSkipUntilMillis = 0L;
         autoConfigFingerprint = "";
         autoCheckTicks = 0;
@@ -238,7 +243,7 @@ public final class RestartManager {
         phase = Phase.COUNTDOWN;
         source = Source.AUTO;
         lastSecond = -1;
-        joinsLocked = false;
+        unlockJoins();
         cancelAfterBackup = false;
         backupName = "";
         backupFile = null;
@@ -322,13 +327,15 @@ public final class RestartManager {
 
         if (remaining <= 10 && !joinsLocked) {
             joinsLocked = true;
-            kickAll(server);
+            sendAllAway(server);
         }
 
         if (remaining > 0) {
             return;
         }
 
+        // Whoever didn't make it to the hub by now (a client that didn't reconnect) is disconnected.
+        kickAll(server);
         broadcastState(true, 0, "restarting");
         try {
             saveEverything(server);
@@ -382,7 +389,7 @@ public final class RestartManager {
 
         if (cancelAfterBackup) {
             CointCore.LOG.info("[Restart] Backup completed, restart was cancelled");
-            joinsLocked = false;
+            unlockJoins();
             phase = Phase.IDLE;
             source = Source.NONE;
             cancelAfterBackup = false;
@@ -400,10 +407,38 @@ public final class RestartManager {
     private void failAndUnlock(MinecraftServer server) {
         phase = Phase.IDLE;
         source = Source.NONE;
-        joinsLocked = false;
+        unlockJoins();
         cancelAfterBackup = false;
         broadcastState(false, 0, "");
         broadcastChat(server, "§c[Restart] §fРестарт отменён. Сервер продолжает работу.");
+    }
+
+    /** Logins open again; when they were locked, the restart was called off and the hub sends the players back. */
+    private void unlockJoins() {
+        if (joinsLocked) {
+            ClusterHub.restartAborted();
+        }
+        joinsLocked = false;
+    }
+
+    /** Logins are locked now: the players go to the hub to wait, or are disconnected when there is none. */
+    private void sendAllAway(MinecraftServer server) {
+        broadcastState(true, 0, "restarting");
+        List<?> players = new ArrayList<>(server.getConfigurationManager().playerEntityList);
+        int toHub = 0;
+        for (Object object : players) {
+            if (object instanceof EntityPlayerMP player) {
+                if (ClusterHub.sendToHub(player)) {
+                    toHub++;
+                } else {
+                    player.playerNetServerHandler.kickPlayerFromServer("§cИдёт рестарт. Зайдите через пару минут.");
+                }
+            }
+        }
+        CointCore.LOG.info(
+            "[Restart] Player logins locked: {} players sent to the hub, {} kicked",
+            toHub,
+            players.size() - toHub);
     }
 
     private void kickAll(MinecraftServer server) {
@@ -467,7 +502,7 @@ public final class RestartManager {
         source = Source.NONE;
         targetMillis = 0L;
         lastSecond = -1;
-        joinsLocked = false;
+        unlockJoins();
         cancelAfterBackup = false;
         backupName = "";
         backupFile = null;

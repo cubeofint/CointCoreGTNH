@@ -11,7 +11,10 @@ import net.minecraft.util.ChatComponentText;
 
 import coint.CointConfig;
 
-/** {@code /server} lists the servers of the network; {@code /server <id>} moves the player there. */
+/**
+ * {@code /server} lists the servers of the network; {@code /server <id>} moves the player there, {@code /server home}
+ * to his home server.
+ */
 public class CommandServer extends CommandBase {
 
     @Override
@@ -21,7 +24,7 @@ public class CommandServer extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/server [id]";
+        return "/server [id|home]";
     }
 
     @Override
@@ -74,7 +77,7 @@ public class CommandServer extends CommandBase {
                         + (here ? " §b(вы здесь)" : "")
                         + (node.id.equals(home) ? " §e⌂ дом" : "")));
         }
-        sender.addChatMessage(new ChatComponentText("§7Перейти: /server <id>"));
+        sender.addChatMessage(new ChatComponentText("§7Перейти: /server <id>, домой: /server home"));
     }
 
     private static void move(ICommandSender sender, List<ClusterDatabase.NodeRow> nodes, String id) {
@@ -82,7 +85,20 @@ public class CommandServer extends CommandBase {
             sender.addChatMessage(new ChatComponentText("§cТолько для игроков."));
             return;
         }
-        if (id.equals(ClusterService.nodeId())) {
+        if (id.equals("home")) {
+            // His home server, unless a server is really named so.
+            boolean named = false;
+            for (ClusterDatabase.NodeRow node : nodes) {
+                named |= node.id.equalsIgnoreCase(id);
+            }
+            String home = named ? id : ClusterHomes.homeOf(player.getUniqueID());
+            if (home == null) {
+                sender.addChatMessage(new ChatComponentText("§cДомашний сервер не задан. Список: /server"));
+                return;
+            }
+            id = home.toLowerCase(Locale.ROOT);
+        }
+        if (id.equalsIgnoreCase(ClusterService.nodeId())) {
             sender.addChatMessage(new ChatComponentText("§eВы уже на этом сервере."));
             return;
         }

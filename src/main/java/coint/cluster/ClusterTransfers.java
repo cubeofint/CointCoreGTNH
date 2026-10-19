@@ -40,6 +40,11 @@ public final class ClusterTransfers {
         pending.put(player.getUniqueID(), new Pending(player, node, deadline));
     }
 
+    /** Asked to leave and not gone yet. */
+    static boolean isLeaving(UUID uuid) {
+        return pending.containsKey(uuid);
+    }
+
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || pending.isEmpty()) {

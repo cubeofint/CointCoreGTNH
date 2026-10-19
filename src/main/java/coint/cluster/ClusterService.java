@@ -186,6 +186,7 @@ public final class ClusterService {
             database = null;
         }
         results.clear();
+        ClusterHub.reset();
     }
 
     /** Global chat of a player here, for the other servers. */

@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 3;
+    private static final int SCHEMA_VERSION = 4;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -127,6 +127,14 @@ final class ClusterDatabase {
             }
             if (version < 3) {
                 SupplyStore.createTables(s);
+            }
+            if (version < 4) {
+                s.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS cluster_returns (" + "uuid CHAR(36) NOT NULL PRIMARY KEY, "
+                        + "name VARCHAR(32) NOT NULL, "
+                        + "node_id VARCHAR(64) NOT NULL, "
+                        + "created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+                        + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             }
         }
         try (PreparedStatement p = c.prepareStatement(
@@ -351,6 +359,81 @@ final class ClusterDatabase {
         return result;
     }
 
+    /** A player sent to the hub before {@code nodeId} restarts: he goes back there once it is up again. */
+    void setReturn(String uuid, String name, String nodeId) throws SQLException {
+        try (PreparedStatement p = connection().prepareStatement(
+            "INSERT INTO cluster_returns (uuid, name, node_id, created_at) VALUES (?, ?, ?, NOW(3)) "
+                + "ON DUPLICATE KEY UPDATE name = VALUES(name), node_id = VALUES(node_id), created_at = NOW(3)")) {
+            p.setString(1, uuid);
+            p.setString(2, clip(name, 32));
+            p.setString(3, nodeId);
+            p.executeUpdate();
+        }
+    }
+
+    /** The player has come to a server other than the hub: nothing to go back to any more. */
+    void clearReturn(String uuid) throws SQLException {
+        try (PreparedStatement p = connection().prepareStatement("DELETE FROM cluster_returns WHERE uuid = ?")) {
+            p.setString(1, uuid);
+            p.executeUpdate();
+        }
+    }
+
+    /** The restart of {@code nodeId} was called off: who waits for it may go back to the run still going. */
+    void releaseReturns(String nodeId) throws SQLException {
+        try (PreparedStatement p = connection().prepareStatement(
+            "UPDATE cluster_returns r JOIN cluster_nodes n ON n.node_id = r.node_id "
+                + "SET r.created_at = n.started_at - INTERVAL 1 SECOND WHERE r.node_id = ?")) {
+            p.setString(1, nodeId);
+            p.executeUpdate();
+        }
+    }
+
+    /** Returns nobody came for: the player went elsewhere, or his server never came back. */
+    void pruneReturns(int keepHours) throws SQLException {
+        try (PreparedStatement p = connection()
+            .prepareStatement("DELETE FROM cluster_returns WHERE created_at < NOW(3) - INTERVAL ? HOUR")) {
+            p.setInt(1, keepHours);
+            p.executeUpdate();
+        }
+    }
+
+    /**
+     * Where these players are to go back to. Ready: the server is up, was started after they left (not still the run
+     * that sent them away, finishing its backup) and has run for {@code delaySeconds}.
+     */
+    List<ReturnRow> returns(List<String> uuids, int timeoutSeconds, int delaySeconds) throws SQLException {
+        List<ReturnRow> result = new ArrayList<>();
+        if (uuids.isEmpty()) {
+            return result;
+        }
+        StringBuilder in = new StringBuilder();
+        for (int i = 0; i < uuids.size(); i++) {
+            in.append(i == 0 ? "?" : ", ?");
+        }
+        try (PreparedStatement p = connection().prepareStatement(
+            "SELECT r.uuid, r.node_id, COALESCE(n.display_name, r.node_id), COALESCE(n.address, ''), "
+                + "(n.node_id IS NOT NULL AND NOT n.stopped AND n.last_seen > NOW(3) - INTERVAL ? SECOND "
+                + "AND n.started_at > r.created_at AND n.started_at <= NOW(3) - INTERVAL ? SECOND) "
+                + "FROM cluster_returns r LEFT JOIN cluster_nodes n ON n.node_id = r.node_id "
+                + "WHERE r.uuid IN ("
+                + in
+                + ")")) {
+            p.setInt(1, timeoutSeconds);
+            p.setInt(2, delaySeconds);
+            for (int i = 0; i < uuids.size(); i++) {
+                p.setString(3 + i, uuids.get(i));
+            }
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    result.add(
+                        new ReturnRow(r.getString(1), r.getString(2), r.getString(3), r.getString(4), r.getBoolean(5)));
+                }
+            }
+        }
+        return result;
+    }
+
     private static String clip(String text, int max) {
         if (text == null) {
             return "";
@@ -383,6 +466,21 @@ final class ClusterDatabase {
             this.tps = tps;
             this.online = online;
         }
+    }
+
+    static final class ReturnRow {
+
+        final String uuid, nodeId, nodeName, address;
+        final boolean ready;
+
+        ReturnRow(String uuid, String nodeId, String nodeName, String address, boolean ready) {
+            this.uuid = uuid;
+            this.nodeId = nodeId;
+            this.nodeName = nodeName;
+            this.address = address;
+            this.ready = ready;
+        }
+
     }
 
     static final class RemotePlayer {

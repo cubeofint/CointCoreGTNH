@@ -501,5 +501,16 @@ public class CointConfig {
         @Config.DefaultInt(10)
         @Config.RangeInt(min = 3, max = 60)
         public int transferTimeoutSeconds;
+
+        @Config.Comment("Id of the hub server, the same on every server of the network. Before a restart the players "
+            + "wait there and are told when their server is up again (they go back with /server). Empty: no hub, restarts disconnect everyone. "
+            + "Give the hub restart times of its own (restart.autoTimes): it can't take players while it restarts itself")
+        @Config.DefaultString("")
+        public String hubNodeId;
+
+        @Config.Comment("Hub: seconds a restarted server runs before the players waiting for it are told it is up")
+        @Config.DefaultInt(20)
+        @Config.RangeInt(min = 0, max = 600)
+        public int hubReturnDelaySeconds;
     }
 }
