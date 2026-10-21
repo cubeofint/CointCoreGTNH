@@ -386,18 +386,25 @@ public final class WorldTravelManager {
         }
 
         ChunkCoordinates spawn = target.getSpawnPoint();
+        teleportTo(player, target, spawn.posX + 0.5D, spawn.posY + 1.0D, spawn.posZ + 0.5D);
+    }
+
+    /** Puts a player at a point of a loaded world, moving him across dimensions if needed. */
+    public static void teleportTo(EntityPlayerMP player, WorldServer target, double x, double y, double z) {
+        int dimension = target.provider.dimensionId;
         WorldTravelDestination temp = new WorldTravelDestination();
         temp.dimension = dimension;
-        temp.x = spawn.posX + 0.5D;
-        temp.y = spawn.posY + 1.0D;
-        temp.z = spawn.posZ + 0.5D;
+        temp.x = x;
+        temp.y = y;
+        temp.z = z;
 
         prepareDestinationChunk(target, temp.x, temp.z);
 
         if (player.dimension == dimension) {
             player.playerNetServerHandler.setPlayerLocation(temp.x, temp.y, temp.z, 0.0F, 0.0F);
         } else {
-            server.getConfigurationManager()
+            MinecraftServer.getServer()
+                .getConfigurationManager()
                 .transferPlayerToDimension(player, dimension, new FixedTeleporter(target, temp));
             player.playerNetServerHandler.setPlayerLocation(temp.x, temp.y, temp.z, 0.0F, 0.0F);
             WorldTravelServerEvents.schedulePositionResync(player, dimension, temp.x, temp.y, temp.z, 0.0F, 0.0F);

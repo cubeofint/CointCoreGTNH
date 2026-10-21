@@ -26,6 +26,7 @@ public class CmdRegistry {
         event.registerServerCommand(new CommandClass());
         event.registerServerCommand(new CommandIgnore());
         event.registerServerCommand(new CommandUnloadDimensions());
+        event.registerServerCommand(new CommandAnchors());
         event.registerServerCommand(new CommandBatchModeAll());
         event.registerServerCommand(new CommandWorlds());
         event.registerServerCommand(new CommandWorldsAdmin());
