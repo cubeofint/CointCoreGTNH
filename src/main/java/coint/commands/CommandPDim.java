@@ -14,6 +14,7 @@ import net.minecraft.util.ChatComponentText;
 
 import coint.integration.personalspace.PersonalSpaceBinding;
 import coint.integration.personalspace.PersonalSpaceTeamReward;
+import coint.player.PDimDeleteRequests;
 import coint.player.TeamsManager;
 import me.eigenraven.personalspace.world.DimensionConfig;
 import serverutils.lib.data.ForgePlayer;
@@ -37,19 +38,45 @@ public class CommandPDim extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/pdim <player> | /pdim bind <player> <dim> | /pdim unbind <player> | /pdim resetreward <player>";
+        if (!isAdmin(sender)) {
+            return "/pdim delete | /pdim delete approve | /pdim delete cancel";
+        }
+        return "/pdim <player> | /pdim bind <player> <dim> | /pdim unbind <player> | /pdim resetreward <player> | /pdim delete [approve|cancel]";
+    }
+
+    @Override
+    public int getRequiredPermissionLevel() {
+        // Everyone may delete their own team's dimension; the rest is checked against PERMISSION per subcommand.
+        return 0;
     }
 
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
-        if (sender instanceof EntityPlayer player) {
-            return PermissionAPI.hasPermission(player, PERMISSION);
-        }
         return true;
+    }
+
+    private static boolean isAdmin(ICommandSender sender) {
+        return !(sender instanceof EntityPlayer player) || PermissionAPI.hasPermission(player, PERMISSION);
     }
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length >= 1 && args.length <= 2 && "delete".equalsIgnoreCase(args[0])) {
+            if (!(sender instanceof EntityPlayerMP player)) {
+                throw new CommandException("Только для игроков.");
+            }
+            String action = args.length == 2 ? args[1].toLowerCase(java.util.Locale.ROOT) : "";
+            switch (action) {
+                case "" -> PDimDeleteRequests.request(player);
+                case "approve", "confirm" -> PDimDeleteRequests.approve(player);
+                case "cancel" -> PDimDeleteRequests.cancel(player);
+                default -> throw new WrongUsageException(getCommandUsage(sender));
+            }
+            return;
+        }
+        if (!isAdmin(sender)) {
+            throw new WrongUsageException(getCommandUsage(sender));
+        }
         if (args.length == 1) {
             lookup(sender, args[0]);
             return;
@@ -74,8 +101,18 @@ public class CommandPDim extends CommandBase {
 
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
+        if (args.length == 2 && "delete".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(args, "approve", "cancel");
+        }
+        if (args.length == 1 && !isAdmin(sender)) {
+            return getListOfStringsMatchingLastWord(args, "delete");
+        }
+        if (!isAdmin(sender)) {
+            return null;
+        }
         if (args.length == 1) {
             List<String> values = new ArrayList<>();
+            values.add("delete");
             values.add("bind");
             values.add("unbind");
             values.add("resetreward");

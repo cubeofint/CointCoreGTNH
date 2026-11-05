@@ -93,7 +93,8 @@ public enum LateMixins implements IMixins {
         .addCommonMixins(
             "personalspace.MixinPortalTileEntityTeamBinding",
             "personalspace.MixinDimensionConfigRetiredIds",
-            "personalspace.MixinPortalTileEntityStaleLink")),
+            "personalspace.MixinPortalTileEntityStaleLink")
+        .addClientMixins("personalspace.MixinGuiEditWorldDeleteButton")),
 
     SERVERUTILITIES(new MixinBuilder("ServerUtilities").addRequiredMod(TargetMod.SERVERUTILITIES)
         .setPhase(Phase.LATE)
