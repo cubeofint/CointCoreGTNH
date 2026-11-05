@@ -7,6 +7,7 @@ import coint.client.ClientTransfer;
 import coint.client.ClientWorldTravelEvents;
 import coint.client.ClientWorldTravelState;
 import coint.client.SrgbGuard;
+import coint.client.battlepass.CommandBattlePassPreview;
 import coint.network.PacketOpenWorlds;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
@@ -31,6 +32,12 @@ public class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(new ClientTransfer.Ticker());
+        if (CointConfig.general.battlePassPreview) {
+            FMLCommonHandler.instance()
+                .bus()
+                .register(new CommandBattlePassPreview.Opener());
+            net.minecraftforge.client.ClientCommandHandler.instance.registerCommand(new CommandBattlePassPreview());
+        }
     }
 
     @Override

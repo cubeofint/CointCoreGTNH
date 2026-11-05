@@ -48,6 +48,10 @@ public class CointConfig {
         @Config.Reloadable(RELOAD)
         public boolean amdSrgbFix;
 
+        @Config.Comment("Client: register /bptest, which opens the look-only battle pass prototype. Needs a restart")
+        @Config.DefaultBoolean(false)
+        public boolean battlePassPreview;
+
         @Config.Comment("Enable entity cleanup")
         @Config.DefaultBoolean(true)
         public boolean cleanupEnabled;
