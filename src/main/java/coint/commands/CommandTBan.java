@@ -10,12 +10,14 @@ import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.management.UserListBans;
+import net.minecraft.server.management.UserListBansEntry;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
 import com.google.common.base.Joiner;
+import com.mojang.authlib.GameProfile;
 
-import coint.player.TempBanEntry;
 import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -43,7 +45,7 @@ public class CommandTBan extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/tban <player> <time> 'reason'";
+        return "/tban <player> <time> 'reason' | /tban <player> remove";
     }
 
     @Override
@@ -65,6 +67,10 @@ public class CommandTBan extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
+        if (args.length == 2 && "remove".equalsIgnoreCase(args[1])) {
+            unban(sender, args[0]);
+            return;
+        }
         if (args.length < 3) {
             throw new WrongUsageException(getCommandUsage(sender));
         }
@@ -90,7 +96,13 @@ public class CommandTBan extends CommandBase {
         }
 
         // ban execute
-        TempBanEntry tbe = new TempBanEntry(player.profile, sender.getCommandSenderName(), end, reason);
+        // a plain vanilla entry: /pardon, /banlist and their tab completion cast every entry to this class
+        UserListBansEntry tbe = new UserListBansEntry(
+            player.profile,
+            new Date(),
+            sender.getCommandSenderName(),
+            end,
+            reason);
         MinecraftServer ms = MinecraftServer.getServer();
         ms.getConfigurationManager()
             .func_152608_h()
@@ -114,5 +126,23 @@ public class CommandTBan extends CommandBase {
 
         ms.getConfigurationManager()
             .sendChatMsg(message);
+    }
+
+    private static void unban(ICommandSender sender, String name) {
+        MinecraftServer ms = MinecraftServer.getServer();
+        UserListBans bans = ms.getConfigurationManager()
+            .func_152608_h();
+        ForgePlayer player = Universe.get()
+            .getPlayer(name);
+        GameProfile profile = player != null ? player.profile
+            : ms.func_152358_ax()
+                .func_152655_a(name);
+        if (profile == null || !bans.func_152702_a(profile)) {
+            sender.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Игрок " + name + " не забанен"));
+            return;
+        }
+        // removes by key, so it works on entries of any class
+        bans.func_152684_c(profile);
+        func_152373_a(sender, null, "commands.unban.success", profile.getName());
     }
 }
