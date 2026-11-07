@@ -2,3 +2,26 @@ cointcore.reward.team=Team Reward
 
 tile.cointcore.supply_buffer.name=Cross-Server Supply Buffer
 item.cointcore.supply_link_card.name=Supply Link Card
+
+cointcore.pdim.delete.button=Delete
+cointcore.pdim.delete.tooltip=Delete your team's personal dimension forever
+cointcore.pdim.delete.confirm.title=§cDelete your team's personal dimension?
+cointcore.pdim.delete.confirm.line1=The dimension and everything built in it will be deleted for good.
+cointcore.pdim.delete.confirm.line2=If other team members are online, they will have to confirm in chat.
+cointcore.pdim.delete.confirm.yes=§cDelete forever
+cointcore.pdim.delete.notTeamDim=This is not your team's personal dimension: you can only delete your own.
+cointcore.pdim.delete.noTeam=You are not in a team: a personal dimension belongs to a team.
+cointcore.pdim.delete.noDim=Your team has no personal dimension. If it does have one, contact the staff.
+cointcore.pdim.delete.alreadyAsked=Deletion is already requested: confirm with /pdim delete approve or cancel with /pdim delete cancel.
+cointcore.pdim.delete.asked=§c%s wants to delete the team's personal dimension (DIM %s) with everything built in it. This cannot be undone.
+cointcore.pdim.delete.approveButton=[Confirm]
+cointcore.pdim.delete.cancelButton=[Cancel]
+cointcore.pdim.delete.everyone=§7Everyone online (%s) must confirm within 2 minutes.
+cointcore.pdim.delete.noRequest=There is no request to delete the personal dimension. Start one: /pdim delete
+cointcore.pdim.delete.noRequestToCancel=There is no request to delete the personal dimension.
+cointcore.pdim.delete.notRequired=You were not online when the deletion was requested: the others must confirm.
+cointcore.pdim.delete.approved=§e%s confirmed the deletion of the personal dimension (%s/%s).
+cointcore.pdim.delete.done=§aThe team's personal dimension is deleted. You can get a new one again.
+cointcore.pdim.delete.unbound=§eNo active personal dimension was found; the binding is reset: you can get a new one again.
+cointcore.pdim.delete.cancelled=§a%s cancelled the deletion of the personal dimension.
+cointcore.pdim.delete.expired=§7The request to delete the personal dimension expired: not everyone confirmed.

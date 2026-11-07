@@ -3,6 +3,7 @@ package coint.mixin.personalspace;
 import java.awt.Rectangle;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.StatCollector;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -44,17 +45,18 @@ public abstract class MixinGuiEditWorldDeleteButton {
         int x = tile.xCoord, y = tile.yCoord, z = tile.zCoord;
         WButton delete = new WButton(
             new Rectangle(260, 211, 44, 20),
-            "Удалить",
+            StatCollector.translateToLocal("cointcore.pdim.delete.button"),
             true,
             0xFF5555,
             null,
             () -> Minecraft.getMinecraft()
                 .displayGuiScreen(new GuiPDimDeleteConfirm(self, x, y, z)));
-        delete.tooltip = "Удалить персоналку команды навсегда";
+        delete.tooltip = StatCollector.translateToLocal("cointcore.pdim.delete.tooltip");
         rootWidget.addChild(delete);
     }
 
+    /** From the configs the server sent this client (the server's own list is empty here on a dedicated server). */
     private static boolean isPersonal(int dimId) {
-        return dimId > 0 && DimensionConfig.getForDimension(dimId, false) != null;
+        return dimId > 0 && DimensionConfig.getForDimension(dimId, true) != null;
     }
 }

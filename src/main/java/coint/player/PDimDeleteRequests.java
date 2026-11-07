@@ -10,6 +10,7 @@ import net.minecraft.command.CommandException;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.event.ClickEvent;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
@@ -23,10 +24,14 @@ import serverutils.lib.data.Universe;
  * Players deleting their own team's personal dimension ({@code /pdim delete}). Every team member online when it is
  * asked for has to approve within {@link #APPROVE_MS} (the one who asked as well, so nobody deletes by a slip); any
  * member can cancel. The deletion itself is the admin one, {@link PlayerResetManager#resetPersonalDimension}.
+ *
+ * <p>
+ * Messages are translation keys ({@code cointcore.pdim.delete.*}): each player reads them in his own language.
  */
 public final class PDimDeleteRequests {
 
     private static final long APPROVE_MS = 120_000;
+    private static final String KEY = "cointcore.pdim.delete.";
 
     private static final class Pending {
 
@@ -59,7 +64,7 @@ public final class PDimDeleteRequests {
         int teamDim = TeamsManager.get()
             .getDim(teamOf(player));
         if (teamDim <= 0 || dimId != teamDim) {
-            throw new CommandException("Это не персоналка вашей команды: удалить можно только свою.");
+            throw new CommandException(KEY + "notTeamDim");
         }
         request(player, true);
     }
@@ -69,12 +74,11 @@ public final class PDimDeleteRequests {
         int dimId = TeamsManager.get()
             .getDim(team);
         if (dimId <= 0) {
-            throw new CommandException("У вашей команды нет персоналки. Если она есть, напишите администрации.");
+            throw new CommandException(KEY + "noDim");
         }
         Pending existing = live(team);
         if (existing != null) {
-            throw new CommandException(
-                "Удаление уже запрошено: подтвердите /pdim delete approve или отмените /pdim delete cancel.");
+            throw new CommandException(KEY + "alreadyAsked");
         }
         Set<UUID> required = new HashSet<>();
         for (ForgePlayer member : team.getMembers()) {
@@ -85,17 +89,16 @@ public final class PDimDeleteRequests {
         required.add(player.getUniqueID());
         pending.put(team.getId(), new Pending(dimId, required, System.currentTimeMillis() + APPROVE_MS));
 
-        IChatComponent message = new ChatComponentText(
-            "§c" + player.getCommandSenderName()
-                + " хочет удалить персоналку команды (DIM "
-                + dimId
-                + ") вместе со всем построенным. Это необратимо. ");
-        message.appendSibling(button("[Подтвердить]", "/pdim delete approve", EnumChatFormatting.RED));
+        IChatComponent message = new ChatComponentTranslation(
+            KEY + "asked",
+            player.getCommandSenderName(),
+            String.valueOf(dimId));
         message.appendSibling(new ChatComponentText(" "));
-        message.appendSibling(button("[Отменить]", "/pdim delete cancel", EnumChatFormatting.GREEN));
-        message.appendSibling(
-            new ChatComponentText(
-                " §7Подтвердить должны все, кто в сети (" + required.size() + "), в течение 2 минут."));
+        message.appendSibling(button(KEY + "approveButton", "/pdim delete approve", EnumChatFormatting.RED));
+        message.appendSibling(new ChatComponentText(" "));
+        message.appendSibling(button(KEY + "cancelButton", "/pdim delete cancel", EnumChatFormatting.GREEN));
+        message.appendSibling(new ChatComponentText(" "));
+        message.appendSibling(new ChatComponentTranslation(KEY + "everyone", String.valueOf(required.size())));
         if (approvedByRequester && required.size() == 1) {
             // Alone and already confirmed on the screen: nobody else to ask.
             approve(player);
@@ -111,22 +114,20 @@ public final class PDimDeleteRequests {
         ForgeTeam team = teamOf(player);
         Pending request = live(team);
         if (request == null) {
-            throw new CommandException("Запроса на удаление персоналки нет. Начать: /pdim delete");
+            throw new CommandException(KEY + "noRequest");
         }
         if (!request.required.contains(player.getUniqueID())) {
-            throw new CommandException("Вас не было в сети, когда удаление запросили: подтверждать должны другие.");
+            throw new CommandException(KEY + "notRequired");
         }
         request.approved.add(player.getUniqueID());
         if (!request.approved.containsAll(request.required)) {
             tell(
                 request.required,
-                new ChatComponentText(
-                    "§e" + player.getCommandSenderName()
-                        + " подтвердил удаление персоналки ("
-                        + request.approved.size()
-                        + "/"
-                        + request.required.size()
-                        + ")."));
+                new ChatComponentTranslation(
+                    KEY + "approved",
+                    player.getCommandSenderName(),
+                    String.valueOf(request.approved.size()),
+                    String.valueOf(request.required.size())));
             return;
         }
 
@@ -139,23 +140,17 @@ public final class PDimDeleteRequests {
             team.getId(),
             deleted,
             request.approved);
-        tell(
-            request.required,
-            new ChatComponentText(
-                deleted > 0 ? "§aПерсоналка команды удалена. Новую можно получить заново."
-                    : "§eАктивная персоналка не найдена, привязка сброшена: новую можно получить заново."));
+        tell(request.required, new ChatComponentTranslation(KEY + (deleted > 0 ? "done" : "unbound")));
     }
 
     public static void cancel(EntityPlayerMP player) throws CommandException {
         ForgeTeam team = teamOf(player);
         Pending request = live(team);
         if (request == null) {
-            throw new CommandException("Запроса на удаление персоналки нет.");
+            throw new CommandException(KEY + "noRequestToCancel");
         }
         pending.remove(team.getId());
-        tell(
-            request.required,
-            new ChatComponentText("§a" + player.getCommandSenderName() + " отменил удаление персоналки."));
+        tell(request.required, new ChatComponentTranslation(KEY + "cancelled", player.getCommandSenderName()));
     }
 
     /** The team's request, if it has one still waiting; an expired one is dropped. */
@@ -163,7 +158,7 @@ public final class PDimDeleteRequests {
         Pending request = pending.get(team.getId());
         if (request != null && System.currentTimeMillis() > request.expiresAt) {
             pending.remove(team.getId());
-            tell(request.required, new ChatComponentText("§7Запрос на удаление персоналки истёк: не все подтвердили."));
+            tell(request.required, new ChatComponentTranslation(KEY + "expired"));
             return null;
         }
         return request;
@@ -173,13 +168,13 @@ public final class PDimDeleteRequests {
         ForgePlayer forgePlayer = Universe.get()
             .getPlayer(player);
         if (forgePlayer == null || !forgePlayer.hasTeam()) {
-            throw new CommandException("Вы не состоите в команде: персоналка принадлежит команде.");
+            throw new CommandException(KEY + "noTeam");
         }
         return forgePlayer.team;
     }
 
-    private static IChatComponent button(String text, String command, EnumChatFormatting color) {
-        return new ChatComponentText(text).setChatStyle(
+    private static IChatComponent button(String key, String command, EnumChatFormatting color) {
+        return new ChatComponentTranslation(key).setChatStyle(
             new ChatStyle().setColor(color)
                 .setBold(true)
                 .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command)));

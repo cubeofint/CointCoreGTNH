@@ -2,6 +2,7 @@ package coint.client;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.util.StatCollector;
 
 import coint.network.PacketPDimDelete;
 import coint.network.WorldTravelNetwork;
@@ -26,8 +27,16 @@ public class GuiPDimDeleteConfirm extends GuiScreen {
     @SuppressWarnings("unchecked")
     public void initGui() {
         buttonList.clear();
-        buttonList.add(new GuiButton(0, width / 2 - 155, height / 2 + 30, 150, 20, "§cУдалить навсегда"));
-        buttonList.add(new GuiButton(1, width / 2 + 5, height / 2 + 30, 150, 20, "Отмена"));
+        buttonList.add(
+            new GuiButton(
+                0,
+                width / 2 - 155,
+                height / 2 + 30,
+                150,
+                20,
+                StatCollector.translateToLocal("cointcore.pdim.delete.confirm.yes")));
+        buttonList.add(
+            new GuiButton(1, width / 2 + 5, height / 2 + 30, 150, 20, StatCollector.translateToLocal("gui.cancel")));
     }
 
     @Override
@@ -43,16 +52,21 @@ public class GuiPDimDeleteConfirm extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
-        drawCenteredString(fontRendererObj, "§cУдалить персоналку команды?", width / 2, height / 2 - 40, 0xFFFFFF);
         drawCenteredString(
             fontRendererObj,
-            "Измерение и всё построенное в нём будут удалены безвозвратно.",
+            StatCollector.translateToLocal("cointcore.pdim.delete.confirm.title"),
+            width / 2,
+            height / 2 - 40,
+            0xFFFFFF);
+        drawCenteredString(
+            fontRendererObj,
+            StatCollector.translateToLocal("cointcore.pdim.delete.confirm.line1"),
             width / 2,
             height / 2 - 22,
             0xFFFFFF);
         drawCenteredString(
             fontRendererObj,
-            "Если в команде кто-то ещё в сети, им нужно будет подтвердить в чате.",
+            StatCollector.translateToLocal("cointcore.pdim.delete.confirm.line2"),
             width / 2,
             height / 2 - 10,
             0xAAAAAA);

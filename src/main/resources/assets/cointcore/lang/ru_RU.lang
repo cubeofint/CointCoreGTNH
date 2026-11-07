@@ -2,3 +2,26 @@ cointcore.reward.team=Командная награда
 
 tile.cointcore.supply_buffer.name=Межсерверный буфер снабжения
 item.cointcore.supply_link_card.name=Карта связи снабжения
+
+cointcore.pdim.delete.button=Удалить
+cointcore.pdim.delete.tooltip=Удалить персоналку команды навсегда
+cointcore.pdim.delete.confirm.title=§cУдалить персоналку команды?
+cointcore.pdim.delete.confirm.line1=Измерение и всё построенное в нём будут удалены безвозвратно.
+cointcore.pdim.delete.confirm.line2=Если в команде кто-то ещё в сети, им нужно будет подтвердить в чате.
+cointcore.pdim.delete.confirm.yes=§cУдалить навсегда
+cointcore.pdim.delete.notTeamDim=Это не персоналка вашей команды: удалить можно только свою.
+cointcore.pdim.delete.noTeam=Вы не состоите в команде: персоналка принадлежит команде.
+cointcore.pdim.delete.noDim=У вашей команды нет персоналки. Если она есть, напишите администрации.
+cointcore.pdim.delete.alreadyAsked=Удаление уже запрошено: подтвердите /pdim delete approve или отмените /pdim delete cancel.
+cointcore.pdim.delete.asked=§c%s хочет удалить персоналку команды (DIM %s) вместе со всем построенным. Это необратимо.
+cointcore.pdim.delete.approveButton=[Подтвердить]
+cointcore.pdim.delete.cancelButton=[Отменить]
+cointcore.pdim.delete.everyone=§7Подтвердить должны все, кто в сети (%s), в течение 2 минут.
+cointcore.pdim.delete.noRequest=Запроса на удаление персоналки нет. Начать: /pdim delete
+cointcore.pdim.delete.noRequestToCancel=Запроса на удаление персоналки нет.
+cointcore.pdim.delete.notRequired=Вас не было в сети, когда удаление запросили: подтверждать должны другие.
+cointcore.pdim.delete.approved=§e%s подтвердил удаление персоналки (%s/%s).
+cointcore.pdim.delete.done=§aПерсоналка команды удалена. Новую можно получить заново.
+cointcore.pdim.delete.unbound=§eАктивная персоналка не найдена, привязка сброшена: новую можно получить заново.
+cointcore.pdim.delete.cancelled=§a%s отменил удаление персоналки.
+cointcore.pdim.delete.expired=§7Запрос на удаление персоналки истёк: не все подтвердили.

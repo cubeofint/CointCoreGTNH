@@ -3,7 +3,8 @@ package coint.network;
 import net.minecraft.command.CommandException;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.util.EnumChatFormatting;
 
 import coint.integration.personalspace.PersonalSpaceBinding;
 import coint.player.PDimDeleteRequests;
@@ -72,7 +73,10 @@ public class PacketPDimDelete implements IMessage {
             try {
                 PDimDeleteRequests.requestFromPortal(player, dimId);
             } catch (CommandException e) {
-                player.addChatMessage(new ChatComponentText("§c" + e.getMessage()));
+                ChatComponentTranslation text = new ChatComponentTranslation(e.getMessage(), e.getErrorOjbects());
+                text.getChatStyle()
+                    .setColor(EnumChatFormatting.RED);
+                player.addChatMessage(text);
             }
         }
     }
