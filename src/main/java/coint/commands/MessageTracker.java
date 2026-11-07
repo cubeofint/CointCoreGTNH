@@ -63,16 +63,8 @@ public final class MessageTracker {
 
     // true if ignore exist at any side
     public static boolean checkIgnore(String sender, String target) {
-        boolean result = true;
-
-        var i = IGNORE.get(sender);
-        if (i == null) result = false;
-        result = result && i.contains(target);
-
-        i = IGNORE.get(target);
-        if (i == null) result = false;
-        result = result && i.contains(target);
-
-        return result;
+        var bySender = IGNORE.get(sender);
+        var byTarget = IGNORE.get(target);
+        return (bySender != null && bySender.contains(target)) || (byTarget != null && byTarget.contains(sender));
     }
 }

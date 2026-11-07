@@ -29,8 +29,8 @@ import coint.CointConfig;
 import coint.CointCore;
 import coint.player.CointPlayer;
 import coint.player.Mute;
+import coint.player.PlayerLookup;
 import serverutils.lib.data.ForgePlayer;
-import serverutils.lib.data.Universe;
 
 /**
  * Bans, IP bans and mutes shared by all servers of the network. Whatever changes the vanilla ban lists here (/ban,
@@ -429,8 +429,7 @@ public final class ClusterSanctions {
 
     /** The profile of a player by name, also of one who never played on this server. */
     public static GameProfile profileFor(String name) {
-        ForgePlayer player = Universe.get()
-            .getPlayer(name);
+        ForgePlayer player = PlayerLookup.exact(name);
         if (player != null) {
             return player.profile;
         }

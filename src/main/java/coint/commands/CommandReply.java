@@ -110,11 +110,15 @@ public class CommandReply extends CommandBase {
         EntityPlayerMP target = MinecraftServer.getServer()
             .getConfigurationManager()
             .func_152612_a(targetName);
+        IChatComponent text = func_147176_a(sender, args, 0, !(sender instanceof EntityPlayer));
+
         if (target == null) {
+            // Maybe on another server of the network.
+            if (DirectMessages.sendRemote(sender, targetName, text)) {
+                return;
+            }
             throw new CommandException("§e" + targetName + "§c больше не в сети.");
         }
-
-        IChatComponent text = func_147176_a(sender, args, 0, !(sender instanceof EntityPlayer));
 
         // getUnformattedText() is server-safe; getFormattedText() is @SideOnly(CLIENT).
         String senderDisplay = sender.func_145748_c_()

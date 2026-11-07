@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.mojang.authlib.GameProfile;
 
 import coint.cluster.ClusterSanctions;
+import coint.player.PlayerLookup;
 import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -77,8 +78,7 @@ public class CommandTBan extends CommandBase {
         }
 
         // target
-        ForgePlayer player = Universe.get()
-            .getPlayer(args[0]);
+        ForgePlayer player = PlayerLookup.exact(args[0]);
         if (player == null) {
             throw new PlayerNotFoundException();
         }

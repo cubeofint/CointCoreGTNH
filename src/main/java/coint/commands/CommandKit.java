@@ -23,6 +23,7 @@ import net.minecraft.util.Vec3;
 
 import coint.commands.kit.KitDefinition;
 import coint.commands.kit.KitManager;
+import coint.player.PlayerLookup;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -156,8 +157,7 @@ public class CommandKit extends CommandBase {
                 return;
             }
 
-            ForgePlayer target = Universe.get()
-                .getPlayer(args[2]);
+            ForgePlayer target = PlayerLookup.exact(args[2]);
             if (target == null) {
                 sendError(sender, "Игрок не найден: " + args[2]);
                 return;

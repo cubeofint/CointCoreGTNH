@@ -11,6 +11,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
 
 import coint.migration.MigrationExporter;
+import coint.player.PlayerLookup;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -52,8 +53,7 @@ public class CommandMigrate extends CommandBase {
         if (args.length != 2 || !"export".equalsIgnoreCase(args[0])) {
             throw new WrongUsageException(getCommandUsage(sender));
         }
-        ForgePlayer target = Universe.get()
-            .getPlayer(args[1]);
+        ForgePlayer target = PlayerLookup.exact(args[1]);
         if (target == null) {
             throw new CommandException("Игрок не найден: " + args[1]);
         }

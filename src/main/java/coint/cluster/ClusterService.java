@@ -25,6 +25,7 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
 import coint.CointCore;
+import coint.commands.DirectMessages;
 import coint.integration.discord.DiscordModerationWebhook;
 import coint.util.ChatUtil;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -44,6 +45,7 @@ public final class ClusterService {
 
     static final String KIND_PLAYER = "player";
     static final String KIND_DISCORD = "discord";
+    static final String KIND_DM = "dm";
     private static final int CHAT_BATCH = 100;
     /** How far below its last id a read starts again, for lines committed late. */
     private static final int CHAT_REREAD = 100;
@@ -216,12 +218,46 @@ public final class ClusterService {
         publish(KIND_DISCORD, author, author, text);
     }
 
+    /**
+     * A private message for a player on another server. {@code senderDisplay}: the sender's name as shown. False when
+     * the cluster or its chat is off.
+     */
+    public static boolean publishDirect(String sender, String senderDisplay, String target, String text) {
+        if (!running || !CointConfig.cluster.chatEnabled) {
+            return false;
+        }
+        publish(KIND_DM, sender, senderDisplay, text, target);
+        return true;
+    }
+
+    /** The name of a player online on another server, as that server spells it, or null. */
+    public static String remotePlayerName(String name) {
+        if (name == null || !running) {
+            return null;
+        }
+        for (String remote : remoteTab.keySet()) {
+            if (remote.equalsIgnoreCase(name)) {
+                return remote;
+            }
+        }
+        return null;
+    }
+
+    /** The display name of the server a player of another server is on, or null. */
+    public static String remotePlayerServer(String name) {
+        return remoteTab.get(name);
+    }
+
     private static void publish(String kind, String sender, String senderFormatted, String text) {
+        publish(kind, sender, senderFormatted, text, null);
+    }
+
+    private static void publish(String kind, String sender, String senderFormatted, String text, String target) {
         ClusterDatabase db = database;
         String id = nodeId;
         submit(() -> {
             try {
-                db.publishChat(id, kind, sender, senderFormatted, text);
+                db.publishChat(id, kind, sender, senderFormatted, text, target);
             } catch (SQLException e) {
                 logError("send chat", e);
             }
@@ -377,6 +413,10 @@ public final class ClusterService {
             return;
         }
         for (ClusterDatabase.ChatRow row : rows) {
+            if (KIND_DM.equals(row.kind)) {
+                DirectMessages.deliverRemote(row.sender, row.senderFormatted, row.nodeName, row.target, row.text);
+                continue;
+            }
             String name;
             if (KIND_DISCORD.equals(row.kind)) {
                 name = "§9[Discord]§r " + row.sender;

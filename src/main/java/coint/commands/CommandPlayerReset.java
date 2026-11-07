@@ -11,6 +11,7 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
 
+import coint.player.PlayerLookup;
 import coint.player.PlayerResetManager;
 import coint.player.PlayerResetManager.TeamResetResult;
 import serverutils.lib.data.ForgePlayer;
@@ -141,8 +142,7 @@ public class CommandPlayerReset extends CommandBase {
             return getListOfStringsMatchingLastWord(args, "all", "pdim", "quests", "thaum", "data");
         }
         if (args.length == 3 && "all".equalsIgnoreCase(args[1])) {
-            ForgePlayer target = Universe.get()
-                .getPlayer(args[0]);
+            ForgePlayer target = PlayerLookup.exact(args[0]);
             if (target != null) {
                 List<String> candidates = PlayerResetManager.getLeadershipCandidates(target);
                 return getListOfStringsMatchingLastWord(args, candidates.toArray(new String[0]));
@@ -187,8 +187,7 @@ public class CommandPlayerReset extends CommandBase {
     }
 
     private ForgePlayer requireForgePlayer(String name) throws CommandException {
-        ForgePlayer player = Universe.get()
-            .getPlayer(name);
+        ForgePlayer player = PlayerLookup.exact(name);
         if (player == null) {
             throw new CommandException("Игрок не найден: " + name);
         }

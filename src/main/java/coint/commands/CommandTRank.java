@@ -13,6 +13,7 @@ import net.minecraft.util.EnumChatFormatting;
 
 import coint.commands.temprank.TempRankEntry;
 import coint.commands.temprank.TempRankManager;
+import coint.player.PlayerLookup;
 import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -280,8 +281,7 @@ public class CommandTRank extends CommandBase {
     }
 
     private static ForgePlayer resolvePlayer(String name) throws CommandException {
-        ForgePlayer fp = Universe.get()
-            .getPlayer(name);
+        ForgePlayer fp = PlayerLookup.exact(name);
         if (fp == null) {
             throw new CommandException("Игрок §e" + name + "§r не найден (ни разу не заходил на сервер)");
         }

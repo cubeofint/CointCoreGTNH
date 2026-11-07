@@ -148,8 +148,7 @@ public class CointPlayer {
     }
 
     public static CointPlayer get(CharSequence nameOrId) {
-        ForgePlayer player = Universe.get()
-            .getPlayer(nameOrId);
+        ForgePlayer player = PlayerLookup.exact(nameOrId);
         if (player == null) {
             throw new PlayerNotFoundException();
         }

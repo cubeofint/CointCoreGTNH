@@ -1,7 +1,9 @@
 package coint.mixin.minecraft;
 
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
@@ -11,6 +13,7 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.command.server.CommandMessage;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
@@ -18,7 +21,9 @@ import net.minecraft.util.IChatComponent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 
+import coint.cluster.ClusterService;
 import coint.commands.CommandReply;
+import coint.commands.DirectMessages;
 import coint.commands.MessageTracker;
 import coint.commands.spy.DmLogger;
 import coint.commands.spy.PersonalSpyRegistry;
@@ -60,6 +65,24 @@ public class MixinCommandMessage {
     }
 
     /**
+     * Tab offers the players of the other servers too.
+     *
+     * @author Crazerium
+     * @reason Private messages across the server network
+     */
+    @Overwrite
+    public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
+        Set<String> names = new LinkedHashSet<>(
+            Arrays.asList(
+                MinecraftServer.getServer()
+                    .getAllUsernames()));
+        names.addAll(
+            ClusterService.remoteTab()
+                .keySet());
+        return CommandBase.getListOfStringsMatchingLastWord(args, names.toArray(new String[0]));
+    }
+
+    /**
      * Replaces the vanilla whisper format and routes it through the custom DM pipeline.
      * Replicates vanilla exception throwing for invalid invocations (too few args,
      * player not found, self-message) so the command dispatcher shows the correct errors.
@@ -75,7 +98,17 @@ public class MixinCommandMessage {
         }
 
         // getPlayer throws CommandException (PlayerNotFoundException) when not found.
-        EntityPlayerMP target = CommandBase.getPlayer(sender, args[0]);
+        EntityPlayerMP target;
+        try {
+            target = CommandBase.getPlayer(sender, args[0]);
+        } catch (PlayerNotFoundException e) {
+            // Not here, but maybe on another server of the network.
+            IChatComponent remoteText = CommandBase.func_147176_a(sender, args, 1, !(sender instanceof EntityPlayer));
+            if (DirectMessages.sendRemote(sender, args[0], remoteText)) {
+                return;
+            }
+            throw e;
+        }
 
         // Self-message — mirror vanilla behaviour.
         if (target == sender) {

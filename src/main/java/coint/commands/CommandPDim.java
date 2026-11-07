@@ -15,6 +15,7 @@ import net.minecraft.util.ChatComponentText;
 import coint.integration.personalspace.PersonalSpaceBinding;
 import coint.integration.personalspace.PersonalSpaceTeamReward;
 import coint.player.PDimDeleteRequests;
+import coint.player.PlayerLookup;
 import coint.player.TeamsManager;
 import me.eigenraven.personalspace.world.DimensionConfig;
 import serverutils.lib.data.ForgePlayer;
@@ -217,8 +218,7 @@ public class CommandPDim extends CommandBase {
     }
 
     private ForgePlayer requireForgePlayer(String name) throws CommandException {
-        ForgePlayer player = Universe.get()
-            .getPlayer(name);
+        ForgePlayer player = PlayerLookup.exact(name);
         if (player == null) {
             throw new CommandException("Игрок не найден: " + name);
         }
