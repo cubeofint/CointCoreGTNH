@@ -46,6 +46,7 @@ public final class ClusterService {
     static final String KIND_PLAYER = "player";
     static final String KIND_DISCORD = "discord";
     static final String KIND_DM = "dm";
+    static final String KIND_TPA = "tpa", KIND_TPA_OK = "tpaok";
     private static final int CHAT_BATCH = 100;
     /** How far below its last id a read starts again, for lines committed late. */
     private static final int CHAT_REREAD = 100;
@@ -157,6 +158,7 @@ public final class ClusterService {
         startMarked = false;
         connectedLogged = false;
         nextHeartbeatAt = nextPollAt = 0;
+        ClusterTpa.reset();
         ClusterSanctions.reset();
         running = true;
         CointCore.LOG.info("[Cluster] Starting as node '{}' ({})", nodeId, displayName);
@@ -230,6 +232,15 @@ public final class ClusterService {
         return true;
     }
 
+    /** A message of {@code kind} for one player on another server (tpa and its answer). */
+    static boolean publishTo(String kind, String sender, String senderDisplay, String target, String text) {
+        if (!running) {
+            return false;
+        }
+        publish(kind, sender, senderDisplay, text, target);
+        return true;
+    }
+
     /** The name of a player online on another server, as that server spells it, or null. */
     public static String remotePlayerName(String name) {
         if (name == null || !running) {
@@ -292,12 +303,14 @@ public final class ClusterService {
             pollChat();
         }
         ClusterSanctions.tick(now);
+        ClusterTpa.prune();
     }
 
     @SubscribeEvent
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.player instanceof EntityPlayerMP player) {
             ClusterSanctions.onLogin(player);
+            ClusterTpa.onLogin(player);
             for (String name : remoteTab.keySet()) {
                 if (!name.equals(player.getCommandSenderName())) {
                     player.playerNetServerHandler.sendPacket(new S38PacketPlayerListItem(name, true, 0));
@@ -415,6 +428,10 @@ public final class ClusterService {
         for (ClusterDatabase.ChatRow row : rows) {
             if (KIND_DM.equals(row.kind)) {
                 DirectMessages.deliverRemote(row.sender, row.senderFormatted, row.nodeName, row.target, row.text);
+                continue;
+            }
+            if (KIND_TPA.equals(row.kind) || KIND_TPA_OK.equals(row.kind)) {
+                ClusterTpa.onMessage(row);
                 continue;
             }
             String name;

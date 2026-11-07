@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 6;
+    private static final int SCHEMA_VERSION = 7;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -143,6 +143,24 @@ final class ClusterDatabase {
                 // Private messages between servers ride on the chat table: who they are for.
                 s.executeUpdate("ALTER TABLE cluster_chat ADD COLUMN target VARCHAR(32) NULL");
             }
+            if (version < 7) {
+                s.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS cluster_seen (" + "uuid CHAR(36) NOT NULL PRIMARY KEY, "
+                        + "name VARCHAR(32) NOT NULL, "
+                        + "node_id VARCHAR(64) NOT NULL, "
+                        + "last_seen TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), "
+                        + "INDEX idx_cluster_seen_name (name)"
+                        + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                s.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS cluster_arrivals (" + "uuid CHAR(36) NOT NULL PRIMARY KEY, "
+                        + "node_id VARCHAR(64) NOT NULL, "
+                        + "dim INT NOT NULL, "
+                        + "x DOUBLE NOT NULL, "
+                        + "y DOUBLE NOT NULL, "
+                        + "z DOUBLE NOT NULL, "
+                        + "created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+                        + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            }
         }
         try (PreparedStatement p = c.prepareStatement(
             "INSERT INTO cluster_meta (meta_key, meta_value) VALUES ('schema_version', ?) "
@@ -182,6 +200,18 @@ final class ClusterDatabase {
                 try (PreparedStatement p = c.prepareStatement(
                     "INSERT INTO cluster_players (uuid, name, node_id, updated_at) VALUES (?, ?, ?, NOW(3)) "
                         + "ON DUPLICATE KEY UPDATE name = VALUES(name), node_id = VALUES(node_id), updated_at = NOW(3)")) {
+                    for (PlayerRow player : players) {
+                        p.setString(1, player.uuid);
+                        p.setString(2, player.name);
+                        p.setString(3, nodeId);
+                        p.addBatch();
+                    }
+                    p.executeBatch();
+                }
+                // Where and when each was seen last, for /seen once he is gone.
+                try (PreparedStatement p = c.prepareStatement(
+                    "INSERT INTO cluster_seen (uuid, name, node_id, last_seen) VALUES (?, ?, ?, NOW(3)) "
+                        + "ON DUPLICATE KEY UPDATE name = VALUES(name), node_id = VALUES(node_id), last_seen = NOW(3)")) {
                     for (PlayerRow player : players) {
                         p.setString(1, player.uuid);
                         p.setString(2, player.name);
@@ -404,6 +434,74 @@ final class ClusterDatabase {
             .prepareStatement("DELETE FROM cluster_returns WHERE created_at < NOW(3) - INTERVAL ? HOUR")) {
             p.setInt(1, keepHours);
             p.executeUpdate();
+        }
+    }
+
+    /** Where and how long ago a player (by name) was last seen on any server, or null when never. */
+    SeenRow seen(String name) throws SQLException {
+        try (PreparedStatement p = connection().prepareStatement(
+            "SELECT s.name, s.node_id, COALESCE(n.display_name, s.node_id), "
+                + "TIMESTAMPDIFF(SECOND, s.last_seen, NOW(3)) FROM cluster_seen s "
+                + "LEFT JOIN cluster_nodes n ON n.node_id = s.node_id WHERE s.name = ? ORDER BY s.last_seen DESC LIMIT 1")) {
+            p.setString(1, clip(name, 32));
+            try (ResultSet r = p.executeQuery()) {
+                return r.next() ? new SeenRow(r.getString(1), r.getString(2), r.getString(3), r.getLong(4)) : null;
+            }
+        }
+    }
+
+    /** A player is to appear at this place when he next joins {@code nodeId} (accepted /tpa from another server). */
+    void setArrival(String uuid, String nodeId, int dim, double x, double y, double z) throws SQLException {
+        try (PreparedStatement p = connection().prepareStatement(
+            "INSERT INTO cluster_arrivals (uuid, node_id, dim, x, y, z, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW(3)) "
+                + "ON DUPLICATE KEY UPDATE node_id = VALUES(node_id), dim = VALUES(dim), x = VALUES(x), y = VALUES(y), "
+                + "z = VALUES(z), created_at = NOW(3)")) {
+            p.setString(1, uuid);
+            p.setString(2, nodeId);
+            p.setInt(3, dim);
+            p.setDouble(4, x);
+            p.setDouble(5, y);
+            p.setDouble(6, z);
+            p.executeUpdate();
+        }
+    }
+
+    /**
+     * Takes the place a player who just joined {@code nodeId} is to appear at, if one was set for this server in the
+     * last {@code maxAgeSeconds}. Null when none.
+     */
+    double[] takeArrival(String uuid, String nodeId, int maxAgeSeconds) throws SQLException {
+        Connection c = connection();
+        double[] result = null;
+        try (PreparedStatement p = c.prepareStatement(
+            "SELECT dim, x, y, z FROM cluster_arrivals WHERE uuid = ? AND node_id = ? "
+                + "AND created_at > NOW(3) - INTERVAL ? SECOND")) {
+            p.setString(1, uuid);
+            p.setString(2, nodeId);
+            p.setInt(3, maxAgeSeconds);
+            try (ResultSet r = p.executeQuery()) {
+                if (r.next()) {
+                    result = new double[] { r.getInt(1), r.getDouble(2), r.getDouble(3), r.getDouble(4) };
+                }
+            }
+        }
+        try (PreparedStatement p = c.prepareStatement("DELETE FROM cluster_arrivals WHERE uuid = ?")) {
+            p.setString(1, uuid);
+            p.executeUpdate();
+        }
+        return result;
+    }
+
+    static final class SeenRow {
+
+        final String name, nodeId, nodeName;
+        final long secondsAgo;
+
+        SeenRow(String name, String nodeId, String nodeName, long secondsAgo) {
+            this.name = name;
+            this.nodeId = nodeId;
+            this.nodeName = nodeName;
+            this.secondsAgo = secondsAgo;
         }
     }
 
