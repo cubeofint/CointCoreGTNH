@@ -57,6 +57,7 @@ public class PacketRemoteMeAction implements IMessage {
                     case RemoteMe.ACTION_EXTRACT -> RemoteMe.extract(player, m.windowId, m.kind, m.amount);
                     case RemoteMe.ACTION_INSERT_ALL -> RemoteMe.insertCursor(player, m.windowId, false);
                     case RemoteMe.ACTION_INSERT_ONE -> RemoteMe.insertCursor(player, m.windowId, true);
+                    case RemoteMe.ACTION_CRAFT -> RemoteMe.craft(player, m.windowId, m.kind, m.amount);
                     default -> {}
                 }
             });

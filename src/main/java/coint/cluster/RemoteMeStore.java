@@ -21,7 +21,9 @@ import java.util.List;
 final class RemoteMeStore {
 
     static final String OPEN = "OPEN", CLOSED = "CLOSED";
-    static final String EXTRACT = "EXTRACT", INSERT = "INSERT";
+    static final String EXTRACT = "EXTRACT", INSERT = "INSERT", CRAFT = "CRAFT";
+    /** Results of a craft order. */
+    static final long CRAFT_FAILED = 0, CRAFT_STARTED = 1, CRAFT_NO_CPU = 2, CRAFT_NO_NETWORK = 3;
     static final String PENDING = "PENDING", TAKEN = "TAKEN", DONE = "DONE", CONSUMED = "CONSUMED";
 
     private RemoteMeStore() {}
@@ -170,15 +172,19 @@ final class RemoteMeStore {
         }
     }
 
-    /** Operations of these sessions nobody took in time count as done with nothing done: put items come back. */
+    /**
+     * Operations of these sessions nobody took in time count as done with nothing done: put items come back. A craft
+     * order the provider never answered (it restarted while planning) is given up after five minutes.
+     */
     static void expire(ClusterDatabase db, List<Long> sessions, int seconds) throws SQLException {
         if (sessions.isEmpty()) {
             return;
         }
         try (PreparedStatement p = db.connection()
             .prepareStatement(
-                "UPDATE cluster_me_ops SET status = 'DONE', result = 0 WHERE status = 'PENDING' "
-                    + "AND created_at < NOW(3) - INTERVAL ? SECOND AND session_id IN ("
+                "UPDATE cluster_me_ops SET status = 'DONE', result = 0 WHERE (status = 'PENDING' "
+                    + "AND created_at < NOW(3) - INTERVAL ? SECOND OR status = 'TAKEN' AND kind = 'CRAFT' "
+                    + "AND created_at < NOW(3) - INTERVAL 5 MINUTE) AND session_id IN ("
                     + marks(sessions.size())
                     + ")")) {
             p.setInt(1, seconds);

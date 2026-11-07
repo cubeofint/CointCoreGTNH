@@ -27,11 +27,14 @@ public final class ClientRemoteMe {
 
         public final ItemStack stack;
         public final long count;
+        /** The network has a pattern for it. */
+        public final boolean craftable;
         private String search;
 
-        Entry(ItemStack stack, long count) {
+        Entry(ItemStack stack, long count, boolean craftable) {
             this.stack = stack;
             this.count = count;
+            this.craftable = craftable;
         }
 
         /** Lower-case display name, for the search field. */
@@ -136,7 +139,7 @@ public final class ClientRemoteMe {
             if (e.hasKey("t")) {
                 stack.setTagCompound(e.getCompoundTag("t"));
             }
-            result.add(new Entry(stack, e.getLong("n")));
+            result.add(new Entry(stack, e.getLong("n"), e.getBoolean("c")));
         }
         result.sort((a, b) -> Long.compare(b.count, a.count));
         entries = result;

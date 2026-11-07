@@ -40,6 +40,10 @@ public class GuiRemoteMe extends GuiContainer {
     private int shownRevision = -1;
     private String shownSearch = "";
     private int scroll;
+    /** The entry whose craft order is being typed, or null. */
+    private ClientRemoteMe.Entry ordering;
+    private GuiTextField amountField;
+    private static final int DIALOG_X = 14, DIALOG_Y = 36, DIALOG_W = 148, DIALOG_H = 62;
 
     public GuiRemoteMe(InventoryPlayer inventory) {
         super(new ContainerRemoteMe(inventory, null));
@@ -55,6 +59,13 @@ public class GuiRemoteMe extends GuiContainer {
         search = new GuiTextField(fontRendererObj, guiLeft + 98, guiTop + 4, 72, 10);
         search.setMaxStringLength(40);
         search.setEnableBackgroundDrawing(true);
+        amountField = new GuiTextField(
+            fontRendererObj,
+            guiLeft + DIALOG_X + 8,
+            guiTop + DIALOG_Y + 24,
+            DIALOG_W - 16,
+            12);
+        amountField.setMaxStringLength(7);
     }
 
     @Override
@@ -67,6 +78,7 @@ public class GuiRemoteMe extends GuiContainer {
     public void updateScreen() {
         super.updateScreen();
         search.updateCursorCounter();
+        amountField.updateCursorCounter();
         refilter();
     }
 
@@ -134,7 +146,8 @@ public class GuiRemoteMe extends GuiContainer {
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glDisable(GL11.GL_DEPTH_TEST);
         for (int i = 0; i < COLS * ROWS && first + i < shown.size(); i++) {
-            String text = compact(shown.get(first + i).count);
+            ClientRemoteMe.Entry entry = shown.get(first + i);
+            String text = entry.count == 0 && entry.craftable ? "§bкрафт" : compact(entry.count);
             int sx = GRID_X + i % COLS * 18, sy = GRID_Y + i / COLS * 18;
             GL11.glPushMatrix();
             GL11.glTranslatef(sx + 17, sy + 17, 0);
@@ -168,6 +181,10 @@ public class GuiRemoteMe extends GuiContainer {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         super.drawScreen(mouseX, mouseY, partialTicks);
+        if (ordering != null) {
+            drawOrderDialog(mouseX, mouseY);
+            return;
+        }
         int cell = cellUnder(mouseX - guiLeft, mouseY - guiTop);
         if (cell >= 0 && mc.thePlayer.inventory.getItemStack() == null) {
             ClientRemoteMe.Entry entry = shown.get(scroll * COLS + cell);
@@ -180,7 +197,12 @@ public class GuiRemoteMe extends GuiContainer {
                 lines.add(entry.stack.getUnlocalizedName());
             }
             lines.add("§7В сети: §f" + String.format(Locale.ROOT, "%,d", entry.count));
-            lines.add("§eЛКМ§7 — стак, §eПКМ§7 — 1 штука");
+            if (entry.count > 0) {
+                lines.add("§eЛКМ§7 — стак, §eПКМ§7 — 1 штука");
+            }
+            if (entry.craftable) {
+                lines.add(entry.count > 0 ? "§eСКМ§7 или §eCtrl+ЛКМ§7 — заказать крафт" : "§eЛКМ§7 — заказать крафт");
+            }
             drawHoveringText(lines, mouseX, mouseY, fontRendererObj);
         } else if (inGrid(mouseX - guiLeft, mouseY - guiTop) && mc.thePlayer.inventory.getItemStack() != null) {
             List<String> lines = new ArrayList<>();
@@ -204,6 +226,10 @@ public class GuiRemoteMe extends GuiContainer {
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
+        if (ordering != null) {
+            orderDialogClicked(mouseX - guiLeft, mouseY - guiTop, mouseX, mouseY, button);
+            return;
+        }
         search.mouseClicked(mouseX, mouseY, button);
         if (button == 1 && mouseX >= search.xPosition
             && mouseX < search.xPosition + search.width
@@ -213,7 +239,7 @@ public class GuiRemoteMe extends GuiContainer {
             return;
         }
         int x = mouseX - guiLeft, y = mouseY - guiTop;
-        if (inGrid(x, y) && (button == 0 || button == 1)) {
+        if (inGrid(x, y) && button >= 0 && button <= 2) {
             ItemStack held = mc.thePlayer.inventory.getItemStack();
             int window = inventorySlots.windowId;
             if (held != null) {
@@ -225,8 +251,12 @@ public class GuiRemoteMe extends GuiContainer {
                         0));
             } else {
                 int cell = cellUnder(x, y);
-                if (cell >= 0) {
-                    ItemStack kind = shown.get(scroll * COLS + cell).stack;
+                ClientRemoteMe.Entry entry = cell >= 0 ? shown.get(scroll * COLS + cell) : null;
+                if (entry != null && entry.craftable
+                    && (button == 2 || button == 0 && (entry.count == 0 || isCtrlKeyDown()))) {
+                    openOrder(entry);
+                } else if (entry != null && button != 2 && entry.count > 0) {
+                    ItemStack kind = entry.stack;
                     int amount = button == 0 ? kind.getMaxStackSize() : 1;
                     WorldTravelNetwork.CHANNEL
                         .sendToServer(new PacketRemoteMeAction(window, RemoteMe.ACTION_EXTRACT, kind, amount));
@@ -252,6 +282,19 @@ public class GuiRemoteMe extends GuiContainer {
 
     @Override
     protected void keyTyped(char c, int key) {
+        if (ordering != null) {
+            if (key == Keyboard.KEY_ESCAPE) {
+                ordering = null;
+            } else if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
+                sendOrder();
+            } else if (Character.isDigit(c) || key == Keyboard.KEY_BACK
+                || key == Keyboard.KEY_DELETE
+                || key == Keyboard.KEY_LEFT
+                || key == Keyboard.KEY_RIGHT) {
+                    amountField.textboxKeyTyped(c, key);
+                }
+            return;
+        }
         if (search.isFocused()) {
             if (key == Keyboard.KEY_ESCAPE) {
                 search.setFocused(false);
@@ -264,6 +307,86 @@ public class GuiRemoteMe extends GuiContainer {
             }
         }
         super.keyTyped(c, key);
+    }
+
+    private void openOrder(ClientRemoteMe.Entry entry) {
+        ordering = entry;
+        amountField.setText("1");
+        amountField.setFocused(true);
+        amountField.setCursorPositionEnd();
+        search.setFocused(false);
+    }
+
+    private void sendOrder() {
+        long amount;
+        try {
+            amount = Long.parseLong(
+                amountField.getText()
+                    .trim());
+        } catch (NumberFormatException e) {
+            return;
+        }
+        if (amount <= 0) {
+            return;
+        }
+        WorldTravelNetwork.CHANNEL.sendToServer(
+            new PacketRemoteMeAction(
+                inventorySlots.windowId,
+                RemoteMe.ACTION_CRAFT,
+                ordering.stack,
+                (int) Math.min(amount, RemoteMe.MAX_CRAFT)));
+        ordering = null;
+    }
+
+    /** The two buttons of the order dialog, relative to the window: order, cancel. */
+    private static final int[][] ORDER_BUTTONS = { { DIALOG_X + 8, DIALOG_Y + 42, 64, 14 },
+        { DIALOG_X + DIALOG_W - 72, DIALOG_Y + 42, 64, 14 } };
+
+    private void drawOrderDialog(int mouseX, int mouseY) {
+        GL11.glDisable(GL11.GL_LIGHTING);
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        GL11.glPushMatrix();
+        GL11.glTranslatef(0, 0, 300);
+        int x = guiLeft + DIALOG_X, y = guiTop + DIALOG_Y;
+        drawRect(x - 1, y - 1, x + DIALOG_W + 1, y + DIALOG_H + 1, 0xFF000000);
+        drawRect(x, y, x + DIALOG_W, y + DIALOG_H, 0xFFC6C6C6);
+        fontRendererObj.drawString("Заказать крафт:", x + 8, y + 4, 0x404040);
+        String name = fontRendererObj.trimStringToWidth(ordering.stack.getDisplayName(), DIALOG_W - 16);
+        fontRendererObj.drawString(name, x + 8, y + 13, 0x202080);
+        amountField.drawTextBox();
+        String[] labels = { "Заказать", "Отмена" };
+        for (int i = 0; i < 2; i++) {
+            int[] b = ORDER_BUTTONS[i];
+            int bx = guiLeft + b[0], by = guiTop + b[1];
+            boolean over = mouseX >= bx && mouseX < bx + b[2] && mouseY >= by && mouseY < by + b[3];
+            drawRect(bx, by, bx + b[2], by + b[3], over ? 0xFF9090C0 : 0xFF8B8B8B);
+            fontRendererObj.drawStringWithShadow(
+                labels[i],
+                bx + (b[2] - fontRendererObj.getStringWidth(labels[i])) / 2,
+                by + 3,
+                0xFFFFFF);
+        }
+        GL11.glPopMatrix();
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glColor4f(1, 1, 1, 1);
+    }
+
+    private void orderDialogClicked(int x, int y, int mouseX, int mouseY, int button) {
+        amountField.mouseClicked(mouseX, mouseY, button);
+        for (int i = 0; i < 2; i++) {
+            int[] b = ORDER_BUTTONS[i];
+            if (x >= b[0] && x < b[0] + b[2] && y >= b[1] && y < b[1] + b[3]) {
+                if (i == 0) {
+                    sendOrder();
+                } else {
+                    ordering = null;
+                }
+                return;
+            }
+        }
+        if (x < DIALOG_X || x >= DIALOG_X + DIALOG_W || y < DIALOG_Y || y >= DIALOG_Y + DIALOG_H) {
+            ordering = null;
+        }
     }
 
     private static String compact(long value) {
