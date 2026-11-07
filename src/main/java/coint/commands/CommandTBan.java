@@ -18,6 +18,7 @@ import net.minecraft.util.EnumChatFormatting;
 import com.google.common.base.Joiner;
 import com.mojang.authlib.GameProfile;
 
+import coint.cluster.ClusterSanctions;
 import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -132,11 +133,11 @@ public class CommandTBan extends CommandBase {
         MinecraftServer ms = MinecraftServer.getServer();
         UserListBans bans = ms.getConfigurationManager()
             .func_152608_h();
-        ForgePlayer player = Universe.get()
-            .getPlayer(name);
-        GameProfile profile = player != null ? player.profile
-            : ms.func_152358_ax()
-                .func_152655_a(name);
+        // By the name in the ban list first; that also finds a player who never played here.
+        GameProfile profile = bans.func_152703_a(name);
+        if (profile == null) {
+            profile = ClusterSanctions.profileFor(name);
+        }
         if (profile == null || !bans.func_152702_a(profile)) {
             sender.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + "Игрок " + name + " не забанен"));
             return;

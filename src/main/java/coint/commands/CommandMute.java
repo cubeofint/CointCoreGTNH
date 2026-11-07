@@ -5,6 +5,7 @@ import java.util.List;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.server.MinecraftServer;
@@ -12,7 +13,9 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
 import com.google.common.base.Joiner;
+import com.mojang.authlib.GameProfile;
 
+import coint.cluster.ClusterSanctions;
 import coint.player.CointPlayer;
 import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
@@ -67,22 +70,46 @@ public class CommandMute extends CommandBase {
             throw new WrongUsageException(getCommandUsage(sender));
         }
 
-        String playerName = args[0].toLowerCase();
-        CointPlayer player = CointPlayer.get(playerName);
-
         long durationMs = TimeUtil.simpleParse(args[1]);
         String reason = Joiner.on(" ")
             .join(Arrays.copyOfRange(args, 2, args.length));
         reason = reason.replaceAll("^['\"]|['\"]$", "");
 
-        player.mute(sender, reason, durationMs);
+        String name;
+        CointPlayer player = null;
+        try {
+            player = CointPlayer.get(args[0].toLowerCase());
+        } catch (PlayerNotFoundException e) {
+            // Never played here: with shared mutes he can still be muted for the servers he plays on.
+            if (!ClusterSanctions.sharesMutes()) {
+                throw e;
+            }
+        }
+        if (player != null) {
+            player.mute(sender, reason, durationMs);
+            name = player.getName();
+            ClusterSanctions
+                .publishMute(player.getId(), name, sender.getCommandSenderName(), reason, player.getMute().expiresAt);
+        } else {
+            GameProfile profile = ClusterSanctions.profileFor(args[0]);
+            if (profile == null || profile.getId() == null) {
+                throw new PlayerNotFoundException();
+            }
+            name = profile.getName();
+            ClusterSanctions.publishMute(
+                profile.getId(),
+                name,
+                sender.getCommandSenderName(),
+                reason,
+                System.currentTimeMillis() + durationMs);
+        }
 
         ChatComponentText message = new ChatComponentText(
             EnumChatFormatting.GOLD + sender.getCommandSenderName()
                 + EnumChatFormatting.RESET
                 + " выдал мут "
                 + EnumChatFormatting.GOLD
-                + player.getName()
+                + name
                 + EnumChatFormatting.RESET
                 + " на "
                 + TimeUtil.formatDuration(durationMs)

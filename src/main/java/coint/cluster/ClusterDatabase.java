@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 4;
+    private static final int SCHEMA_VERSION = 5;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -135,6 +135,9 @@ final class ClusterDatabase {
                         + "node_id VARCHAR(64) NOT NULL, "
                         + "created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
                         + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            }
+            if (version < 5) {
+                SanctionStore.createTables(s);
             }
         }
         try (PreparedStatement p = c.prepareStatement(
@@ -434,7 +437,7 @@ final class ClusterDatabase {
         return result;
     }
 
-    private static String clip(String text, int max) {
+    static String clip(String text, int max) {
         if (text == null) {
             return "";
         }

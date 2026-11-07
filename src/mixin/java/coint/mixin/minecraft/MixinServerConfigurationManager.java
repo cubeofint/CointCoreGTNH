@@ -41,8 +41,11 @@ public class MixinServerConfigurationManager {
         var dateFormat = new SimpleDateFormat("yyyy-MM-dd 'в' HH:mm:ss МСК");
         String s;
 
-        if (this.bannedPlayers.func_152702_a(profile)) {
-            UserListBansEntry userlistbansentry = (UserListBansEntry) this.bannedPlayers.func_152683_b(profile);
+        // Read through the list: that drops a ban that has run out, and then there is none.
+        UserListBansEntry userlistbansentry = this.bannedPlayers.func_152702_a(profile)
+            ? (UserListBansEntry) this.bannedPlayers.func_152683_b(profile)
+            : null;
+        if (userlistbansentry != null) {
             s = "Вы забанены на сервере!\nПричина: " + userlistbansentry.getBanReason();
 
             if (userlistbansentry.getBanEndDate() != null) {

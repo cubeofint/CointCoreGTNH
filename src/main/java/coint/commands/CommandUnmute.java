@@ -4,10 +4,14 @@ import java.util.List;
 
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.command.PlayerNotFoundException;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
 
+import com.mojang.authlib.GameProfile;
+
+import coint.cluster.ClusterSanctions;
 import coint.player.CointPlayer;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -59,10 +63,29 @@ public class CommandUnmute extends CommandBase {
             throw new WrongUsageException(getCommandUsage(sender));
         }
 
-        String playerName = args[0].toLowerCase();
-        CointPlayer player = CointPlayer.get(playerName);
-        player.unmute();
+        CointPlayer player = null;
+        try {
+            player = CointPlayer.get(args[0].toLowerCase());
+        } catch (PlayerNotFoundException e) {
+            // Never played here: with shared mutes his mute on the other servers can still go.
+            if (!ClusterSanctions.sharesMutes()) {
+                throw e;
+            }
+        }
+        String name;
+        if (player != null) {
+            player.unmute();
+            name = player.getName();
+            ClusterSanctions.publishUnmute(player.getId(), name);
+        } else {
+            GameProfile profile = ClusterSanctions.profileFor(args[0]);
+            if (profile == null || profile.getId() == null) {
+                throw new PlayerNotFoundException();
+            }
+            name = profile.getName();
+            ClusterSanctions.publishUnmute(profile.getId(), name);
+        }
 
-        sender.addChatMessage(new ChatComponentText("Вытащили кляп у " + player.getName()));
+        sender.addChatMessage(new ChatComponentText("Вытащили кляп у " + name));
     }
 }

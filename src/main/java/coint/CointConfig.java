@@ -516,5 +516,15 @@ public class CointConfig {
         @Config.DefaultInt(20)
         @Config.RangeInt(min = 0, max = 600)
         public int hubReturnDelaySeconds;
+
+        @Config.Comment("Share bans, IP bans and mutes with the other servers: a ban or a pardon on one server "
+            + "(/ban, /tban, /ban-ip, /pardon, /pardon-ip, /mute, /unmute) holds on all of them")
+        @Config.DefaultBoolean(true)
+        public boolean sanctionsEnabled;
+
+        @Config.Comment("How often bans and mutes from the other servers are fetched (seconds)")
+        @Config.DefaultInt(5)
+        @Config.RangeInt(min = 1, max = 300)
+        public int sanctionsPollSeconds;
     }
 }

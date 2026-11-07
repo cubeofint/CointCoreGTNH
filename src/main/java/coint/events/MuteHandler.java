@@ -1,6 +1,7 @@
 package coint.events;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.minecraft.util.ChatComponentText;
@@ -9,6 +10,7 @@ import net.minecraftforge.event.ServerChatEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
+import coint.cluster.ClusterSanctions;
 import coint.player.CointPlayer;
 import coint.player.Mute;
 import coint.util.TimeUtil;
@@ -44,8 +46,11 @@ public class MuteHandler {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onServerChat(ServerChatEvent event) {
-        Mute mute = CointPlayer.get(event.username)
-            .getMute();
+        UUID id = event.player.getUniqueID();
+        // Once the network has a word on his mute, that counts; else the mute of this server.
+        Mute mute = ClusterSanctions.knowsMute(id) ? ClusterSanctions.mute(id)
+            : CointPlayer.get(event.username)
+                .getMute();
         if (mute != null && !mute.isExpired()) {
             event.setCanceled(true);
             event.player.addChatMessage(

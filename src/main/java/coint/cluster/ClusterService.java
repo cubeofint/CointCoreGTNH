@@ -155,6 +155,7 @@ public final class ClusterService {
         startMarked = false;
         connectedLogged = false;
         nextHeartbeatAt = nextPollAt = 0;
+        ClusterSanctions.reset();
         running = true;
         CointCore.LOG.info("[Cluster] Starting as node '{}' ({})", nodeId, displayName);
     }
@@ -176,6 +177,7 @@ public final class ClusterService {
         });
         stopWorker();
         clearRemoteTab();
+        ClusterSanctions.reset();
     }
 
     private static void stopWorker() {
@@ -253,11 +255,13 @@ public final class ClusterService {
             nextPollAt = now + config.chatPollMillis;
             pollChat();
         }
+        ClusterSanctions.tick(now);
     }
 
     @SubscribeEvent
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.player instanceof EntityPlayerMP player) {
+            ClusterSanctions.onLogin(player);
             for (String name : remoteTab.keySet()) {
                 if (!name.equals(player.getCommandSenderName())) {
                     player.playerNetServerHandler.sendPacket(new S38PacketPlayerListItem(name, true, 0));

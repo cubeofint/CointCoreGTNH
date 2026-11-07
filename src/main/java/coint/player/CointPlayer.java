@@ -174,6 +174,10 @@ public class CointPlayer {
         return player.getName();
     }
 
+    public UUID getId() {
+        return player.getId();
+    }
+
     public void mute(ICommandSender sender, String reason, long durationMs) {
         mute = new Mute(sender, reason, durationMs);
         save();
