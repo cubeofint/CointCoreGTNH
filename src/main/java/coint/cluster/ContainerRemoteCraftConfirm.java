@@ -129,7 +129,9 @@ public class ContainerRemoteCraftConfirm extends ContainerCraftConfirm implement
         for (int i = 0; i < cpuTags.tagCount(); i++) {
             NBTTagCompound c = cpuTags.getCompoundTagAt(i);
             if (c.hasKey("st")) {
-                cpus.add(new CraftingCPUStatus(c.getCompoundTag("st")));
+                NBTTagCompound status = c.getCompoundTag("st");
+                RemoteMe.localizeCpu(status);
+                cpus.add(new CraftingCPUStatus(status));
             }
         }
         cpuTable.handleCPUUpdate(cpus.toArray(new CraftingCPUStatus[0]));

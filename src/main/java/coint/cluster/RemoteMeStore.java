@@ -24,6 +24,8 @@ final class RemoteMeStore {
     static final String EXTRACT = "EXTRACT", INSERT = "INSERT", CRAFT = "CRAFT";
     /** Plan a craft (the plan comes back in the data), then start a planned one on a chosen processor. */
     static final String PLAN = "PLAN", START = "START";
+    /** Status of the crafting processors (amount: the one looked at, or -1) and an action on one (data). */
+    static final String CPUS = "CPUS", CPU_ACT = "CPUACT";
     /** Results of a craft order. */
     static final long CRAFT_FAILED = 0, CRAFT_STARTED = 1, CRAFT_NO_CPU = 2, CRAFT_NO_NETWORK = 3, CRAFT_PLAN_GONE = 4;
     static final String PENDING = "PENDING", TAKEN = "TAKEN", DONE = "DONE", CONSUMED = "CONSUMED";

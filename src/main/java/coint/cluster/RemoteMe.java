@@ -2,6 +2,7 @@ package coint.cluster;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,6 +21,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.network.play.server.S29PacketSoundEffect;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -27,12 +30,14 @@ import net.minecraftforge.common.util.ForgeDirection;
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import appeng.api.AEApi;
+import appeng.api.config.CraftingAllow;
 import appeng.api.features.ILocatable;
 import appeng.api.features.IWirelessTermHandler;
 import appeng.api.implementations.tiles.IWirelessAccessPoint;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.CraftingItemList;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingJob;
@@ -49,9 +54,13 @@ import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
 import appeng.container.PrimaryGui;
 import appeng.container.implementations.CraftingCPUStatus;
+import appeng.container.implementations.CraftingCpuEntry;
 import appeng.core.sync.GuiBridge;
+import appeng.hooks.CraftingNotificationManager;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.tile.networking.TileWireless;
 import appeng.util.Platform;
+import appeng.util.ScheduledReason;
 import appeng.util.item.AEItemStack;
 import coint.CointConfig;
 import coint.CointCore;
@@ -328,6 +337,8 @@ public final class RemoteMe {
             container = new ContainerRemoteCraftAmount(player.inventory, host, view);
         } else if (gui == GuiBridge.GUI_CRAFTING_CONFIRM) {
             container = new ContainerRemoteCraftConfirm(player.inventory, host, view);
+        } else if (gui == GuiBridge.GUI_CRAFTING_STATUS) {
+            container = new ContainerRemoteCraftingStatus(player.inventory, host, view);
         } else {
             return BLOCK;
         }
@@ -492,6 +503,117 @@ public final class RemoteMe {
         startPlan(player, viewOf(player, windowId), kind, planId, cpu);
     }
 
+    /** Actions on a remote crafting processor. */
+    public static final int CPU_CANCEL = 0, CPU_SUSPEND = 1, CPU_ALLOW = 2, CPU_FOLLOW = 3;
+
+    /** The crafting status window asks the remote network about its processors (index: the one looked at, or -1). */
+    static boolean requestCpus(EntityPlayerMP player, View view, ContainerRemoteCraftingStatus window, int index) {
+        if (!isOpen(player, view) || view.providerNode == null || view.outstanding >= MAX_OUTSTANDING) {
+            return false;
+        }
+        view.outstanding++;
+        long session = view.session;
+        boolean queued = ClusterService
+            .query(db -> RemoteMeStore.queueOp(db, session, RemoteMeStore.CPUS, "", index), window::awaiting, error -> {
+                view.outstanding--;
+                window.awaiting(-1);
+            });
+        if (!queued) {
+            view.outstanding--;
+        }
+        return queued;
+    }
+
+    /** The player cancels, pauses or sets who may use a remote crafting processor. */
+    static void cpuAction(EntityPlayerMP player, View view, int index, int action, int arg) {
+        if (index < 0 || !isOpen(player, view) || view.providerNode == null || view.outstanding >= MAX_OUTSTANDING) {
+            return;
+        }
+        byte[] data = java.nio.ByteBuffer.allocate(8)
+            .putInt(action)
+            .putInt(arg)
+            .array();
+        view.outstanding++;
+        long session = view.session;
+        // Who follows the craft, for a follow.
+        String name = player.getCommandSenderName();
+        ClusterService.query(
+            db -> RemoteMeStore.queueOp(db, session, RemoteMeStore.CPU_ACT, name, index, data),
+            id -> {},
+            error -> view.outstanding--);
+    }
+
+    /**
+     * AE2's notices of finished crafts kept for players not on this server (it shows them at their next login here).
+     */
+    private static final Field NOTICE_MAPS;
+
+    static {
+        Field field;
+        try {
+            field = CraftingNotificationManager.class.getDeclaredField("notificationMaps");
+            field.setAccessible(true);
+        } catch (NoSuchFieldException e) {
+            CointCore.LOG.warn("[RemoteMe] AE2's craft notices can't be sent to other servers", e);
+            field = null;
+        }
+        NOTICE_MAPS = field;
+    }
+
+    /**
+     * A craft a player follows finished while he is on another server: AE2 keeps the notice here until he logs in
+     * here, so it is sent to his server instead.
+     */
+    @SuppressWarnings("unchecked")
+    private static void relayCraftNotices() {
+        if (NOTICE_MAPS == null) {
+            return;
+        }
+        List<Map<String, List<CraftingCPUCluster.CraftNotification>>> maps;
+        try {
+            maps = (List<Map<String, List<CraftingCPUCluster.CraftNotification>>>) NOTICE_MAPS.get(null);
+        } catch (IllegalAccessException e) {
+            return;
+        }
+        for (Map<String, List<CraftingCPUCluster.CraftNotification>> map : maps) {
+            for (Iterator<Map.Entry<String, List<CraftingCPUCluster.CraftNotification>>> it = map.entrySet()
+                .iterator(); it.hasNext();) {
+                Map.Entry<String, List<CraftingCPUCluster.CraftNotification>> e = it.next();
+                String target = ClusterService.remotePlayerName(e.getKey());
+                if (target == null) {
+                    continue;
+                }
+                for (CraftingCPUCluster.CraftNotification notice : e.getValue()) {
+                    String what = notice.getFinalOutput() == null ? "?"
+                        : notice.getFinalOutput()
+                            .getDisplayName();
+                    long seconds = notice.getElapsedTime() / 1_000_000_000L;
+                    String text = "§f" + notice.getOutputsCount()
+                        + " × "
+                        + what
+                        + "§a за "
+                        + String.format("%d:%02d", seconds / 60, seconds % 60);
+                    ClusterService.publishTo(ClusterService.KIND_CRAFT, "AE2", "AE2", target, text);
+                }
+                it.remove();
+            }
+        }
+    }
+
+    /** A notice of a finished craft from another server ({@link #relayCraftNotices}), for a player here. */
+    static void deliverCraftNotice(String server, String target, String text) {
+        MinecraftServer mc = MinecraftServer.getServer();
+        EntityPlayerMP player = mc == null || target == null ? null
+            : mc.getConfigurationManager()
+                .func_152612_a(target);
+        if (player == null) {
+            return;
+        }
+        player.addChatMessage(new ChatComponentText("§a[ME " + server + "] Крафт готов: " + text));
+        player.playerNetServerHandler
+            .sendPacket(new S29PacketSoundEffect("random.levelup", player.posX, player.posY, player.posZ, 1f, 1f));
+    }
+
     static void startPlan(EntityPlayerMP player, View view, ItemStack kind, long planId, int cpu) {
         String item = kind == null ? null : SupplyKey.encodeItem(kind);
         if (view == null || !isOpen(player, view)
@@ -604,6 +726,7 @@ public final class RemoteMe {
         tickCrafts(now);
         if (!providePollInFlight && now >= nextProvidePollAt) {
             nextProvidePollAt = now + PROVIDE_POLL_MS;
+            relayCraftNotices();
             pollProvider(now);
         }
         if (now >= nextPruneAt) {
@@ -803,6 +926,22 @@ public final class RemoteMe {
     }
 
     private static void handOver(EntityPlayerMP player, RemoteMeStore.Op op) {
+        if (RemoteMeStore.CPUS.equals(op.kind)) {
+            View view = views.get(player.getUniqueID());
+            if (view != null && view.session == op.session
+                && player.openContainer instanceof ContainerRemoteCraftingStatus status
+                && status.remoteView() == view
+                && status.waitsFor(op.id)) {
+                status.applyStatus(op.data);
+            }
+            return;
+        }
+        if (RemoteMeStore.CPU_ACT.equals(op.kind)) {
+            if (op.result == 0) {
+                player.addChatMessage(new ChatComponentText("§cУдалённая сеть не выполнила действие с процессором."));
+            }
+            return;
+        }
         ItemStack kind = SupplyKey.decodeItem(op.item);
         if (kind == null) {
             CointCore.LOG.warn("[RemoteMe] Unknown item in operation {} for {}", op.id, player.getCommandSenderName());
@@ -917,9 +1056,19 @@ public final class RemoteMe {
         }
         Set<Long> changed = new HashSet<>();
         List<long[]> results = new ArrayList<>();
+        List<Finished> answers = new ArrayList<>();
         for (RemoteMeStore.Op op : poll.ops) {
             Long serial = serials.get(op.session);
+            if (RemoteMeStore.CPUS.equals(op.kind)) {
+                // Asked every second while a status window is open: no new item snapshot for it.
+                answers.add(new Finished(op.id, 1, serial == null ? null : cpuStatus(serial, (int) op.amount)));
+                continue;
+            }
             changed.add(op.session);
+            if (RemoteMeStore.CPU_ACT.equals(op.kind)) {
+                results.add(new long[] { op.id, serial == null ? 0 : cpuAction(serial, op) });
+                continue;
+            }
             if (RemoteMeStore.START.equals(op.kind)) {
                 results.add(new long[] { op.id, startPlanned(op) });
                 continue;
@@ -934,10 +1083,13 @@ public final class RemoteMe {
             }
             results.add(new long[] { op.id, serial == null ? 0 : apply(serial, op) });
         }
-        if (!results.isEmpty()) {
+        if (!results.isEmpty() || !answers.isEmpty()) {
             ClusterService.query(db -> {
                 for (long[] r : results) {
                     RemoteMeStore.done(db, r[0], r[1]);
+                }
+                for (Finished a : answers) {
+                    RemoteMeStore.done(db, a.opId, a.result, a.data);
                 }
                 return null;
             }, ignored -> {}, null);
@@ -1188,6 +1340,7 @@ public final class RemoteMe {
             // For AE2's own plan window: the processor as AE2 describes it; serial = place in the list + 1.
             NBTTagCompound status = new NBTTagCompound();
             new CraftingCPUStatus(cpu, cpus.size() + 1).writeToNBT(status);
+            portableCpu(status);
             c.setTag("st", status);
             cpuTags.appendTag(c);
             cpus.add(cpu);
@@ -1264,6 +1417,157 @@ public final class RemoteMe {
             }
         }
         return STATE_NO_WAP;
+    }
+
+    /**
+     * AE2 writes items by their numeric id, which differs between servers: the registry name goes along ("in"), for
+     * {@link #localize} on the other server.
+     */
+    private static void portable(NBTTagCompound stack) {
+        if (stack.hasKey("id")) {
+            Item item = Item.getItemById(stack.getShort("id"));
+            String name = item == null ? null : Item.itemRegistry.getNameForObject(item);
+            if (name != null) {
+                stack.setString("in", name);
+            }
+        }
+    }
+
+    /** The same for what a processor is crafting, in AE2's description of it. */
+    private static void portableCpu(NBTTagCompound status) {
+        if (status.hasKey("crafting")) {
+            portable(status.getCompoundTag("crafting"));
+        }
+    }
+
+    /** A stack written on another server ({@link #portable}) with this server's numeric id; false if unknown here. */
+    static boolean localize(NBTTagCompound stack) {
+        if (!stack.hasKey("in")) {
+            return true;
+        }
+        Item item = (Item) Item.itemRegistry.getObject(stack.getString("in"));
+        if (item == null) {
+            return false;
+        }
+        stack.setShort("id", (short) Item.getIdFromItem(item));
+        return true;
+    }
+
+    /** The same for what a remote processor is crafting; an unknown item is left out. */
+    static void localizeCpu(NBTTagCompound status) {
+        if (status.hasKey("crafting") && !localize(status.getCompoundTag("crafting"))) {
+            status.removeTag("crafting");
+        }
+    }
+
+    /** Most entries of a processor's job sent to a status window. */
+    private static final int STATUS_MAX_ENTRIES = 1000;
+
+    /**
+     * The network's crafting processors as AE2 describes them (serial = place in the list + 1) and, for the one at
+     * this index, what it is crafting; null when the network is gone.
+     */
+    private static byte[] cpuStatus(long serial, int index) {
+        IGrid grid = resolve(serial);
+        if (grid == null) {
+            return null;
+        }
+        ICraftingGrid crafting = grid.getCache(ICraftingGrid.class);
+        List<ICraftingCPU> cpus = new ArrayList<>(crafting.getCpus());
+        NBTTagCompound root = new NBTTagCompound();
+        NBTTagList list = new NBTTagList();
+        for (int i = 0; i < cpus.size(); i++) {
+            NBTTagCompound tag = new NBTTagCompound();
+            new CraftingCPUStatus(cpus.get(i), i + 1).writeToNBT(tag);
+            portableCpu(tag);
+            list.appendTag(tag);
+        }
+        root.setTag("cpus", list);
+        if (index >= 0 && index < cpus.size() && cpus.get(index) instanceof CraftingCPUCluster cpu) {
+            root.setInteger("sel", index + 1);
+            root.setLong("el", cpu.getElapsedTime());
+            root.setInteger(
+                "al",
+                cpu.getCraftingAllowMode()
+                    .ordinal());
+            root.setBoolean("su", cpu.isSuspended());
+            root.setInteger("ro", cpu.getRemainingOperations());
+            NBTTagList following = new NBTTagList();
+            List<String> names = cpu.getPlayersFollowingCurrentCraft();
+            if (names != null) {
+                for (String name : names) {
+                    following.appendTag(new NBTTagString(name));
+                }
+            }
+            root.setTag("fl", following);
+            IItemList<IAEStack<?>> items = AEApi.instance()
+                .storage()
+                .createAEStackList();
+            cpu.getModernListOfItem(items, CraftingItemList.ALL);
+            NBTTagList entries = new NBTTagList();
+            for (IAEStack<?> item : items) {
+                if (entries.tagCount() >= STATUS_MAX_ENTRIES) {
+                    break;
+                }
+                IAEStack<?> stack = CraftingCpuEntry.normalizeStack(item);
+                NBTTagCompound e = new NBTTagCompound();
+                NBTTagCompound s = new NBTTagCompound();
+                stack.writeToNBTGeneric(s);
+                portable(s);
+                e.setTag("s", s);
+                e.setLong("x", cpu.getStackAmount(stack, CraftingItemList.STORAGE));
+                e.setLong("a", cpu.getStackAmount(stack, CraftingItemList.ACTIVE));
+                e.setLong("p", cpu.getStackAmount(stack, CraftingItemList.PENDING));
+                ScheduledReason reason = cpu.getScheduledReason(stack);
+                e.setInteger("r", reason == null ? -1 : reason.ordinal());
+                entries.appendTag(e);
+            }
+            root.setTag("e", entries);
+        }
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            CompressedStreamTools.writeCompressed(root, out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    /** Cancels, pauses or sets who may use a crafting processor: 1 when done, 0 otherwise. */
+    private static long cpuAction(long serial, RemoteMeStore.Op op) {
+        IGrid grid = resolve(serial);
+        if (grid == null || op.data == null || op.data.length < 8) {
+            return 0;
+        }
+        ICraftingGrid crafting = grid.getCache(ICraftingGrid.class);
+        List<ICraftingCPU> cpus = new ArrayList<>(crafting.getCpus());
+        int index = (int) op.amount;
+        if (index < 0 || index >= cpus.size() || !(cpus.get(index) instanceof CraftingCPUCluster cpu)) {
+            return 0;
+        }
+        java.nio.ByteBuffer data = java.nio.ByteBuffer.wrap(op.data);
+        int action = data.getInt(), arg = data.getInt();
+        CraftingAllow[] modes = CraftingAllow.values();
+        switch (action) {
+            case CPU_CANCEL -> cpu.cancel();
+            case CPU_SUSPEND -> cpu.setSuspended(arg != 0);
+            case CPU_FOLLOW -> {
+                if (op.item.isEmpty()) {
+                    return 0;
+                }
+                cpu.togglePlayerFollowStatus(op.item);
+            }
+            case CPU_ALLOW -> {
+                if (arg < 0 || arg >= modes.length) {
+                    return 0;
+                }
+                cpu.changeCraftingAllowMode(modes[arg]);
+            }
+            default -> {
+                return 0;
+            }
+        }
+        return 1;
     }
 
     /** Carries out a take or a put: how many items came out or went in. */

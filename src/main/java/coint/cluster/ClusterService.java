@@ -48,6 +48,8 @@ public final class ClusterService {
     static final String KIND_DISCORD = "discord";
     static final String KIND_DM = "dm";
     static final String KIND_TPA = "tpa", KIND_TPA_OK = "tpaok";
+    /** A finished AE2 craft a player follows, for him on another server. */
+    static final String KIND_CRAFT = "craft";
     private static final int CHAT_BATCH = 100;
     /** How far below its last id a read starts again, for lines committed late. */
     private static final int CHAT_REREAD = 100;
@@ -433,6 +435,10 @@ public final class ClusterService {
         for (ClusterDatabase.ChatRow row : rows) {
             if (KIND_DM.equals(row.kind)) {
                 DirectMessages.deliverRemote(row.sender, row.senderFormatted, row.nodeName, row.target, row.text);
+                continue;
+            }
+            if (KIND_CRAFT.equals(row.kind)) {
+                RemoteMe.deliverCraftNotice(row.nodeName, row.target, row.text);
                 continue;
             }
             if (KIND_TPA.equals(row.kind) || KIND_TPA_OK.equals(row.kind)) {
