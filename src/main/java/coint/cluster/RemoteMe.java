@@ -45,14 +45,16 @@ import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IAEStack;
 import appeng.api.storage.data.IItemList;
+import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
+import appeng.container.PrimaryGui;
+import appeng.container.implementations.CraftingCPUStatus;
 import appeng.core.sync.GuiBridge;
 import appeng.tile.networking.TileWireless;
 import appeng.util.Platform;
 import appeng.util.item.AEItemStack;
 import coint.CointConfig;
 import coint.CointCore;
-import coint.network.PacketRemoteMeCraftAsk;
 import coint.network.PacketRemoteMeCraftPlan;
 import coint.network.PacketRemoteMeState;
 import coint.network.WorldTravelNetwork;
@@ -111,6 +113,10 @@ public final class RemoteMe {
         /** For AE2's own window: the last state told in chat. */
         int toldState = -1;
         String toldStatus = "";
+        /** For AE2's own window: the terminal it is opened with, for its other windows (amount, plan). */
+        IWirelessTermHandler handler;
+        ItemStack terminal;
+        int slot = -1;
 
         View(long session, UUID player) {
             this.session = session;
@@ -264,6 +270,9 @@ public final class RemoteMe {
     private static boolean openNative(EntityPlayerMP player, View view, IWirelessTermHandler handler,
         ItemStack terminal, int slot) {
         view.monitor = new RemoteItemMonitor(stack -> isOpen(player, view) && insert(player, view, stack));
+        view.handler = handler;
+        view.terminal = terminal;
+        view.slot = slot;
         nativeOpening = new NativeOpening(player, view, handler, terminal, slot);
         try {
             Platform.openGUI(player, null, null, GuiBridge.GUI_ME, slot);
@@ -280,26 +289,51 @@ public final class RemoteMe {
         return false;
     }
 
+    /** For the mixin on AE2's GUI handler: no window may open (one AE2 would open on a local network). */
+    public static final Object BLOCK = new Object();
+
     /**
-     * For the mixin on AE2's GUI handler: while AE2's terminal window is being opened onto a remote network, the
-     * container to use for it; null otherwise.
+     * For the mixin on AE2's GUI handler: the container for an AE2 window opened onto a remote network (the terminal,
+     * the craft amount and the craft plan), {@link #BLOCK} for AE2's other windows opened from one, null otherwise.
      */
-    public static Object nativeContainer(EntityPlayer player) {
+    public static Object nativeContainer(EntityPlayer player, int ordinal) {
+        View view;
         NativeOpening o = nativeOpening;
-        if (o == null || o.player != player) {
-            return null;
-        }
+        if (o != null && o.player == player) {
+            view = o.view;
+        } else if (player.openContainer instanceof RemoteMeWindow w && w.remoteView() != null
+            && w.remoteView().monitor != null
+            && views.get(player.getUniqueID()) == w.remoteView()) {
+                view = w.remoteView();
+            } else {
+                return null;
+            }
+        GuiBridge[] guis = GuiBridge.values();
+        int id = ordinal >> 5;
+        GuiBridge gui = id >= 0 && id < guis.length ? guis[id] : null;
+        ItemStack[] main = player.inventory.mainInventory;
+        ItemStack terminal = view.slot >= 0 && view.slot < main.length && main[view.slot] != null ? main[view.slot]
+            : view.terminal;
         RemoteTerminalObject host = new RemoteTerminalObject(
-            o.handler,
-            o.terminal,
+            view.handler,
+            terminal,
             player,
             player.worldObj,
-            o.slot,
-            o.view.monitor);
-        ContainerRemoteMeNative container = new ContainerRemoteMeNative(player.inventory, host, o.view);
+            view.slot,
+            view.monitor);
+        AEBaseContainer container;
+        if (gui == GuiBridge.GUI_ME) {
+            container = new ContainerRemoteMeNative(player.inventory, host, view);
+        } else if (gui == GuiBridge.GUI_CRAFTING_AMOUNT) {
+            container = new ContainerRemoteCraftAmount(player.inventory, host, view);
+        } else if (gui == GuiBridge.GUI_CRAFTING_CONFIRM) {
+            container = new ContainerRemoteCraftConfirm(player.inventory, host, view);
+        } else {
+            return BLOCK;
+        }
         ContainerOpenContext context = new ContainerOpenContext(host);
         context.setWorld(player.worldObj);
-        context.setX(o.slot);
+        context.setX(view.slot);
         context.setY(0);
         context.setZ(0);
         context.setSide(ForgeDirection.UNKNOWN);
@@ -308,17 +342,64 @@ public final class RemoteMe {
     }
 
     /**
-     * For the mixin on AE2's terminal action packet: a craft request in AE2's window onto a remote network asks the
-     * player for the amount in our dialog instead of AE2's (which plans on a local network). True when handled.
+     * For the mixin on AE2's terminal action packet, on a craft request in AE2's window onto a remote network: true
+     * when it is swallowed (the item can't be crafted there). Otherwise AE2 opens its amount window, onto the remote
+     * network through {@link #nativeContainer}.
      */
     public static boolean onAutoCraft(EntityPlayer player) {
-        if (!(player instanceof EntityPlayerMP mp) || !(player.openContainer instanceof ContainerRemoteMeNative c)) {
+        if (!(player.openContainer instanceof ContainerRemoteMeNative c)) {
             return false;
         }
-        if (c.getTargetStack() instanceof IAEItemStack target && target.isCraftable()) {
-            ItemStack kind = target.getItemStack();
-            kind.stackSize = 1;
-            WorldTravelNetwork.CHANNEL.sendTo(new PacketRemoteMeCraftAsk(c.windowId, kind), mp);
+        return !(c.getTargetStack() instanceof IAEItemStack target && target.isCraftable());
+    }
+
+    /**
+     * For the mixin on AE2's craft request packet ("Next" in the amount window): for a remote network, opens AE2's plan
+     * window and asks the remote network for the plan. True when handled.
+     */
+    public static boolean onCraftRequest(EntityPlayer player, long amount) {
+        if (!(player.openContainer instanceof ContainerRemoteCraftAmount amountWindow)) {
+            return false;
+        }
+        View view = amountWindow.remoteView();
+        if (!(player instanceof EntityPlayerMP mp) || !isOpen(mp, view)
+            || !(amountWindow.getItemToCraft() instanceof IAEItemStack what)
+            || amount <= 0) {
+            return true;
+        }
+        ItemStack kind = what.getItemStack();
+        kind.stackSize = 1;
+        String item = SupplyKey.encodeItem(kind);
+        if (item == null) {
+            return true;
+        }
+        int count = (int) Math.min(amount, MAX_CRAFT);
+        PrimaryGui back = amountWindow.getPrimaryGui();
+        Platform.openGUI(mp, null, ForgeDirection.UNKNOWN, GuiBridge.GUI_CRAFTING_CONFIRM, view.slot);
+        if (!(mp.openContainer instanceof ContainerRemoteCraftConfirm plan) || plan.remoteView() != view) {
+            return true;
+        }
+        IAEItemStack shown = what.copy();
+        shown.setStackSize(count);
+        plan.setItemToCraft(shown);
+        plan.setPrimaryGui(back);
+        plan.ordered(kind);
+        if (view.providerNode == null || view.outstanding >= MAX_OUTSTANDING) {
+            plan.failed("§cУдалённая сеть сейчас недоступна.");
+            return true;
+        }
+        view.outstanding++;
+        long session = view.session;
+        boolean queued = ClusterService
+            .query(db -> RemoteMeStore.queueOp(db, session, RemoteMeStore.PLAN, item, count), plan::awaiting, error -> {
+                view.outstanding--;
+                if (isOpen(mp, view) && mp.openContainer == plan) {
+                    plan.failed("§cСеть серверов сейчас недоступна.");
+                }
+            });
+        if (!queued) {
+            view.outstanding--;
+            plan.failed("§cСеть серверов сейчас недоступна.");
         }
         return true;
     }
@@ -328,12 +409,31 @@ public final class RemoteMe {
         return opening;
     }
 
-    /** The remote window was closed. */
+    /** Remote windows closed this tick; their sessions end unless another window onto them opened instead. */
+    private static final Set<View> closing = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    /** A remote window was closed. AE2 closes its terminal window to open its amount or plan window. */
     static void closed(View view) {
-        if (views.get(view.player) == view) {
-            views.remove(view.player);
+        closing.add(view);
+    }
+
+    private static void tickClosing() {
+        if (closing.isEmpty()) {
+            return;
         }
-        settle(view);
+        for (View view : closing) {
+            if (views.get(view.player) != view) {
+                // Already ended: replaced by another session or the player left.
+                continue;
+            }
+            EntityPlayerMP player = player(view.player);
+            if (player != null && player.openContainer instanceof RemoteMeWindow w && w.remoteView() == view) {
+                continue;
+            }
+            views.remove(view.player);
+            settle(view);
+        }
+        closing.clear();
     }
 
     private static void settle(View view) {
@@ -389,9 +489,15 @@ public final class RemoteMe {
 
     /** The player starts a plan he was shown, on the processor he picked (-1: any free one). */
     public static void startPlan(EntityPlayerMP player, int windowId, ItemStack kind, long planId, int cpu) {
-        View view = viewOf(player, windowId);
+        startPlan(player, viewOf(player, windowId), kind, planId, cpu);
+    }
+
+    static void startPlan(EntityPlayerMP player, View view, ItemStack kind, long planId, int cpu) {
         String item = kind == null ? null : SupplyKey.encodeItem(kind);
-        if (view == null || item == null || view.providerNode == null || view.outstanding >= MAX_OUTSTANDING) {
+        if (view == null || !isOpen(player, view)
+            || item == null
+            || view.providerNode == null
+            || view.outstanding >= MAX_OUTSTANDING) {
             return;
         }
         byte[] data = java.nio.ByteBuffer.allocate(4)
@@ -484,6 +590,9 @@ public final class RemoteMe {
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            tickClosing();
+        }
         if (event.phase != TickEvent.Phase.END || !ClusterService.isRunning() || !CointConfig.cluster.remoteMeEnabled) {
             return;
         }
@@ -702,9 +811,15 @@ public final class RemoteMe {
         if (RemoteMeStore.PLAN.equals(op.kind)) {
             View view = views.get(player.getUniqueID());
             if (view != null && view.session == op.session && isOpen(player, view)) {
-                WorldTravelNetwork.CHANNEL.sendTo(
-                    new PacketRemoteMeCraftPlan(view.windowId, op.id, op.result == 1, kind, op.amount, op.data),
-                    player);
+                if (player.openContainer instanceof ContainerRemoteCraftConfirm plan) {
+                    if (plan.waitsFor(op.id)) {
+                        plan.applyPlan(op.id, op.result == 1, op.data);
+                    }
+                } else if (view.monitor == null) {
+                    WorldTravelNetwork.CHANNEL.sendTo(
+                        new PacketRemoteMeCraftPlan(view.windowId, op.id, op.result == 1, kind, op.amount, op.data),
+                        player);
+                }
             }
             return;
         }
@@ -1070,6 +1185,10 @@ public final class RemoteMe {
             c.setLong("b", cpu.getAvailableStorage());
             c.setInteger("p", cpu.getCoProcessors());
             c.setBoolean("busy", cpu.isBusy());
+            // For AE2's own plan window: the processor as AE2 describes it; serial = place in the list + 1.
+            NBTTagCompound status = new NBTTagCompound();
+            new CraftingCPUStatus(cpu, cpus.size() + 1).writeToNBT(status);
+            c.setTag("st", status);
             cpuTags.appendTag(c);
             cpus.add(cpu);
         }

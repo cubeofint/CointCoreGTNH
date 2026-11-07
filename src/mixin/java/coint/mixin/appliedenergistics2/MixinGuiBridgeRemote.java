@@ -21,9 +21,9 @@ public abstract class MixinGuiBridgeRemote {
     @Inject(method = "getServerGuiElement", at = @At("HEAD"), cancellable = true)
     private void cointcore$remoteContainer(int ordinal, EntityPlayer player, World w, int x, int y, int z,
         CallbackInfoReturnable<Object> cir) {
-        Object container = RemoteMe.nativeContainer(player);
+        Object container = RemoteMe.nativeContainer(player, ordinal);
         if (container != null) {
-            cir.setReturnValue(container);
+            cir.setReturnValue(container == RemoteMe.BLOCK ? null : container);
         }
     }
 }

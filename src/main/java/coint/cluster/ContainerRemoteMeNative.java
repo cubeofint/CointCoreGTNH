@@ -4,9 +4,12 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.common.util.ForgeDirection;
 
 import appeng.api.storage.data.IAEItemStack;
+import appeng.container.PrimaryGui;
 import appeng.container.implementations.ContainerMEMonitorable;
+import appeng.core.sync.GuiBridge;
 import appeng.helpers.MonitorableAction;
 
 /**
@@ -73,6 +76,18 @@ public class ContainerRemoteMeNative extends ContainerMEMonitorable implements R
     protected ItemStack shiftStoreItem(ItemStack input) {
         EntityPlayer player = getInventoryPlayer().player;
         return player instanceof EntityPlayerMP mp && RemoteMe.insertStack(mp, view, input) ? null : input;
+    }
+
+    /** Where AE2's amount and plan windows go back to: this terminal (AE2 finds none for our container class). */
+    @Override
+    public PrimaryGui createPrimaryGui() {
+        PrimaryGui back = new PrimaryGui(
+            GuiBridge.GUI_ME,
+            view.terminal == null ? null : view.terminal.copy(),
+            null,
+            ForgeDirection.UNKNOWN);
+        back.setSlotIndex(view.slot);
+        return back;
     }
 
     @Override
