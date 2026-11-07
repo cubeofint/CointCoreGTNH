@@ -17,7 +17,9 @@ public enum LateMixins implements IMixins {
             "appliedenergistics2.MixinPartExportBusOreCache",
             "appliedenergistics2.MixinMultiCraftingTrackerRetry",
             "appliedenergistics2.MixinSecurityCacheDisabled",
-            "appliedenergistics2.MixinWirelessRegistryRemote")),
+            "appliedenergistics2.MixinWirelessRegistryRemote",
+            "appliedenergistics2.MixinGuiBridgeRemote",
+            "appliedenergistics2.MixinPacketMonitorableActionRemote")),
 
     BACKPACK(new MixinBuilder("Backpacks").addRequiredMod(TargetMod.BACKPACK)
         .setPhase(Phase.LATE)

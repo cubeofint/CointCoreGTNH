@@ -531,5 +531,10 @@ public class CointConfig {
             + "network opens that ME network here (look, take, put) instead of saying the station can't be found")
         @Config.DefaultBoolean(true)
         public boolean remoteMeEnabled;
+
+        @Config.Comment("Remote ME terminal: show the remote network in AE2's own terminal window (sorting, search modes, NEI). "
+            + "Off: a simpler window of our own. A terminal worn as a bauble always uses ours")
+        @Config.DefaultBoolean(true)
+        public boolean remoteMeNativeWindow;
     }
 }

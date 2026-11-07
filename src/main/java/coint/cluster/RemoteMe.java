@@ -42,11 +42,14 @@ import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.storage.IMEMonitor;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IAEStack;
+import appeng.container.ContainerOpenContext;
+import appeng.core.sync.GuiBridge;
 import appeng.tile.networking.TileWireless;
 import appeng.util.Platform;
 import appeng.util.item.AEItemStack;
 import coint.CointConfig;
 import coint.CointCore;
+import coint.network.PacketRemoteMeCraftAsk;
 import coint.network.PacketRemoteMeState;
 import coint.network.WorldTravelNetwork;
 import coint.supply.SupplyGuiHandler;
@@ -98,6 +101,11 @@ public final class RemoteMe {
         String status = "";
         boolean statusSent;
         int outstanding;
+        /** For AE2's own window: the network's items; null for ours. */
+        RemoteItemMonitor monitor;
+        /** For AE2's own window: the last state told in chat. */
+        int toldState = -1;
+        String toldStatus = "";
 
         View(long session, UUID player) {
             this.session = session;
@@ -182,6 +190,11 @@ public final class RemoteMe {
             }
             View view = new View(session, uuid);
             view.status = "§7Поиск сети…";
+            int slot = CointConfig.cluster.remoteMeNativeWindow ? slotOf(player, item) : -1;
+            if (slot >= 0 && openNative(player, view, handler, player.inventory.mainInventory[slot], slot)) {
+                views.put(uuid, view);
+                return;
+            }
             opening = view;
             try {
                 player.openGui(CointCore.instance, SupplyGuiHandler.REMOTE_ME, player.worldObj, 0, 0, 0);
@@ -202,6 +215,105 @@ public final class RemoteMe {
         if (!queued) {
             requested.remove(uuid);
             return false;
+        }
+        return true;
+    }
+
+    /** The terminal's slot in the main inventory, or -1 (a bauble slot: our own window is used then). */
+    private static int slotOf(EntityPlayerMP player, ItemStack item) {
+        ItemStack[] main = player.inventory.mainInventory;
+        for (int i = 0; i < main.length; i++) {
+            if (main[i] == item) {
+                return i;
+            }
+        }
+        for (int i = 0; i < main.length; i++) {
+            if (main[i] != null && ItemStack.areItemStacksEqual(main[i], item)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static final class NativeOpening {
+
+        final EntityPlayer player;
+        final View view;
+        final IWirelessTermHandler handler;
+        final ItemStack terminal;
+        final int slot;
+
+        NativeOpening(EntityPlayer player, View view, IWirelessTermHandler handler, ItemStack terminal, int slot) {
+            this.player = player;
+            this.view = view;
+            this.handler = handler;
+            this.terminal = terminal;
+            this.slot = slot;
+        }
+    }
+
+    /** AE2's own window being opened right now, for the mixin on its GUI handler. */
+    private static NativeOpening nativeOpening;
+
+    /** Opens AE2's own terminal window onto the remote network; false when it didn't open. */
+    private static boolean openNative(EntityPlayerMP player, View view, IWirelessTermHandler handler,
+        ItemStack terminal, int slot) {
+        view.monitor = new RemoteItemMonitor(stack -> isOpen(player, view) && insert(player, view, stack));
+        nativeOpening = new NativeOpening(player, view, handler, terminal, slot);
+        try {
+            Platform.openGUI(player, null, null, GuiBridge.GUI_ME, slot);
+        } catch (RuntimeException e) {
+            CointCore.LOG.error("[RemoteMe] AE2 terminal window failed to open", e);
+        } finally {
+            nativeOpening = null;
+        }
+        if (player.openContainer instanceof ContainerRemoteMeNative container && container.remoteView() == view) {
+            view.windowId = container.windowId;
+            return true;
+        }
+        view.monitor = null;
+        return false;
+    }
+
+    /**
+     * For the mixin on AE2's GUI handler: while AE2's terminal window is being opened onto a remote network, the
+     * container to use for it; null otherwise.
+     */
+    public static Object nativeContainer(EntityPlayer player) {
+        NativeOpening o = nativeOpening;
+        if (o == null || o.player != player) {
+            return null;
+        }
+        RemoteTerminalObject host = new RemoteTerminalObject(
+            o.handler,
+            o.terminal,
+            player,
+            player.worldObj,
+            o.slot,
+            o.view.monitor);
+        ContainerRemoteMeNative container = new ContainerRemoteMeNative(player.inventory, host, o.view);
+        ContainerOpenContext context = new ContainerOpenContext(host);
+        context.setWorld(player.worldObj);
+        context.setX(o.slot);
+        context.setY(0);
+        context.setZ(0);
+        context.setSide(ForgeDirection.UNKNOWN);
+        container.setOpenContext(context);
+        return container;
+    }
+
+    /**
+     * For the mixin on AE2's terminal action packet: a craft request in AE2's window onto a remote network asks the
+     * player for the amount in our dialog instead of AE2's (which plans on a local network). True when handled.
+     */
+    public static boolean onAutoCraft(EntityPlayer player) {
+        if (!(player instanceof EntityPlayerMP mp) || !(player.openContainer instanceof ContainerRemoteMeNative c)) {
+            return false;
+        }
+        if (c.getTargetStack() instanceof IAEItemStack target && target.isCraftable()) {
+            ItemStack kind = target.getItemStack();
+            kind.stackSize = 1;
+            WorldTravelNetwork.CHANNEL.sendTo(new PacketRemoteMeCraftAsk(c.windowId, kind), mp);
         }
         return true;
     }
@@ -231,8 +343,14 @@ public final class RemoteMe {
 
     /** The player asks for items of this kind from the remote network. */
     public static void extract(EntityPlayerMP player, int windowId, ItemStack kind, int amount) {
-        View view = viewOf(player, windowId);
-        if (view == null || kind == null || view.providerNode == null || view.outstanding >= MAX_OUTSTANDING) {
+        extract(player, viewOf(player, windowId), kind, amount);
+    }
+
+    static void extract(EntityPlayerMP player, View view, ItemStack kind, int amount) {
+        if (view == null || !isOpen(player, view)
+            || kind == null
+            || view.providerNode == null
+            || view.outstanding >= MAX_OUTSTANDING) {
             return;
         }
         String item = SupplyKey.encodeItem(kind);
@@ -269,9 +387,12 @@ public final class RemoteMe {
 
     /** The player puts what he holds on the cursor (all or one) into the remote network. */
     public static void insertCursor(EntityPlayerMP player, int windowId, boolean one) {
-        View view = viewOf(player, windowId);
+        insertCursor(player, viewOf(player, windowId), one);
+    }
+
+    static void insertCursor(EntityPlayerMP player, View view, boolean one) {
         ItemStack held = player.inventory.getItemStack();
-        if (view == null || held == null) {
+        if (view == null || held == null || !isOpen(player, view)) {
             return;
         }
         int count = one ? 1 : held.stackSize;
@@ -286,7 +407,7 @@ public final class RemoteMe {
 
     /** Shift-click in the remote window: the whole stack goes to the remote network. True when it was taken. */
     static boolean insertStack(EntityPlayerMP player, View view, ItemStack stack) {
-        return views.get(player.getUniqueID()) == view && insert(player, view, stack.copy());
+        return isOpen(player, view) && insert(player, view, stack.copy());
     }
 
     private static boolean insert(EntityPlayerMP player, View view, ItemStack stack) {
@@ -313,9 +434,13 @@ public final class RemoteMe {
 
     private static View viewOf(EntityPlayerMP player, int windowId) {
         View view = views.get(player.getUniqueID());
-        return view != null && view.windowId == windowId
-            && player.openContainer instanceof ContainerRemoteMe
-            && ((ContainerRemoteMe) player.openContainer).view() == view ? view : null;
+        return view != null && view.windowId == windowId && isOpen(player, view) ? view : null;
+    }
+
+    /** The view is the player's current one and its window is the one he has open. */
+    private static boolean isOpen(EntityPlayerMP player, View view) {
+        return views.get(player.getUniqueID()) == view && player.openContainer instanceof RemoteMeWindow w
+            && w.remoteView() == view;
     }
 
     @SubscribeEvent
@@ -465,11 +590,47 @@ public final class RemoteMe {
                 view.status = status;
                 view.statusSent = false;
             }
-            if (v.snapshot != null) {
+            if (view.monitor != null) {
+                updateNative(player, view, v);
+            } else if (v.snapshot != null) {
                 view.version = v.snapshotVersion;
                 sendSnapshot(player, view, v.snapshot);
             } else if (!view.statusSent) {
                 sendStatus(player, view);
+            }
+        }
+    }
+
+    /** AE2's own window: the items go into its monitor, the state into chat when it changes. */
+    private static void updateNative(EntityPlayerMP player, View view, RemoteMeStore.SessionView v) {
+        if (!view.status.equals(view.toldStatus)) {
+            view.toldStatus = view.status;
+            if (view.status.startsWith("§c")) {
+                player.addChatMessage(new ChatComponentText(view.status));
+            }
+        }
+        if (v.snapshot == null) {
+            return;
+        }
+        view.version = v.snapshotVersion;
+        NBTTagCompound root;
+        try {
+            root = CompressedStreamTools.readCompressed(new java.io.ByteArrayInputStream(v.snapshot));
+        } catch (IOException e) {
+            return;
+        }
+        view.monitor.update(root);
+        int state = root.getByte("s");
+        if (state != view.toldState) {
+            String text = switch (state) {
+                case STATE_MISSING -> "§cУдалённая сеть не найдена";
+                case STATE_UNPOWERED -> "§cУдалённая сеть без энергии";
+                case STATE_NO_WAP -> "§cТочка доступа удалённой сети выключена";
+                default -> view.toldState > STATE_OK ? "§aУдалённая сеть снова доступна" : null;
+            };
+            view.toldState = state;
+            if (text != null) {
+                player.addChatMessage(new ChatComponentText(text));
             }
         }
     }

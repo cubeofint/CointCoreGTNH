@@ -11,7 +11,7 @@ import net.minecraft.item.ItemStack;
  * The remote ME window: only the player's own inventory is made of slots; the network's items are drawn by the client
  * from what the server sends. Shift-click puts a stack into the remote network.
  */
-public class ContainerRemoteMe extends Container {
+public class ContainerRemoteMe extends Container implements RemoteMeWindow {
 
     public static final int INVENTORY_X = 8, INVENTORY_Y = 139;
 
@@ -32,6 +32,11 @@ public class ContainerRemoteMe extends Container {
     }
 
     RemoteMe.View view() {
+        return view;
+    }
+
+    @Override
+    public RemoteMe.View remoteView() {
         return view;
     }
 
