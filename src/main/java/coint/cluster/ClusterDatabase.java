@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 8;
+    private static final int SCHEMA_VERSION = 9;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -163,6 +163,9 @@ final class ClusterDatabase {
             }
             if (version < 8) {
                 RemoteMeStore.createTables(s);
+            }
+            if (version < 9) {
+                RemoteMeStore.addData(s);
             }
         }
         try (PreparedStatement p = c.prepareStatement(

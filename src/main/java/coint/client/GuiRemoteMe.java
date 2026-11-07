@@ -329,13 +329,9 @@ public class GuiRemoteMe extends GuiContainer {
         if (amount <= 0) {
             return;
         }
-        WorldTravelNetwork.CHANNEL.sendToServer(
-            new PacketRemoteMeAction(
-                inventorySlots.windowId,
-                RemoteMe.ACTION_CRAFT,
-                ordering.stack,
-                (int) Math.min(amount, RemoteMe.MAX_CRAFT)));
+        ItemStack kind = ordering.stack;
         ordering = null;
+        GuiRemoteCraftConfirm.open(this, inventorySlots.windowId, kind, Math.min(amount, RemoteMe.MAX_CRAFT));
     }
 
     /** The two buttons of the order dialog, relative to the window: order, cancel. */

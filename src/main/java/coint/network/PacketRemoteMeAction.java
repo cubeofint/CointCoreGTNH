@@ -18,8 +18,15 @@ public class PacketRemoteMeAction implements IMessage {
     private int action;
     private ItemStack kind;
     private int amount;
+    /** For a start: the plan. */
+    private long ref;
 
     public PacketRemoteMeAction() {}
+
+    public PacketRemoteMeAction(int windowId, int action, ItemStack kind, int amount, long ref) {
+        this(windowId, action, kind, amount);
+        this.ref = ref;
+    }
 
     public PacketRemoteMeAction(int windowId, int action, ItemStack kind, int amount) {
         this.windowId = windowId;
@@ -34,6 +41,7 @@ public class PacketRemoteMeAction implements IMessage {
         action = buf.readUnsignedByte();
         kind = ByteBufUtils.readItemStack(buf);
         amount = buf.readInt();
+        ref = buf.readLong();
     }
 
     @Override
@@ -42,6 +50,7 @@ public class PacketRemoteMeAction implements IMessage {
         buf.writeByte(action);
         ByteBufUtils.writeItemStack(buf, kind);
         buf.writeInt(amount);
+        buf.writeLong(ref);
     }
 
     public static class Handler implements IMessageHandler<PacketRemoteMeAction, IMessage> {
@@ -58,6 +67,8 @@ public class PacketRemoteMeAction implements IMessage {
                     case RemoteMe.ACTION_INSERT_ALL -> RemoteMe.insertCursor(player, m.windowId, false);
                     case RemoteMe.ACTION_INSERT_ONE -> RemoteMe.insertCursor(player, m.windowId, true);
                     case RemoteMe.ACTION_CRAFT -> RemoteMe.craft(player, m.windowId, m.kind, m.amount);
+                    case RemoteMe.ACTION_PLAN -> RemoteMe.plan(player, m.windowId, m.kind, m.amount);
+                    case RemoteMe.ACTION_START -> RemoteMe.startPlan(player, m.windowId, m.kind, m.ref, m.amount);
                     default -> {}
                 }
             });

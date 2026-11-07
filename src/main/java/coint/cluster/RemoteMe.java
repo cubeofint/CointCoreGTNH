@@ -33,6 +33,7 @@ import appeng.api.implementations.tiles.IWirelessAccessPoint;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.networking.crafting.ICraftingLink;
@@ -40,8 +41,10 @@ import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.security.BaseActionSource;
 import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.storage.IMEMonitor;
+import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IAEStack;
+import appeng.api.storage.data.IItemList;
 import appeng.container.ContainerOpenContext;
 import appeng.core.sync.GuiBridge;
 import appeng.tile.networking.TileWireless;
@@ -50,6 +53,7 @@ import appeng.util.item.AEItemStack;
 import coint.CointConfig;
 import coint.CointCore;
 import coint.network.PacketRemoteMeCraftAsk;
+import coint.network.PacketRemoteMeCraftPlan;
 import coint.network.PacketRemoteMeState;
 import coint.network.WorldTravelNetwork;
 import coint.supply.SupplyGuiHandler;
@@ -74,7 +78,8 @@ public final class RemoteMe {
 
     /** States of the network a snapshot tells. */
     public static final byte STATE_OK = 0, STATE_MISSING = 1, STATE_UNPOWERED = 2, STATE_NO_WAP = 3;
-    public static final int ACTION_EXTRACT = 0, ACTION_INSERT_ALL = 1, ACTION_INSERT_ONE = 2, ACTION_CRAFT = 3;
+    public static final int ACTION_EXTRACT = 0, ACTION_INSERT_ALL = 1, ACTION_INSERT_ONE = 2, ACTION_CRAFT = 3,
+        ACTION_PLAN = 4, ACTION_START = 5;
     /** Most items one craft order may ask for. */
     public static final int MAX_CRAFT = 1_000_000;
     /** How long the network may think over a craft order before it is given up. */
@@ -362,6 +367,40 @@ public final class RemoteMe {
         long session = view.session;
         ClusterService.query(
             db -> RemoteMeStore.queueOp(db, session, RemoteMeStore.EXTRACT, item, count),
+            id -> {},
+            error -> view.outstanding--);
+    }
+
+    /** The player asks the remote network to plan crafting this many; the plan comes back to his window. */
+    public static void plan(EntityPlayerMP player, int windowId, ItemStack kind, int amount) {
+        View view = viewOf(player, windowId);
+        String item = kind == null ? null : SupplyKey.encodeItem(kind);
+        if (view == null || item == null || view.providerNode == null || view.outstanding >= MAX_OUTSTANDING) {
+            return;
+        }
+        int count = Math.max(1, Math.min(amount, MAX_CRAFT));
+        view.outstanding++;
+        long session = view.session;
+        ClusterService.query(
+            db -> RemoteMeStore.queueOp(db, session, RemoteMeStore.PLAN, item, count),
+            id -> {},
+            error -> view.outstanding--);
+    }
+
+    /** The player starts a plan he was shown, on the processor he picked (-1: any free one). */
+    public static void startPlan(EntityPlayerMP player, int windowId, ItemStack kind, long planId, int cpu) {
+        View view = viewOf(player, windowId);
+        String item = kind == null ? null : SupplyKey.encodeItem(kind);
+        if (view == null || item == null || view.providerNode == null || view.outstanding >= MAX_OUTSTANDING) {
+            return;
+        }
+        byte[] data = java.nio.ByteBuffer.allocate(4)
+            .putInt(cpu)
+            .array();
+        view.outstanding++;
+        long session = view.session;
+        ClusterService.query(
+            db -> RemoteMeStore.queueOp(db, session, RemoteMeStore.START, item, planId, data),
             id -> {},
             error -> view.outstanding--);
     }
@@ -660,8 +699,18 @@ public final class RemoteMe {
             CointCore.LOG.warn("[RemoteMe] Unknown item in operation {} for {}", op.id, player.getCommandSenderName());
             return;
         }
-        if (RemoteMeStore.CRAFT.equals(op.kind)) {
-            String what = op.amount + " × " + kind.getDisplayName();
+        if (RemoteMeStore.PLAN.equals(op.kind)) {
+            View view = views.get(player.getUniqueID());
+            if (view != null && view.session == op.session && isOpen(player, view)) {
+                WorldTravelNetwork.CHANNEL.sendTo(
+                    new PacketRemoteMeCraftPlan(view.windowId, op.id, op.result == 1, kind, op.amount, op.data),
+                    player);
+            }
+            return;
+        }
+        if (RemoteMeStore.CRAFT.equals(op.kind) || RemoteMeStore.START.equals(op.kind)) {
+            String what = RemoteMeStore.START.equals(op.kind) ? kind.getDisplayName()
+                : op.amount + " × " + kind.getDisplayName();
             String text;
             if (op.result == RemoteMeStore.CRAFT_STARTED) {
                 text = "§aЗаказ запущен в удалённой сети: " + what;
@@ -669,6 +718,8 @@ public final class RemoteMe {
                 text = "§cНе удалось заказать " + what + ": нет свободного процессора крафта";
             } else if (op.result == RemoteMeStore.CRAFT_NO_NETWORK) {
                 text = "§cНе удалось заказать " + what + ": сеть недоступна";
+            } else if (op.result == RemoteMeStore.CRAFT_PLAN_GONE) {
+                text = "§cНе удалось заказать " + what + ": план устарел, рассчитайте заново";
             } else {
                 text = "§cНе удалось заказать " + what + ": не хватает ресурсов или сеть не ответила";
             }
@@ -754,8 +805,13 @@ public final class RemoteMe {
         for (RemoteMeStore.Op op : poll.ops) {
             Long serial = serials.get(op.session);
             changed.add(op.session);
-            if (RemoteMeStore.CRAFT.equals(op.kind)) {
-                long result = serial == null ? RemoteMeStore.CRAFT_NO_NETWORK : startCraft(serial, op, now);
+            if (RemoteMeStore.START.equals(op.kind)) {
+                results.add(new long[] { op.id, startPlanned(op) });
+                continue;
+            }
+            if (RemoteMeStore.CRAFT.equals(op.kind) || RemoteMeStore.PLAN.equals(op.kind)) {
+                long result = serial == null ? RemoteMeStore.CRAFT_NO_NETWORK
+                    : startCraft(serial, op, now, RemoteMeStore.PLAN.equals(op.kind));
                 if (result >= 0) {
                     results.add(new long[] { op.id, result });
                 }
@@ -792,21 +848,47 @@ public final class RemoteMe {
     private static final class Craft {
 
         final long opId, serial, deadline;
+        /** Only plan it and keep the plan for a later START, or start it as soon as it is planned. */
+        final boolean planOnly;
         final Future<ICraftingJob> job;
 
-        Craft(long opId, long serial, long deadline, Future<ICraftingJob> job) {
+        Craft(long opId, long serial, long deadline, boolean planOnly, Future<ICraftingJob> job) {
             this.opId = opId;
             this.serial = serial;
             this.deadline = deadline;
+            this.planOnly = planOnly;
             this.job = job;
         }
     }
 
+    /** A planned craft waiting for its player to pick a processor and start it. */
+    private static final class Planned {
+
+        final ICraftingJob job;
+        final long serial, expiresAt;
+        /** The processors in the order the player was shown them. */
+        final List<ICraftingCPU> cpus;
+
+        Planned(ICraftingJob job, long serial, long expiresAt, List<ICraftingCPU> cpus) {
+            this.job = job;
+            this.serial = serial;
+            this.expiresAt = expiresAt;
+            this.cpus = cpus;
+        }
+    }
+
+    /** How long a shown plan can still be started. */
+    private static final long PLAN_KEEP_MS = 5 * 60_000L;
+    /** Most lines of a plan sent to the player. */
+    private static final int PLAN_MAX_LINES = 400;
+
     /** Craft orders the network is still thinking over. */
     private static final List<Craft> crafts = new ArrayList<>();
+    /** Plans shown to players, by the id of their PLAN operation. */
+    private static final Map<Long, Planned> planned = new HashMap<>();
 
     /** Starts planning a craft order: -1 while the network thinks it over, else its result. */
-    private static long startCraft(long serial, RemoteMeStore.Op op, long now) {
+    private static long startCraft(long serial, RemoteMeStore.Op op, long now, boolean planOnly) {
         IGridNode node = resolveNode(serial);
         IGrid grid = node == null ? null : node.getGrid();
         if (state(grid) != STATE_OK) {
@@ -823,47 +905,80 @@ public final class RemoteMe {
         if (job == null) {
             return RemoteMeStore.CRAFT_FAILED;
         }
-        crafts.add(new Craft(op.id, serial, now + CRAFT_PLAN_MS, job));
+        crafts.add(new Craft(op.id, serial, now + CRAFT_PLAN_MS, planOnly, job));
         return -1;
     }
 
-    /** Submits the craft orders whose plans are ready. */
+    /** Starts a plan the player confirmed, on the processor he picked (-1: any free one). */
+    private static long startPlanned(RemoteMeStore.Op op) {
+        Planned plan = planned.remove(op.amount);
+        if (plan == null) {
+            return RemoteMeStore.CRAFT_PLAN_GONE;
+        }
+        IGrid grid = resolve(plan.serial);
+        if (state(grid) != STATE_OK) {
+            return RemoteMeStore.CRAFT_NO_NETWORK;
+        }
+        int cpu = op.data != null && op.data.length >= 4 ? java.nio.ByteBuffer.wrap(op.data)
+            .getInt() : -1;
+        ICraftingCPU target = cpu >= 0 && cpu < plan.cpus.size() ? plan.cpus.get(cpu) : null;
+        ICraftingGrid crafting = grid.getCache(ICraftingGrid.class);
+        ICraftingLink link = crafting.submitJob(plan.job, null, target, false, SOURCE);
+        return link == null ? RemoteMeStore.CRAFT_NO_CPU : RemoteMeStore.CRAFT_STARTED;
+    }
+
+    private static final class Finished {
+
+        final long opId, result;
+        final byte[] data;
+
+        Finished(long opId, long result, byte[] data) {
+            this.opId = opId;
+            this.result = result;
+            this.data = data;
+        }
+    }
+
+    /** Sends on the craft orders whose plans are ready: shown to the player, or started at once. */
     private static void tickCrafts(long now) {
+        planned.values()
+            .removeIf(p -> now > p.expiresAt);
         if (crafts.isEmpty()) {
             return;
         }
-        List<long[]> results = new ArrayList<>();
+        List<Finished> results = new ArrayList<>();
         for (Iterator<Craft> it = crafts.iterator(); it.hasNext();) {
             Craft craft = it.next();
-            long result;
             if (craft.job.isDone()) {
-                result = submit(craft);
+                results.add(craft.planOnly ? plan(craft, now) : new Finished(craft.opId, submit(craft), null));
             } else if (now > craft.deadline) {
                 craft.job.cancel(true);
-                result = RemoteMeStore.CRAFT_FAILED;
+                results.add(new Finished(craft.opId, RemoteMeStore.CRAFT_FAILED, null));
             } else {
                 continue;
             }
             it.remove();
-            results.add(new long[] { craft.opId, result });
         }
         if (!results.isEmpty()) {
             ClusterService.query(db -> {
-                for (long[] r : results) {
-                    RemoteMeStore.done(db, r[0], r[1]);
+                for (Finished r : results) {
+                    RemoteMeStore.done(db, r.opId, r.result, r.data);
                 }
                 return null;
             }, ignored -> {}, null);
         }
     }
 
-    private static long submit(Craft craft) {
-        ICraftingJob job;
+    private static ICraftingJob jobOf(Craft craft) {
         try {
-            job = craft.job.get();
+            return craft.job.get();
         } catch (Exception e) {
-            return RemoteMeStore.CRAFT_FAILED;
+            return null;
         }
+    }
+
+    private static long submit(Craft craft) {
+        ICraftingJob job = jobOf(craft);
         if (job == null || job.isSimulation()) {
             return RemoteMeStore.CRAFT_FAILED;
         }
@@ -874,6 +989,104 @@ public final class RemoteMe {
         ICraftingGrid crafting = grid.getCache(ICraftingGrid.class);
         ICraftingLink link = crafting.submitJob(job, null, null, false, SOURCE);
         return link == null ? RemoteMeStore.CRAFT_NO_CPU : RemoteMeStore.CRAFT_STARTED;
+    }
+
+    /**
+     * A finished plan for the player: what it takes from storage, what it crafts, what is missing, its size and the
+     * processors to pick from. Result 1 when it can be started, 0 when items are missing or planning failed.
+     */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static Finished plan(Craft craft, long now) {
+        ICraftingJob job = jobOf(craft);
+        IGrid grid = resolve(craft.serial);
+        if (job == null || state(grid) != STATE_OK) {
+            return new Finished(craft.opId, RemoteMeStore.CRAFT_FAILED, null);
+        }
+        IStorageGrid storage = grid.getCache(IStorageGrid.class);
+        NBTTagCompound root = new NBTTagCompound();
+        root.setLong("b", job.getByteTotal());
+        root.setBoolean("s", job.isSimulation());
+        String error = job.getErrorMessage();
+        if (error != null && !error.isEmpty()) {
+            root.setString("e", error);
+        }
+        IItemList<IAEStack<?>> list = AEApi.instance()
+            .storage()
+            .createAEStackList();
+        job.populatePlan(list);
+        NBTTagList lines = new NBTTagList();
+        for (IAEStack<?> p : list) {
+            if (lines.tagCount() >= PLAN_MAX_LINES) {
+                root.setBoolean("cut", true);
+                break;
+            }
+            NBTTagCompound e = new NBTTagCompound();
+            long take = p.getStackSize(), make = p.getCountRequestable(), missing = 0;
+            if (p instanceof IAEItemStack ais) {
+                ItemStack is = ais.getItemStack();
+                String name = is == null || is.getItem() == null ? null
+                    : Item.itemRegistry.getNameForObject(is.getItem());
+                if (name == null) {
+                    continue;
+                }
+                e.setString("i", name);
+                e.setShort("d", (short) is.getItemDamage());
+                if (is.hasTagCompound()) {
+                    e.setTag(
+                        "t",
+                        is.getTagCompound()
+                            .copy());
+                }
+                if (job.isSimulation() && take > 0) {
+                    IAEItemStack have = storage.getItemInventory()
+                        .getAvailableItem(ais.copy());
+                    missing = Math.max(0, take - (have == null ? 0 : have.getStackSize()));
+                }
+            } else if (p instanceof IAEFluidStack afs && afs.getFluid() != null) {
+                e.setString(
+                    "f",
+                    afs.getFluid()
+                        .getName());
+                if (job.isSimulation() && take > 0) {
+                    IAEFluidStack have = storage.getFluidInventory()
+                        .getAvailableItem(afs.copy());
+                    missing = Math.max(0, take - (have == null ? 0 : have.getStackSize()));
+                }
+            } else {
+                continue;
+            }
+            e.setLong("x", take - missing);
+            e.setLong("c", make);
+            e.setLong("m", missing);
+            lines.appendTag(e);
+        }
+        root.setTag("l", lines);
+        List<ICraftingCPU> cpus = new ArrayList<>();
+        NBTTagList cpuTags = new NBTTagList();
+        ICraftingGrid crafting = grid.getCache(ICraftingGrid.class);
+        for (ICraftingCPU cpu : crafting.getCpus()) {
+            NBTTagCompound c = new NBTTagCompound();
+            c.setString("n", cpu.getName() == null ? "" : cpu.getName());
+            c.setLong("b", cpu.getAvailableStorage());
+            c.setInteger("p", cpu.getCoProcessors());
+            c.setBoolean("busy", cpu.isBusy());
+            cpuTags.appendTag(c);
+            cpus.add(cpu);
+        }
+        root.setTag("cpus", cpuTags);
+        boolean startable = !job.isSimulation();
+        if (startable) {
+            planned.put(craft.opId, new Planned(job, craft.serial, now + PLAN_KEEP_MS, cpus));
+        }
+        byte[] data;
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            CompressedStreamTools.writeCompressed(root, out);
+            data = out.toByteArray();
+        } catch (IOException e) {
+            return new Finished(craft.opId, RemoteMeStore.CRAFT_FAILED, null);
+        }
+        return new Finished(craft.opId, startable ? 1 : 0, data);
     }
 
     private static void writeSnapshot(long session, NBTTagCompound snapshot) {

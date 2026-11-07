@@ -9,8 +9,6 @@ import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Keyboard;
 
 import coint.cluster.RemoteMe;
-import coint.network.PacketRemoteMeAction;
-import coint.network.WorldTravelNetwork;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
@@ -124,13 +122,7 @@ public class GuiRemoteCraftAmount extends GuiScreen {
         if (amount <= 0) {
             return;
         }
-        WorldTravelNetwork.CHANNEL.sendToServer(
-            new PacketRemoteMeAction(
-                windowId,
-                RemoteMe.ACTION_CRAFT,
-                kind,
-                (int) Math.min(amount, RemoteMe.MAX_CRAFT)));
-        back();
+        GuiRemoteCraftConfirm.open(parent, windowId, kind, Math.min(amount, RemoteMe.MAX_CRAFT));
     }
 
     private void back() {

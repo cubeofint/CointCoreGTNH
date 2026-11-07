@@ -22,8 +22,10 @@ final class RemoteMeStore {
 
     static final String OPEN = "OPEN", CLOSED = "CLOSED";
     static final String EXTRACT = "EXTRACT", INSERT = "INSERT", CRAFT = "CRAFT";
+    /** Plan a craft (the plan comes back in the data), then start a planned one on a chosen processor. */
+    static final String PLAN = "PLAN", START = "START";
     /** Results of a craft order. */
-    static final long CRAFT_FAILED = 0, CRAFT_STARTED = 1, CRAFT_NO_CPU = 2, CRAFT_NO_NETWORK = 3;
+    static final long CRAFT_FAILED = 0, CRAFT_STARTED = 1, CRAFT_NO_CPU = 2, CRAFT_NO_NETWORK = 3, CRAFT_PLAN_GONE = 4;
     static final String PENDING = "PENDING", TAKEN = "TAKEN", DONE = "DONE", CONSUMED = "CONSUMED";
 
     private RemoteMeStore() {}
@@ -54,6 +56,11 @@ final class RemoteMeStore {
                 + "created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), "
                 + "INDEX idx_me_ops_session (session_id, status)"
                 + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
+    /** Schema 9: operations carry data (a craft plan, the processor picked). */
+    static void addData(Statement s) throws SQLException {
+        s.executeUpdate("ALTER TABLE cluster_me_ops ADD COLUMN data MEDIUMBLOB NULL");
     }
 
     // ---- viewer's server
@@ -111,14 +118,20 @@ final class RemoteMeStore {
     }
 
     static long queueOp(ClusterDatabase db, long session, String kind, String item, long amount) throws SQLException {
+        return queueOp(db, session, kind, item, amount, null);
+    }
+
+    static long queueOp(ClusterDatabase db, long session, String kind, String item, long amount, byte[] data)
+        throws SQLException {
         try (PreparedStatement p = db.connection()
             .prepareStatement(
-                "INSERT INTO cluster_me_ops (session_id, kind, item, amount) VALUES (?, ?, ?, ?)",
+                "INSERT INTO cluster_me_ops (session_id, kind, item, amount, data) VALUES (?, ?, ?, ?, ?)",
                 Statement.RETURN_GENERATED_KEYS)) {
             p.setLong(1, session);
             p.setString(2, kind);
             p.setString(3, item);
             p.setLong(4, amount);
+            p.setBytes(5, data);
             p.executeUpdate();
             try (ResultSet r = p.getGeneratedKeys()) {
                 r.next();
@@ -183,7 +196,7 @@ final class RemoteMeStore {
         try (PreparedStatement p = db.connection()
             .prepareStatement(
                 "UPDATE cluster_me_ops SET status = 'DONE', result = 0 WHERE (status = 'PENDING' "
-                    + "AND created_at < NOW(3) - INTERVAL ? SECOND OR status = 'TAKEN' AND kind = 'CRAFT' "
+                    + "AND created_at < NOW(3) - INTERVAL ? SECOND OR status = 'TAKEN' AND kind IN ('CRAFT', 'PLAN') "
                     + "AND created_at < NOW(3) - INTERVAL 5 MINUTE) AND session_id IN ("
                     + marks(sessions.size())
                     + ")")) {
@@ -303,11 +316,17 @@ final class RemoteMeStore {
     }
 
     static void done(ClusterDatabase db, long opId, long result) throws SQLException {
+        done(db, opId, result, null);
+    }
+
+    static void done(ClusterDatabase db, long opId, long result, byte[] data) throws SQLException {
         try (PreparedStatement p = db.connection()
             .prepareStatement(
-                "UPDATE cluster_me_ops SET status = 'DONE', result = ? WHERE id = ? AND status = 'TAKEN'")) {
+                "UPDATE cluster_me_ops SET status = 'DONE', result = ?, data = COALESCE(?, data) "
+                    + "WHERE id = ? AND status = 'TAKEN'")) {
             p.setLong(1, result);
-            p.setLong(2, opId);
+            p.setBytes(2, data);
+            p.setLong(3, opId);
             p.executeUpdate();
         }
     }
@@ -335,7 +354,7 @@ final class RemoteMeStore {
         }
         try (PreparedStatement p = db.connection()
             .prepareStatement(
-                "SELECT id, session_id, kind, item, amount, result FROM cluster_me_ops WHERE status = ? "
+                "SELECT id, session_id, kind, item, amount, result, data FROM cluster_me_ops WHERE status = ? "
                     + "AND session_id IN ("
                     + in
                     + ") ORDER BY id")) {
@@ -346,7 +365,14 @@ final class RemoteMeStore {
             try (ResultSet r = p.executeQuery()) {
                 while (r.next()) {
                     result.add(
-                        new Op(r.getLong(1), r.getLong(2), r.getString(3), r.getString(4), r.getLong(5), r.getLong(6)));
+                        new Op(
+                            r.getLong(1),
+                            r.getLong(2),
+                            r.getString(3),
+                            r.getString(4),
+                            r.getLong(5),
+                            r.getLong(6),
+                            r.getBytes(7)));
                 }
             }
         }
@@ -374,8 +400,11 @@ final class RemoteMeStore {
         final long id, session;
         final String kind, item;
         final long amount, result;
+        /** A craft plan (PLAN, when done) or the processor picked (START); else null. */
+        final byte[] data;
 
-        Op(long id, long session, String kind, String item, long amount, long result) {
+        Op(long id, long session, String kind, String item, long amount, long result, byte[] data) {
+            this.data = data;
             this.id = id;
             this.session = session;
             this.kind = kind;
