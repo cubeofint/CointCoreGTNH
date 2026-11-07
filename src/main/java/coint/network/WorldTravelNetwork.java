@@ -30,6 +30,8 @@ public final class WorldTravelNetwork {
         CHANNEL.registerMessage(PacketSupplySettings.Handler.class, PacketSupplySettings.class, 7, Side.SERVER);
         CHANNEL.registerMessage(PacketSupplyFilter.Handler.class, PacketSupplyFilter.class, 8, Side.SERVER);
         CHANNEL.registerMessage(PacketPDimDelete.Handler.class, PacketPDimDelete.class, 9, Side.SERVER);
+        CHANNEL.registerMessage(PacketRemoteMeState.Handler.class, PacketRemoteMeState.class, 10, Side.CLIENT);
+        CHANNEL.registerMessage(PacketRemoteMeAction.Handler.class, PacketRemoteMeAction.class, 11, Side.SERVER);
         CointCore.LOG.info("[WorldTravel] Network initialized");
     }
 

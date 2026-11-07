@@ -526,5 +526,10 @@ public class CointConfig {
         @Config.DefaultInt(5)
         @Config.RangeInt(min = 1, max = 300)
         public int sanctionsPollSeconds;
+
+        @Config.Comment("Remote ME terminal: a wireless terminal linked to an access point on another server of the "
+            + "network opens that ME network here (look, take, put) instead of saying the station can't be found")
+        @Config.DefaultBoolean(true)
+        public boolean remoteMeEnabled;
     }
 }

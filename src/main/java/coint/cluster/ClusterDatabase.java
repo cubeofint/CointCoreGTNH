@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 7;
+    private static final int SCHEMA_VERSION = 8;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -160,6 +160,9 @@ final class ClusterDatabase {
                         + "z DOUBLE NOT NULL, "
                         + "created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
                         + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            }
+            if (version < 8) {
+                RemoteMeStore.createTables(s);
             }
         }
         try (PreparedStatement p = c.prepareStatement(

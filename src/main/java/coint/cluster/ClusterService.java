@@ -31,6 +31,7 @@ import coint.util.ChatUtil;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
+import serverutils.lib.util.ServerUtils;
 
 /**
  * Links this server with the other servers of the network through the shared database: says it is alive with its
@@ -324,6 +325,10 @@ public final class ClusterService {
         List<ClusterDatabase.PlayerRow> players = new ArrayList<>();
         for (Object o : server.getConfigurationManager().playerEntityList) {
             EntityPlayerMP player = (EntityPlayerMP) o;
+            if (ServerUtils.isVanished(player)) {
+                // Hidden here, so hidden from the other servers too: tab, /list, /seen, /msg and /tpa.
+                continue;
+            }
             players.add(
                 new ClusterDatabase.PlayerRow(
                     player.getUniqueID()
