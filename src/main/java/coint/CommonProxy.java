@@ -51,6 +51,7 @@ public class CommonProxy {
 
         WorldTravelNetwork.init();
         coint.supply.SupplyBlocks.register();
+        coint.cards.CardBlocks.register();
         if (event.getSide()
             .isServer()) {
             WorldTravelManager.init(event.getModConfigurationDirectory());
@@ -144,6 +145,7 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
         coint.cluster.ClusterService.stop();
+        coint.cards.CardTables.clear();
         coint.supply.SupplyJournal.reset();
         RestartManager.INSTANCE.reset();
         PlayerResetEvents.INSTANCE.reset();

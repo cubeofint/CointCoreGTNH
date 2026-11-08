@@ -23,6 +23,12 @@ public class ClientProxy extends CommonProxy {
             .bus()
             .register(new ClientWorldTravelEvents());
         MinecraftForge.EVENT_BUS.register(new ClientRestartOverlay());
+        MinecraftForge.EVENT_BUS.register(new coint.client.ClientCardsOverlay());
+        cpw.mods.fml.client.registry.ClientRegistry
+            .bindTileEntitySpecialRenderer(coint.cards.TileCardTable.class, new coint.client.RenderCardTable());
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new coint.client.ClientCards.Disconnect());
         if (cpw.mods.fml.common.Loader.isModLoaded("NotEnoughItems")) {
             coint.supply.SupplyNeiHandler.register();
         }

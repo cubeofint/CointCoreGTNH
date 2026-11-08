@@ -16,6 +16,7 @@ import org.spongepowered.libraries.com.google.common.reflect.TypeToken;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
 
 import betterquesting.api.utils.UuidConverter;
 import coint.CointCore;
@@ -49,23 +50,35 @@ public class EpochRegistry {
         epochsFile = server.getFile(EPOCHS_FILE);
         epochs.clear();
 
+        File dir = epochsFile.getParentFile();
+        if (dir != null && !dir.isDirectory() && !dir.mkdirs()) {
+            CointCore.LOG.error("Can't create {} for the epochs config", dir);
+            return;
+        }
         try {
             if (epochsFile.createNewFile()) {
                 CointCore.LOG.info("empty epochs config created");
             }
 
-            FileReader reader = new FileReader(epochsFile);
             Type type = new TypeToken<List<EpochEntry>>() {}.getType();
-            List<EpochEntry> rowEpochs = gson.fromJson(reader, type);
+            List<EpochEntry> rowEpochs;
+            try (FileReader reader = new FileReader(epochsFile)) {
+                rowEpochs = gson.fromJson(reader, type);
+            }
+            // An empty file (a new world, a new server) reads as null: no epochs.
+            if (rowEpochs == null) {
+                CointCore.LOG.info("epochs config is empty: no epochs");
+                return;
+            }
 
             rowEpochs.stream()
                 .sorted(Comparator.comparingInt(EpochEntry::getPriority))
                 .forEachOrdered(entry -> { epochs.put(UuidConverter.decodeUuid(entry.questId), entry); });
 
             CointCore.LOG.info("epochs loaded from config");
-        } catch (IOException e) {
-            CointCore.LOG.error(e);
-            e.printStackTrace(System.err);
+        } catch (IOException | JsonParseException e) {
+            // A broken config must not stop the server from starting: no epochs until it is fixed.
+            CointCore.LOG.error("Can't read the epochs config {}", epochsFile, e);
         }
     }
 
