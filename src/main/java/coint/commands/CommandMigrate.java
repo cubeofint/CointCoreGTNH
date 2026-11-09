@@ -11,6 +11,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
 
 import coint.migration.MigrationExporter;
+import coint.migration.MigrationImporter;
 import coint.player.PlayerLookup;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -37,7 +38,7 @@ public class CommandMigrate extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/migrate export <player>";
+        return "/migrate export <player> | /migrate import <file.zip>";
     }
 
     @Override
@@ -50,6 +51,13 @@ public class CommandMigrate extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length == 2 && "import".equalsIgnoreCase(args[0])) {
+            String error = MigrationImporter.start(sender, args[1]);
+            if (error != null) {
+                throw new CommandException(error);
+            }
+            return;
+        }
         if (args.length != 2 || !"export".equalsIgnoreCase(args[0])) {
             throw new WrongUsageException(getCommandUsage(sender));
         }
@@ -68,7 +76,13 @@ public class CommandMigrate extends CommandBase {
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, "export");
+            return getListOfStringsMatchingLastWord(args, "export", "import");
+        }
+        if (args.length == 2 && "import".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(
+                args,
+                MigrationImporter.available()
+                    .toArray(new String[0]));
         }
         if (args.length == 2) {
             List<String> names = new ArrayList<>();

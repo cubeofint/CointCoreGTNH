@@ -148,6 +148,7 @@ public final class MigrationExporter {
             Map<String, Object> info = new LinkedHashMap<>();
             info.put("name", name);
             info.put("uuid", id.toString());
+            MigrationData.describePlayer(id, name, info);
             playerInfo.add(info);
         }
 
@@ -176,7 +177,9 @@ public final class MigrationExporter {
             TeamsManager manager = TeamsManager.get();
             teamInfo.put("boundPersonalDimension", manager.getDim(team));
             teamInfo.put("personalPortalRewardClaimed", manager.isPDimRewardTeamClaimed(team));
+            MigrationData.describeTeam(team, dims, teamInfo);
         }
+        byte[] party = MigrationData.partyOf(players);
 
         // 3. Copy to a staging folder now, while nothing can change (we are on the server thread).
         String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date());
@@ -197,7 +200,15 @@ public final class MigrationExporter {
                 bytes += entry.getKey()
                     .length();
             }
+            if (party != null) {
+                Path partyFile = staging.toPath()
+                    .resolve(MigrationData.PARTY_FILE);
+                Files.createDirectories(partyFile.getParent());
+                Files.write(partyFile, party);
+            }
             Map<String, Object> manifest = new LinkedHashMap<>();
+            manifest.put("format", MigrationData.FORMAT);
+            manifest.put("idMap", MigrationData.idMap());
             manifest.put("exportedAt", new Date().toString());
             manifest.put("sourceServer", CointConfig.api.serverTag);
             manifest.put("worldFolder", worldName);
@@ -209,13 +220,9 @@ public final class MigrationExporter {
             manifest.put(
                 "notes",
                 Arrays.asList(
-                    "Extract into the target server root (the folder that contains '" + worldName
-                        + "'), with that server stopped.",
-                    "If the target world folder has another name, move the files from '" + worldName + "/' into it.",
-                    "The target world must be a copy of this one (same block/item ID map), otherwise blocks change.",
-                    "Personal dimension numbers must be free on the target server.",
-                    "Not included (shared world files): CointCore dimension binding / portal reward, BetterQuesting"
-                        + " parties, wireless EU, Blood Magic soul network, EnderStorage."));
+                    "Import on the target server with /migrate import <file> (it may keep running).",
+                    "The target world must be a copy of this one (same block/item ID map): the import checks it.",
+                    "Not included: anything outside the personal worlds, wireless EU, EnderStorage."));
             try (Writer writer = new OutputStreamWriter(
                 new FileOutputStream(new File(staging, "migration-manifest.json")),
                 StandardCharsets.UTF_8)) {

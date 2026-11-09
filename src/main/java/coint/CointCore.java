@@ -100,5 +100,6 @@ public class CointCore {
     @Mod.EventHandler
     public void serverStopped(FMLServerStoppedEvent event) {
         proxy.serverStopped(event);
+        coint.migration.MigrationPending.reset();
     }
 }
