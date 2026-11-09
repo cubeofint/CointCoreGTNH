@@ -451,7 +451,9 @@ public class CointConfig {
         @Config.DefaultString("Main")
         public String displayName;
 
-        @Config.Comment("host:port players are sent to when they move to this server")
+        @Config.Comment("host:port players are sent to when they move to this server. Several routes separated by "
+            + "commas (e.g. a direct one and one through a proxy): each player takes the one on the host he is "
+            + "connected through now, else the first")
         @Config.DefaultString("127.0.0.1:25565")
         public String address;
 

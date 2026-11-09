@@ -52,8 +52,40 @@ public final class ClientTransfer {
         mc.func_152344_a(() -> leave(mc, name, address.trim()));
     }
 
-    private static void leave(Minecraft mc, String name, String address) {
-        CointCore.LOG.info("[Cluster] Moving to server {} ({})", name, address);
+    /**
+     * The address to join out of the server's routes ({@code host:port} separated by commas, e.g. a direct one and one
+     * through a proxy): the one on the host this client is connected through now, so a player who came in through the
+     * proxy moves through it too; else the first.
+     */
+    static String route(String addresses, ServerData current) {
+        String first = null;
+        String now = current == null || current.serverIP == null ? "" : host(current.serverIP);
+        for (String part : addresses.split(",")) {
+            String address = part.trim();
+            if (address.isEmpty()) {
+                continue;
+            }
+            if (first == null) {
+                first = address;
+            }
+            if (!now.isEmpty() && host(address).equals(now)) {
+                return address;
+            }
+        }
+        return first == null ? addresses.trim() : first;
+    }
+
+    private static String host(String address) {
+        String a = address.trim()
+            .toLowerCase(java.util.Locale.ROOT);
+        int colon = a.lastIndexOf(':');
+        // One colon: host:port. None, or an IPv6 address without brackets: all of it is the host.
+        return colon > 0 && a.indexOf(':') == colon ? a.substring(0, colon) : a;
+    }
+
+    private static void leave(Minecraft mc, String name, String addresses) {
+        String address = route(addresses, mc.func_147104_D());
+        CointCore.LOG.info("[Cluster] Moving to server {} ({} of {})", name, address, addresses);
         String shown = name == null || name.isEmpty() ? address : name;
         NetHandlerPlayClient handler = mc.getNetHandler();
         leaving = handler == null ? null : handler.getNetworkManager();
