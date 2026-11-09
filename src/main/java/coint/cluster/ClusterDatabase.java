@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 10;
+    private static final int SCHEMA_VERSION = 11;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -169,6 +169,13 @@ final class ClusterDatabase {
             }
             if (version < 10) {
                 TradeStore.createTables(s);
+            }
+            if (version < 11) {
+                s.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS cluster_moves (" + "uuid CHAR(36) NOT NULL PRIMARY KEY, "
+                        + "node_id VARCHAR(64) NOT NULL, "
+                        + "created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
+                        + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             }
         }
         try (PreparedStatement p = c.prepareStatement(
@@ -405,6 +412,36 @@ final class ClusterDatabase {
             }
         }
         return result;
+    }
+
+    /** A player is being sent to {@code nodeId} by the network (not joining from the launcher). */
+    void markMove(String uuid, String nodeId) throws SQLException {
+        try (PreparedStatement p = connection().prepareStatement(
+            "INSERT INTO cluster_moves (uuid, node_id, created_at) VALUES (?, ?, NOW(3)) "
+                + "ON DUPLICATE KEY UPDATE node_id = VALUES(node_id), created_at = NOW(3)")) {
+            p.setString(1, uuid);
+            p.setString(2, nodeId);
+            p.executeUpdate();
+        }
+    }
+
+    /** Whether the player was sent to {@code nodeId} in the last {@code seconds}; the mark is used up. */
+    boolean takeMove(String uuid, String nodeId, int seconds) throws SQLException {
+        boolean moved;
+        try (PreparedStatement p = connection().prepareStatement(
+            "SELECT 1 FROM cluster_moves WHERE uuid = ? AND node_id = ? AND created_at > NOW(3) - INTERVAL ? SECOND")) {
+            p.setString(1, uuid);
+            p.setString(2, nodeId);
+            p.setInt(3, seconds);
+            try (ResultSet r = p.executeQuery()) {
+                moved = r.next();
+            }
+        }
+        try (PreparedStatement p = connection().prepareStatement("DELETE FROM cluster_moves WHERE uuid = ?")) {
+            p.setString(1, uuid);
+            p.executeUpdate();
+        }
+        return moved;
     }
 
     /** A player sent to the hub before {@code nodeId} restarts: he goes back there once it is up again. */

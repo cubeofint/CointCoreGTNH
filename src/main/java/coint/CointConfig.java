@@ -552,6 +552,17 @@ public class CointConfig {
         @Config.RangeInt(min = 0, max = 100000)
         @Config.Reloadable(RELOAD)
         public int hubRadius;
+
+        @Config.Comment("Hub: a player who joins the hub from the launcher goes on to his home server when it is up. "
+            + "A player with no home yet goes to this server (id); empty = he stays and picks one himself")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String newPlayerNodeId;
+
+        @Config.Comment("Hub: send players who join from the launcher on to their home server when it is up")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean hubSendsHome;
     }
 
     public static class Trade {
