@@ -15,6 +15,8 @@ public class PacketOpenWorlds implements IMessage {
 
     public String title = "Путешествия";
     public final List<WorldTravelViewEntry> entries = new ArrayList<>();
+    /** The network of servers is up here: the screen offers the servers button. */
+    public boolean servers;
 
     public PacketOpenWorlds() {}
 
@@ -39,6 +41,7 @@ public class PacketOpenWorlds implements IMessage {
             entry.accessible = buf.readBoolean();
             entries.add(entry);
         }
+        servers = buf.isReadable() && buf.readBoolean();
     }
 
     @Override
@@ -54,6 +57,7 @@ public class PacketOpenWorlds implements IMessage {
             buf.writeInt(entry.dimension);
             buf.writeBoolean(entry.accessible);
         }
+        buf.writeBoolean(servers);
     }
 
     public static class Handler implements IMessageHandler<PacketOpenWorlds, IMessage> {

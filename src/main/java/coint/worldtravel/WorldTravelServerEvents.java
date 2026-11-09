@@ -91,7 +91,7 @@ public final class WorldTravelServerEvents {
         TravelRequest travel;
         while ((travel = TRAVEL_QUEUE.poll()) != null) {
             EntityPlayerMP player = getPlayer(travel.playerId);
-            if (player != null) {
+            if (player != null && !coint.cluster.ClusterComfort.hubHeld(player)) {
                 WorldTravelManager.teleport(player, travel.destinationId);
             }
         }

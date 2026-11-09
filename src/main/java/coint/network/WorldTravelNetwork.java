@@ -54,13 +54,30 @@ public final class WorldTravelNetwork {
             coint.trade.PacketTradeAction.class,
             17,
             Side.SERVER);
+        CHANNEL.registerMessage(
+            coint.cluster.PacketServers.Handler.class,
+            coint.cluster.PacketServers.class,
+            18,
+            Side.CLIENT);
+        CHANNEL.registerMessage(
+            coint.cluster.PacketServers.RequestHandler.class,
+            coint.cluster.PacketServers.Request.class,
+            19,
+            Side.SERVER);
         CointCore.LOG.info("[WorldTravel] Network initialized");
     }
 
     public static void openFor(EntityPlayerMP player) {
-        CHANNEL.sendTo(
-            new PacketOpenWorlds(WorldTravelManager.getTitle(), WorldTravelManager.getViewEntries(player)),
-            player);
+        if (coint.cluster.ClusterComfort.hubHeld(player)) {
+            // No world travel on the hub: the travel key shows the servers instead.
+            coint.cluster.PacketServers.sendTo(player, true);
+            return;
+        }
+        PacketOpenWorlds packet = new PacketOpenWorlds(
+            WorldTravelManager.getTitle(),
+            WorldTravelManager.getViewEntries(player));
+        packet.servers = coint.cluster.ClusterService.isRunning();
+        CHANNEL.sendTo(packet, player);
     }
 
     public static void requestOpen() {

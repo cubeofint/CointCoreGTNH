@@ -539,6 +539,19 @@ public class CointConfig {
             + "Off: a simpler window of our own. A terminal worn as a bauble always uses ours")
         @Config.DefaultBoolean(true)
         public boolean remoteMeNativeWindow;
+
+        @Config.Comment("Hub and guests: flight, no damage, night vision, full hunger, and mobs leave them alone. "
+            + "Guests are players whose home is another server; on the hub it is everyone")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean guestBuffs;
+
+        @Config.Comment("Hub: how far from the world spawn players may go before they are put back on it (blocks, 0 = no limit). "
+            + "Players with cointcore.cluster.hub_bypass are not held")
+        @Config.DefaultInt(64)
+        @Config.RangeInt(min = 0, max = 100000)
+        @Config.Reloadable(RELOAD)
+        public int hubRadius;
     }
 
     public static class Trade {

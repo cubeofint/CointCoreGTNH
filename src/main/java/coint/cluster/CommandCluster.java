@@ -17,6 +17,7 @@ public class CommandCluster extends CommandBase {
     public CommandCluster() {
         PermissionAPI.registerNode(PERMISSION, DefaultPermissionLevel.OP, "Manage the server network");
         ClusterHomes.registerPermissions();
+        ClusterComfort.registerPermissions();
     }
 
     @Override

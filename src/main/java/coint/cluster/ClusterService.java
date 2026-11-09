@@ -205,6 +205,7 @@ public final class ClusterService {
         }
         results.clear();
         ClusterHub.reset();
+        ClusterComfort.reset();
     }
 
     /** Global chat of a player here, for the other servers. */

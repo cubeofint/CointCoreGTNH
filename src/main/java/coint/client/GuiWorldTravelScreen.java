@@ -45,6 +45,9 @@ public final class GuiWorldTravelScreen extends GuiScreen {
             buttonList.add(new GuiButton(2, width / 2 + 35, navY, 70, 20, ">"));
         }
         buttonList.add(new GuiButton(3, width / 2 - 30, navY, 60, 20, "Закрыть"));
+        if (packet.servers) {
+            buttonList.add(new GuiButton(4, width / 2 + 112, navY, 80, 20, "§bСерверы"));
+        }
 
         List<Integer> tiers = getTiers();
         int count = tiers.size() + 1;
@@ -78,6 +81,8 @@ public final class GuiWorldTravelScreen extends GuiScreen {
             page++;
         } else if (button.id == 3) {
             mc.displayGuiScreen(null);
+        } else if (button.id == 4) {
+            ClientServers.open();
         } else if (button.id == FILTER_ALL_ID) {
             selectedTier = -1;
             page = 0;
