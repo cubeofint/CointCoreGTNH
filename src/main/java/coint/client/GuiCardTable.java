@@ -222,7 +222,7 @@ public class GuiCardTable extends GuiScreen {
                     }
                     at += 150 + shown * 90L;
                 }
-                case 8 -> { // "last card!"
+                case 8, 10 -> { // "last card!", said or caught someone
                     String name = line.name;
                     cue(at, () -> {
                         bubbles.put(name, System.currentTimeMillis() + 2500);
@@ -280,8 +280,9 @@ public class GuiCardTable extends GuiScreen {
             GuiButton pass = new GuiButton(B_PASS, cx - 102, y, 100, 20, tr("cointcore.cards.pass"));
             pass.enabled = myTurn() && state.drew;
             buttonList.add(pass);
-            String label = state.called ? "§a✔ " + tr("cointcore.cards.call")
-                : state.callMsLeft > 0 ? "§c§l" + tr("cointcore.cards.call") : tr("cointcore.cards.call");
+            String label = state.canCatch ? "§6§l" + tr("cointcore.cards.catch")
+                : state.called ? "§a✔ " + tr("cointcore.cards.call")
+                    : state.callMsLeft > 0 ? "§c§l" + tr("cointcore.cards.call") : tr("cointcore.cards.call");
             GuiButton call = new GuiButton(B_CALL, cx + 3, y, 100, 20, label);
             call.enabled = state.callOpen;
             buttonList.add(call);
@@ -561,7 +562,9 @@ public class GuiCardTable extends GuiScreen {
         drawBack(fontRendererObj, cx - BIG_W - 6, top, BIG_W, BIG_H, true);
         int shown = displayedTop();
         if (shown >= 0) {
-            drawCard(shown, cx + 6, top, BIG_W, BIG_H, true, false);
+            // A wild card takes the colour of the suit chosen for it once it has landed.
+            int chosen = shown == state.top ? state.suit : -1;
+            drawCard(fontRendererObj, shown, cx + 6, top, BIG_W, BIG_H, 2.5F, false, chosen);
         }
         int textY = top + BIG_H + 6;
         if (state.suit >= 0 && state.suit < Cards.SUITS) {
@@ -597,7 +600,8 @@ public class GuiCardTable extends GuiScreen {
             int left = handLeft() + i * handStep();
             boolean playable = liftOf(i);
             int y = top - (playable ? 6 : 0) - (i == hover ? 2 : 0);
-            drawCard(state.hand.get(i), left, y, CARD_W, CARD_H, false, myTurn() && !playable);
+            int chosen = i == pickingFor ? hoveredSuit(mx, my) : -1;
+            drawCard(fontRendererObj, state.hand.get(i), left, y, CARD_W, CARD_H, 1.5F, myTurn() && !playable, chosen);
             if (playable) {
                 Gui.drawRect(left, y + CARD_H, left + CARD_W, y + CARD_H + 2, 0xFFFFFF55);
             }
@@ -657,14 +661,37 @@ public class GuiCardTable extends GuiScreen {
         drawCard(fontRendererObj, card, x, y, w, h, big ? 2.5F : 1.5F, dim);
     }
 
+    /** The suit button under the mouse while choosing a suit for a wild card, or -1. */
+    private int hoveredSuit(int mx, int my) {
+        for (Object o : buttonList) {
+            GuiButton b = (GuiButton) o;
+            int s = b.id - B_SUIT;
+            if (s >= 0 && s < Cards.SUITS
+                && mx >= b.xPosition
+                && my >= b.yPosition
+                && mx < b.xPosition + b.width
+                && my < b.yPosition + b.height) {
+                return s;
+            }
+        }
+        return -1;
+    }
+
     /** A card face; also drawn by the on-screen hand. */
     static void drawCard(FontRenderer fontRendererObj, int card, int x, int y, int w, int h, float scale, boolean dim) {
+        drawCard(fontRendererObj, card, x, y, w, h, scale, dim, -1);
+    }
+
+    /** A card face; a wild card with a chosen suit (0..3) is painted in that suit's colour. */
+    static void drawCard(FontRenderer fontRendererObj, int card, int x, int y, int w, int h, float scale, boolean dim,
+        int chosen) {
         int suit = Cards.suit(card);
-        int color = suit < Cards.SUITS ? SUIT_COLORS[suit] : WILD_COLOR;
+        boolean painted = Cards.isWild(card) && chosen >= 0 && chosen < Cards.SUITS;
+        int color = suit < Cards.SUITS ? SUIT_COLORS[suit] : painted ? SUIT_COLORS[chosen] : WILD_COLOR;
         Gui.drawRect(x - 1, y - 1, x + w + 1, y + h + 1, 0xFF000000);
         Gui.drawRect(x, y, x + w, y + h, 0xFFF4F0E6);
         Gui.drawRect(x + 2, y + 2, x + w - 2, y + h - 2, color);
-        if (Cards.isWild(card)) {
+        if (Cards.isWild(card) && !painted) {
             // Four suit stripes so a wild card looks like it can be any suit.
             int stripe = (h - 8) / 4;
             for (int s = 0; s < Cards.SUITS; s++) {
@@ -734,6 +761,7 @@ public class GuiCardTable extends GuiScreen {
             case 8 -> "§e" + StatCollector.translateToLocalFormatted("cointcore.cards.log.call", line.name);
             case 9 -> "§c"
                 + StatCollector.translateToLocalFormatted("cointcore.cards.log.missed", line.name, line.card);
+            case 10 -> "§6" + StatCollector.translateToLocalFormatted("cointcore.cards.log.caught", line.name);
             default -> "";
         };
     }

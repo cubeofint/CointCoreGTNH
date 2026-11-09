@@ -74,7 +74,7 @@ public final class ClientCards {
             for (int i = m.log.size() - fresh; i < m.log.size(); i++) {
                 switch (m.log.get(i).kind) {
                     case 7 -> sound("random.levelup", 1F);
-                    case 8 -> sound("note.pling", 2F);
+                    case 8, 10 -> sound("note.pling", 2F);
                     case 9 -> sound("note.bass", 0.6F);
                     default -> {}
                 }

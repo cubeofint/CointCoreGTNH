@@ -38,6 +38,8 @@ public class PacketCardState implements IMessage {
     public int logSeq;
     /** "Last card!" can be said now; said ahead; time left to say it after playing down to one. */
     public boolean callOpen, called;
+    /** On my turn someone else has not said "last card" yet: pressing the button catches him. */
+    public boolean canCatch;
     public int callMsLeft;
     public final List<Integer> hand = new ArrayList<>();
     public final List<Line> log = new ArrayList<>();
@@ -92,7 +94,8 @@ public class PacketCardState implements IMessage {
             boolean pending = viewer.equals(game.pendingCall);
             state.called = game.called.contains(viewer);
             state.callMsLeft = pending ? (int) Math.max(0, game.callDeadline - now) : 0;
-            state.callOpen = pending
+            state.canCatch = viewer.equals(game.current()) && game.canCatch(viewer);
+            state.callOpen = pending || state.canCatch
                 || viewer.equals(game.current()) && mine != null && mine.size() == 2 && !state.called;
             List<Integer> hand = game.hands.get(viewer);
             if (hand != null) {
@@ -127,6 +130,7 @@ public class PacketCardState implements IMessage {
         logSeq = buf.readInt();
         callOpen = buf.readBoolean();
         called = buf.readBoolean();
+        canCatch = buf.readBoolean();
         callMsLeft = buf.readInt();
         int cards = buf.readShort();
         for (int i = 0; i < cards; i++) {
@@ -160,6 +164,7 @@ public class PacketCardState implements IMessage {
         buf.writeInt(logSeq);
         buf.writeBoolean(callOpen);
         buf.writeBoolean(called);
+        buf.writeBoolean(canCatch);
         buf.writeInt(callMsLeft);
         buf.writeShort(hand.size());
         for (int card : hand) {

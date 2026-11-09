@@ -56,7 +56,7 @@ public final class ClientCardsOverlay {
 
         // The top card, the suit to follow, then the hand.
         if (state.top >= 0) {
-            GuiCardTable.drawCard(font, state.top, x, y, CARD_W, CARD_H, 1F, false);
+            GuiCardTable.drawCard(font, state.top, x, y, CARD_W, CARD_H, 1F, false, state.suit);
         }
         if (state.suit >= 0 && state.suit < Cards.SUITS) {
             font.drawStringWithShadow(

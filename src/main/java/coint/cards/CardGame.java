@@ -36,7 +36,7 @@ final class CardGame {
     static final class Line {
 
         static final byte JOIN = 0, LEAVE = 1, START = 2, PLAY = 3, DRAW = 4, PASS = 5, TIMEOUT = 6, WIN = 7, CALL = 8,
-            MISSED = 9;
+            MISSED = 9, CAUGHT = 10;
 
         final byte kind;
         final String name;
@@ -348,7 +348,9 @@ final class CardGame {
     }
 
     /**
-     * "Last card!": ahead, on your turn with two cards, or in time after playing down to one. Null when said, else why
+     * "Last card!": ahead, on your turn with two cards, or in time after playing down to one. Said by the player on
+     * turn
+     * while someone else still has not said it, it catches him: he takes the penalty at once. Null when said, else why
      * not (a translation key).
      */
     String call(UUID player) {
@@ -358,11 +360,25 @@ final class CardGame {
             return null;
         }
         List<Integer> hand = hands.get(player);
-        if (player.equals(current()) && hand != null && hand.size() == 2) {
+        boolean onTurn = player.equals(current());
+        boolean caught = false;
+        if (onTurn && canCatch(player)) {
+            UUID forgot = pendingCall;
+            pendingCall = null;
+            log(Line.CAUGHT, names.get(player), 0, -1);
+            missed(forgot);
+            caught = true;
+        }
+        if (onTurn && hand != null && hand.size() == 2) {
             called.add(player);
             return null;
         }
-        return "cointcore.cards.error.cantCall";
+        return caught ? null : "cointcore.cards.error.cantCall";
+    }
+
+    /** Someone else played down to one card without saying so, and {@code player} may still catch him. */
+    boolean canCatch(UUID player) {
+        return pendingCall != null && !pendingCall.equals(player) && phase == Phase.PLAYING;
     }
 
     /** Whoever let the time to say "last card" run out takes the penalty. True when someone did. */
@@ -372,6 +388,11 @@ final class CardGame {
         }
         UUID player = pendingCall;
         pendingCall = null;
+        return missed(player);
+    }
+
+    /** {@code player} did not say "last card": he draws the penalty. True when he did. */
+    private boolean missed(UUID player) {
         List<Integer> hand = hands.get(player);
         if (phase != Phase.PLAYING || hand == null || hand.size() != 1) {
             return false;

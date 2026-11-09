@@ -41,6 +41,12 @@ public class GuiTrade extends GuiScreen {
     private GuiButton ready, confirm;
     private int left, top;
 
+    /** The amount dialog (middle click on an item): the inventory slot it is for, or -1 when closed. */
+    private int amountSlot = -1;
+    private GuiTextField amount;
+    private GuiButton amountOk, amountCancel;
+    private static final int DLG_W = 160, DLG_H = 64;
+
     public GuiTrade(PacketTradeState state) {
         this.state = state;
     }
@@ -65,7 +71,89 @@ public class GuiTrade extends GuiScreen {
         chat = new GuiTextField(fontRendererObj, left + CHAT_X + 1, top + CHAT_BOTTOM + 6, CHAT_W - 2, 12);
         chat.setMaxStringLength(120);
         chat.setText(typed);
+        int dx = left + (W - DLG_W) / 2, dy = top + 40;
+        String typedAmount = amount == null ? "" : amount.getText();
+        amount = new GuiTextField(fontRendererObj, dx + 8, dy + 20, DLG_W - 16, 12);
+        amount.setMaxStringLength(6);
+        amount.setText(typedAmount);
+        amount.setFocused(true);
+        amountOk = new GuiButton(2, dx + 8, dy + 38, 70, 20, "§aОК");
+        amountCancel = new GuiButton(3, dx + DLG_W - 78, dy + 38, 70, 20, "Отмена");
         refreshButtons();
+    }
+
+    // ---------------------------------------------------------------- the amount dialog
+
+    /** Opens the dialog asking how many of the slot's items to put on the table. */
+    private void openAmount(int slot) {
+        ItemStack stack = mc.thePlayer.inventory.mainInventory[slot];
+        if (stack == null || state.myReady || blockedEpoch(slot) != null) {
+            return;
+        }
+        amountSlot = slot;
+        int now = reserved(slot);
+        amount.setText(String.valueOf(now > 0 ? now : stack.stackSize));
+        amount.setFocused(true);
+        amount.setCursorPositionEnd();
+        amount.setSelectionPos(0);
+    }
+
+    /** Sets what lies on the table from this slot to the typed amount (0 takes it all back). */
+    private void applyAmount() {
+        int slot = amountSlot;
+        amountSlot = -1;
+        ItemStack stack = mc.thePlayer.inventory.mainInventory[slot];
+        int wanted;
+        try {
+            wanted = Integer.parseInt(
+                amount.getText()
+                    .trim());
+        } catch (NumberFormatException e) {
+            return;
+        }
+        int max = stack == null ? 0 : stack.stackSize;
+        wanted = Math.max(0, Math.min(wanted, max));
+        int now = reserved(slot);
+        if (wanted > now) {
+            send(PacketTradeAction.ADD, slot, wanted - now, "");
+            return;
+        }
+        int offer = offerOf(slot);
+        if (offer >= 0 && wanted < now) {
+            send(PacketTradeAction.REMOVE, offer, wanted == 0 ? 0 : now - wanted, "");
+        }
+    }
+
+    private int offerOf(int slot) {
+        for (int i = 0; i < state.mySlots.length; i++) {
+            if (state.mySlots[i] == slot) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void drawAmount(int mouseX, int mouseY) {
+        ItemStack stack = mc.thePlayer.inventory.mainInventory[amountSlot];
+        if (stack == null || state.myReady) {
+            amountSlot = -1;
+            return;
+        }
+        int dx = left + (W - DLG_W) / 2, dy = top + 40;
+        GL11.glPushMatrix();
+        GL11.glTranslatef(0, 0, 400);
+        drawRect(left, top, left + W, top + H, 0x90000000);
+        drawRect(dx - 1, dy - 1, dx + DLG_W + 1, dy + DLG_H + 1, EDGE_READY);
+        drawRect(dx, dy, dx + DLG_W, dy + DLG_H, PANEL_EDGE);
+        String max = "из " + stack.stackSize;
+        int maxW = fontRendererObj.getStringWidth(max);
+        String title = fontRendererObj.trimStringToWidth(stack.getDisplayName(), DLG_W - 20 - maxW);
+        fontRendererObj.drawString(title, dx + 8, dy + 6, 0xFFFFFF);
+        fontRendererObj.drawString(max, dx + DLG_W - 8 - maxW, dy + 6, 0x808080);
+        amount.drawTextBox();
+        amountOk.drawButton(mc, mouseX, mouseY);
+        amountCancel.drawButton(mc, mouseX, mouseY);
+        GL11.glPopMatrix();
     }
 
     private void refreshButtons() {
@@ -95,6 +183,7 @@ public class GuiTrade extends GuiScreen {
     @Override
     public void updateScreen() {
         chat.updateCursorCounter();
+        amount.updateCursorCounter();
     }
 
     @Override
@@ -108,6 +197,17 @@ public class GuiTrade extends GuiScreen {
 
     @Override
     protected void keyTyped(char typed, int key) {
+        if (amountSlot >= 0) {
+            // Esc closes only the dialog; digits, editing keys and Enter go to it.
+            if (key == Keyboard.KEY_ESCAPE) {
+                amountSlot = -1;
+            } else if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
+                applyAmount();
+            } else if (!Character.isLetter(typed) && typed != ' ' && typed != '-') {
+                amount.textboxKeyTyped(typed, key);
+            }
+            return;
+        }
         if (key == Keyboard.KEY_ESCAPE) {
             mc.displayGuiScreen(null);
             return;
@@ -130,12 +230,34 @@ public class GuiTrade extends GuiScreen {
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
+        if (amountSlot >= 0) {
+            if (button == 0 && amountOk.mousePressed(mc, mouseX, mouseY)) {
+                amountOk.func_146113_a(mc.getSoundHandler());
+                applyAmount();
+            } else if (button == 0 && amountCancel.mousePressed(mc, mouseX, mouseY)) {
+                amountCancel.func_146113_a(mc.getSoundHandler());
+                amountSlot = -1;
+            } else {
+                amount.mouseClicked(mouseX, mouseY, button);
+                amount.setFocused(true);
+            }
+            return;
+        }
         super.mouseClicked(mouseX, mouseY, button);
         chat.mouseClicked(mouseX, mouseY, button);
+        int offer = gridIndex(mouseX, mouseY, MINE_X);
+        if (button == 2) {
+            // Middle click: type how many to put on the table (an offer: how many to leave there).
+            if (offer >= 0 && offer < state.mySlots.length) {
+                openAmount(state.mySlots[offer]);
+            } else if (inventorySlot(mouseX, mouseY) >= 0) {
+                openAmount(inventorySlot(mouseX, mouseY));
+            }
+            return;
+        }
         if (button != 0 && button != 1) {
             return;
         }
-        int offer = gridIndex(mouseX, mouseY, MINE_X);
         if (offer >= 0) {
             if (!state.myReady && offer < state.myItems.length) {
                 send(PacketTradeAction.REMOVE, offer, button == 0 ? 0 : 1, "");
@@ -195,7 +317,11 @@ public class GuiTrade extends GuiScreen {
         chat.drawTextBox();
 
         drawItems(x, y);
-        drawTooltip(mouseX, mouseY);
+        if (amountSlot >= 0) {
+            drawAmount(mouseX, mouseY);
+        } else {
+            drawTooltip(mouseX, mouseY);
+        }
     }
 
     private void section(int sx, int sy, boolean locked) {
@@ -292,6 +418,7 @@ public class GuiTrade extends GuiScreen {
             stack = state.myItems[offer];
             if (!state.myReady) {
                 extra.add("§7ЛКМ — убрать всё, ПКМ — убрать одну");
+                extra.add("§7Колёсико — ввести количество");
             }
         } else if (theirs >= 0 && theirs < state.partnerItems.length) {
             stack = state.partnerItems[theirs];
@@ -303,6 +430,7 @@ public class GuiTrade extends GuiScreen {
                 extra.add("§cэтот предмет ему передать нельзя");
             } else if (stack != null && !state.myReady) {
                 extra.add("§7ЛКМ — выложить всё, ПКМ — выложить одну");
+                extra.add("§7Колёсико — ввести количество");
             }
             int reserved = reserved(slot);
             if (stack != null && reserved > 0) {
