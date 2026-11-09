@@ -146,6 +146,7 @@ public class CommonProxy {
     public void serverStopped(FMLServerStoppedEvent event) {
         coint.cluster.ClusterService.stop();
         coint.cards.CardTables.clear();
+        coint.trade.TradeManager.clear();
         coint.supply.SupplyJournal.reset();
         RestartManager.INSTANCE.reset();
         PlayerResetEvents.INSTANCE.reset();

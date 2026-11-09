@@ -36,6 +36,7 @@ public class CointConfig {
     public static final Crops crops = new Crops();
     public static final Restart restart = new Restart();
     public static final Cluster cluster = new Cluster();
+    public static final Trade trade = new Trade();
 
     public static class General {
 
@@ -538,5 +539,32 @@ public class CointConfig {
             + "Off: a simpler window of our own. A terminal worn as a bauble always uses ours")
         @Config.DefaultBoolean(true)
         public boolean remoteMeNativeWindow;
+    }
+
+    public static class Trade {
+
+        @Config.Comment("Player trade: /trade <nick>")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean enabled;
+
+        @Config.Comment("How long a trade request waits for an answer, in seconds")
+        @Config.DefaultInt(60)
+        @Config.RangeInt(min = 10, max = 300)
+        @Config.Reloadable(RELOAD)
+        public int requestSeconds;
+
+        @Config.Comment("Discord channel ID for the trade log. Empty = trades are logged only to logs/trades.log")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String discordChannelId;
+
+        @Config.Comment("Items a player may receive in a trade only from an epoch on, one per line: "
+            + "<epoch rank name>|<item>. Item: modid:name, modid:name@meta, modid:* (whole mod), "
+            + "modid:prefix* (wildcard), ore:oreDictName. "
+            + "E.g. \"epoch_hv|gregtech:gt.metaitem.01@32702\" or \"epoch_iv|ore:circuitElite\"")
+        @Config.DefaultStringList({})
+        @Config.Reloadable(RELOAD)
+        public String[] epochItems;
     }
 }

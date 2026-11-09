@@ -44,6 +44,16 @@ public final class WorldTravelNetwork {
             coint.cards.PacketCardAction.class,
             15,
             Side.SERVER);
+        CHANNEL.registerMessage(
+            coint.trade.PacketTradeState.Handler.class,
+            coint.trade.PacketTradeState.class,
+            16,
+            Side.CLIENT);
+        CHANNEL.registerMessage(
+            coint.trade.PacketTradeAction.Handler.class,
+            coint.trade.PacketTradeAction.class,
+            17,
+            Side.SERVER);
         CointCore.LOG.info("[WorldTravel] Network initialized");
     }
 

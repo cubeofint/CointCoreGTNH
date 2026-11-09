@@ -52,6 +52,14 @@ public final class DiscordModerationWebhook {
         sendTo(CointConfig.discord.logChannelId, message);
     }
 
+    /** A finished player trade, to the trade log channel (as is: the text carries no chat colours). */
+    public static void logTrade(String text) {
+        if (!CointConfig.discord.enabled) return;
+
+        String message = text.length() > 1900 ? text.substring(0, 1900) + "\n…" : text;
+        sendTo(CointConfig.trade.discordChannelId, message);
+    }
+
     public static synchronized void shutdown() {
         DiscordGlobalBridge.shutdown();
         if (executor != null) {
