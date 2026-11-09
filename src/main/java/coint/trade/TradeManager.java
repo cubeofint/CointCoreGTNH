@@ -223,7 +223,7 @@ public final class TradeManager {
                     }
                 }
                 case PacketTradeAction.CHAT -> {
-                    String line = EnumChatFormatting.getTextWithoutFormattingCodes(text == null ? "" : text)
+                    String line = (text == null ? "" : text).replaceAll("§.?", "")
                         .trim();
                     if (line.length() > 120) {
                         line = line.substring(0, 120);
