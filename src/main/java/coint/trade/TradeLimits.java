@@ -32,6 +32,21 @@ final class TradeLimits {
      * Why {@code receiver} may not get {@code stack}: the epoch it needs, for the player to read; null when he may.
      */
     static String blockReason(ItemStack stack, EntityPlayerMP receiver) {
+        return blockReason(stack, priority(receiver));
+    }
+
+    /** A player's epoch priority, -1 when he has none. */
+    static int priority(EntityPlayerMP player) {
+        if (player == null) {
+            return -1;
+        }
+        EpochEntry has = RanksManager.get()
+            .getPlayerEpoch(player.getUniqueID());
+        return has == null ? -1 : has.priority;
+    }
+
+    /** The same for a receiver with epoch priority {@code priority} (-1: none), on whatever server he is. */
+    static String blockReason(ItemStack stack, int priority) {
         if (stack == null || stack.getItem() == null) {
             return null;
         }
@@ -49,9 +64,7 @@ final class TradeLimits {
         if (needed == null) {
             return null;
         }
-        EpochEntry has = RanksManager.get()
-            .getPlayerEpoch(receiver.getUniqueID());
-        if (has != null && has.priority >= needed.priority) {
+        if (priority >= needed.priority) {
             return null;
         }
         return needed.displayName == null || needed.displayName.isEmpty() ? needed.rankName : needed.displayName;

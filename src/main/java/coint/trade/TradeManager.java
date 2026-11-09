@@ -62,8 +62,14 @@ public final class TradeManager {
             asker.addChatMessage(text("§cНельзя обменяться с самим собой."));
             return;
         }
-        if (sessions.containsKey(asker.getUniqueID())) {
+        if (busy(asker.getUniqueID())) {
             asker.addChatMessage(text("§cВы уже в обмене."));
+            return;
+        }
+        if (RemoteTrades.hasOutgoing(asker)) {
+            asker.addChatMessage(
+                text("§cУ вас уже есть запрос на обмен. Отмените его: ")
+                    .appendSibling(button("[Отменить]", EnumChatFormatting.RED, "/trade cancel")));
             return;
         }
         Request mine = requests.get(asker.getUniqueID());
@@ -73,7 +79,7 @@ public final class TradeManager {
                     .appendSibling(button("[Отменить]", EnumChatFormatting.RED, "/trade cancel")));
             return;
         }
-        if (sessions.containsKey(target.getUniqueID())) {
+        if (busy(target.getUniqueID())) {
             asker.addChatMessage(text("§b" + target.getCommandSenderName() + "§c сейчас в другом обмене."));
             return;
         }
@@ -104,7 +110,9 @@ public final class TradeManager {
     static void accept(EntityPlayerMP player, String name) {
         Request request = incoming(player, name);
         if (request == null) {
-            player.addChatMessage(text("§cНет запроса на обмен" + (name == null ? "." : " от §b" + name + "§c.")));
+            if (!RemoteTrades.accept(player, name)) {
+                player.addChatMessage(text("§cНет запроса на обмен" + (name == null ? "." : " от §b" + name + "§c.")));
+            }
             return;
         }
         requests.remove(request.asker);
@@ -113,11 +121,11 @@ public final class TradeManager {
             player.addChatMessage(text("§b" + request.askerName + "§c уже не на сервере."));
             return;
         }
-        if (sessions.containsKey(player.getUniqueID())) {
+        if (busy(player.getUniqueID())) {
             player.addChatMessage(text("§cВы уже в обмене."));
             return;
         }
-        if (sessions.containsKey(asker.getUniqueID())) {
+        if (busy(asker.getUniqueID())) {
             player.addChatMessage(text("§b" + request.askerName + "§c сейчас в другом обмене."));
             return;
         }
@@ -140,6 +148,9 @@ public final class TradeManager {
     static void deny(EntityPlayerMP player, String name) {
         Request request = incoming(player, name);
         if (request == null) {
+            if (RemoteTrades.deny(player, name)) {
+                return;
+            }
             player.addChatMessage(text("§cНет запроса на обмен" + (name == null ? "." : " от §b" + name + "§c.")));
             return;
         }
@@ -153,6 +164,9 @@ public final class TradeManager {
 
     /** /trade cancel: his own request, or the trade he is in. */
     static void cancel(EntityPlayerMP player) {
+        if (RemoteTrades.cancel(player)) {
+            return;
+        }
         TradeSession session = sessions.get(player.getUniqueID());
         if (session != null) {
             end(session, "§c" + player.getCommandSenderName() + " отменил обмен.");
@@ -191,6 +205,10 @@ public final class TradeManager {
 
     static void act(EntityPlayerMP player, int action, int a, int count, String text) {
         SupplyServerTasks.run(() -> {
+            if (RemoteTrades.has(player)) {
+                RemoteTrades.act(player, action, a, count, text);
+                return;
+            }
             TradeSession session = sessions.get(player.getUniqueID());
             if (session == null || session.over) {
                 if (action != PacketTradeAction.CLOSE) {
@@ -244,17 +262,24 @@ public final class TradeManager {
 
     private static void add(TradeSession session, TradeSession.Side me, TradeSession.Side partner, int slot,
         int count) {
+        if (addOffer(me, partner.name, TradeLimits.priority(partner.player), slot, count)) {
+            session.unready();
+        }
+    }
+
+    /** Puts part of an inventory stack on the table: true when the offers changed. */
+    static boolean addOffer(TradeSession.Side me, String partnerName, int partnerPriority, int slot, int count) {
         if (me.ready || slot < 0 || slot >= INVENTORY || count <= 0) {
-            return;
+            return false;
         }
         ItemStack stack = me.player.inventory.mainInventory[slot];
         if (stack == null || stack.stackSize <= 0) {
-            return;
+            return false;
         }
-        String epoch = TradeLimits.blockReason(stack, partner.player);
+        String epoch = TradeLimits.blockReason(stack, partnerPriority);
         if (epoch != null) {
-            me.notice = "§c" + partner.name + " ещё не достиг эпохи " + epoch + ": этот предмет ему передать нельзя.";
-            return;
+            me.notice = "§c" + partnerName + " ещё не достиг эпохи " + epoch + ": этот предмет ему передать нельзя.";
+            return false;
         }
         TradeSession.Offer offer = me.offer(slot);
         if (offer != null && !same(offer.kind, stack)) {
@@ -264,27 +289,35 @@ public final class TradeManager {
         if (offer == null) {
             if (me.offers.size() >= TradeSession.MAX_OFFERS) {
                 me.notice = "§cНа столе нет места.";
-                return;
+                return false;
             }
             ItemStack kind = stack.copy();
             kind.stackSize = 1;
             offer = new TradeSession.Offer(slot, kind, 0);
             me.offers.add(offer);
         }
+        int before = offer.count;
         offer.count = Math.min(stack.stackSize, offer.count + count);
-        session.unready();
+        return offer.count != before;
     }
 
     private static void remove(TradeSession session, TradeSession.Side me, int index, int count) {
+        if (removeOffer(me, index, count)) {
+            session.unready();
+        }
+    }
+
+    /** Takes back {@code count} of offer {@code index} (0: all of it): true when the offers changed. */
+    static boolean removeOffer(TradeSession.Side me, int index, int count) {
         if (me.ready || index < 0 || index >= me.offers.size()) {
-            return;
+            return false;
         }
         TradeSession.Offer offer = me.offers.get(index);
         offer.count = count <= 0 ? 0 : offer.count - count;
         if (offer.count <= 0) {
             me.offers.remove(index);
         }
-        session.unready();
+        return true;
     }
 
     // ---------------------------------------------------------------- the exchange
@@ -335,7 +368,7 @@ public final class TradeManager {
     }
 
     /** Takes out the offers that no longer match the inventory: true when anything changed. */
-    private static boolean check(TradeSession.Side side) {
+    static boolean check(TradeSession.Side side) {
         boolean changed = false;
         ItemStack[] inventory = side.player.inventory.mainInventory;
         for (Iterator<TradeSession.Offer> it = side.offers.iterator(); it.hasNext();) {
@@ -366,7 +399,7 @@ public final class TradeManager {
         return false;
     }
 
-    private static List<ItemStack> offered(TradeSession.Side side) {
+    static List<ItemStack> offered(TradeSession.Side side) {
         List<ItemStack> stacks = new ArrayList<>();
         for (TradeSession.Offer offer : side.offers) {
             stacks.add(offer.stack());
@@ -375,7 +408,7 @@ public final class TradeManager {
     }
 
     /** Whether {@code incoming} fits into the inventory of {@code side} once his own offers are gone. */
-    private static boolean fits(TradeSession.Side side, List<ItemStack> incoming) {
+    static boolean fits(TradeSession.Side side, List<ItemStack> incoming) {
         ItemStack[] inventory = new ItemStack[INVENTORY];
         for (int i = 0; i < INVENTORY; i++) {
             ItemStack stack = side.player.inventory.mainInventory[i];
@@ -393,7 +426,7 @@ public final class TradeManager {
         return true;
     }
 
-    private static void take(TradeSession.Side side) {
+    static void take(TradeSession.Side side) {
         ItemStack[] inventory = side.player.inventory.mainInventory;
         for (TradeSession.Offer offer : side.offers) {
             ItemStack stack = inventory[offer.slot];
@@ -405,7 +438,7 @@ public final class TradeManager {
         side.player.inventory.markDirty();
     }
 
-    private static void give(EntityPlayerMP player, List<ItemStack> stacks) {
+    static void give(EntityPlayerMP player, List<ItemStack> stacks) {
         for (ItemStack stack : stacks) {
             ItemStack rest = stack.copy();
             if (place(player.inventory.mainInventory, rest, player.inventory) > 0) {
@@ -472,13 +505,28 @@ public final class TradeManager {
 
     private static void send(TradeSession session, TradeSession.Side me) {
         TradeSession.Side partner = session.other(me);
+        WorldTravelNetwork.CHANNEL.sendTo(
+            state(
+                me,
+                partner.name,
+                partner.ready,
+                partner.confirmed,
+                offered(partner),
+                TradeLimits.priority(partner.player),
+                session.chat),
+            me.player);
+    }
+
+    /** The trade window of {@code me}, whose partner offers {@code partnerItems} and has epoch {@code partnerEpoch}. */
+    static PacketTradeState state(TradeSession.Side me, String partnerName, boolean partnerReady,
+        boolean partnerConfirm, List<ItemStack> partnerItems, int partnerEpoch, List<String> chat) {
         PacketTradeState state = new PacketTradeState();
         state.open = true;
-        state.partner = partner.name;
+        state.partner = partnerName;
         state.myReady = me.ready;
-        state.partnerReady = partner.ready;
+        state.partnerReady = partnerReady;
         state.myConfirm = me.confirmed;
-        state.partnerConfirm = partner.confirmed;
+        state.partnerConfirm = partnerConfirm;
         int n = me.offers.size();
         state.mySlots = new int[n];
         state.myItems = new ItemStack[n];
@@ -487,11 +535,14 @@ public final class TradeManager {
             state.myItems[i] = me.offers.get(i)
                 .stack();
         }
-        state.partnerItems = offered(partner).toArray(new ItemStack[0]);
+        state.partnerItems = partnerItems.size() > TradeSession.MAX_OFFERS
+            ? partnerItems.subList(0, TradeSession.MAX_OFFERS)
+                .toArray(new ItemStack[0])
+            : partnerItems.toArray(new ItemStack[0]);
         List<Integer> slots = new ArrayList<>();
         List<String> epochs = new ArrayList<>();
         for (int i = 0; i < INVENTORY; i++) {
-            String epoch = TradeLimits.blockReason(me.player.inventory.mainInventory[i], partner.player);
+            String epoch = TradeLimits.blockReason(me.player.inventory.mainInventory[i], partnerEpoch);
             if (epoch != null) {
                 slots.add(i);
                 epochs.add(epoch);
@@ -501,9 +552,12 @@ public final class TradeManager {
             .mapToInt(Integer::intValue)
             .toArray();
         state.blockedEpochs = epochs.toArray(new String[0]);
-        state.chat = session.chat.toArray(new String[0]);
+        state.chat = chat.size() > TradeSession.MAX_CHAT
+            ? chat.subList(chat.size() - TradeSession.MAX_CHAT, chat.size())
+                .toArray(new String[0])
+            : chat.toArray(new String[0]);
         state.notice = me.notice;
-        WorldTravelNetwork.CHANNEL.sendTo(state, me.player);
+        return state;
     }
 
     /** Twice a second: requests that ran out, players gone, offers that no longer match the inventory. */
@@ -559,6 +613,9 @@ public final class TradeManager {
             end(session, "§cОбмен отменён: " + event.player.getCommandSenderName() + " вышел.");
         }
         requests.remove(uuid);
+        if (event.player instanceof EntityPlayerMP player) {
+            RemoteTrades.onGone(player, "вышел");
+        }
     }
 
     @SubscribeEvent
@@ -568,15 +625,29 @@ public final class TradeManager {
             if (session != null) {
                 end(session, "§cОбмен отменён: " + player.getCommandSenderName() + " погиб.");
             }
+            if (player instanceof EntityPlayerMP mp) {
+                RemoteTrades.onGone(mp, "погиб");
+            }
         }
     }
 
     public static void clear() {
         requests.clear();
         sessions.clear();
+        RemoteTrades.clear();
     }
 
     // ---------------------------------------------------------------- helpers
+
+    /** In a trade here or across servers. */
+    static boolean busy(UUID uuid) {
+        return sessions.containsKey(uuid) || RemoteTrades.busy(uuid);
+    }
+
+    /** Has a request of his own waiting on this server. */
+    static boolean hasOutgoing(UUID uuid) {
+        return requests.containsKey(uuid);
+    }
 
     static EntityPlayerMP online(UUID uuid) {
         MinecraftServer server = MinecraftServer.getServer();
@@ -597,7 +668,7 @@ public final class TradeManager {
         return new ChatComponentText(s);
     }
 
-    private static IChatComponent button(String label, EnumChatFormatting color, String command) {
+    static IChatComponent button(String label, EnumChatFormatting color, String command) {
         ChatComponentText button = new ChatComponentText(label);
         button.setChatStyle(
             new ChatStyle().setColor(color)

@@ -75,12 +75,7 @@ public class CommandTrade extends CommandBase {
                 }
                 String remote = ClusterService.remotePlayerName(first);
                 if (remote != null) {
-                    player.addChatMessage(
-                        TradeManager.text(
-                            "§b" + remote
-                                + "§c сейчас на сервере "
-                                + ClusterService.remotePlayerServer(remote)
-                                + ". Обмен возможен только на одном сервере."));
+                    RemoteTrades.request(player, remote);
                 } else {
                     player.addChatMessage(TradeManager.text("§cИгрок §b" + first + "§c не в сети."));
                 }

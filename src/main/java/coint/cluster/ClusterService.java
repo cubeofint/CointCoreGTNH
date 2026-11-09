@@ -446,6 +446,10 @@ public final class ClusterService {
                 ClusterTpa.onMessage(row);
                 continue;
             }
+            if (ClusterTrades.isTradeKind(row.kind)) {
+                ClusterTrades.onMessage(row);
+                continue;
+            }
             String name;
             if (KIND_DISCORD.equals(row.kind)) {
                 name = "§9[Discord]§r " + row.sender;
