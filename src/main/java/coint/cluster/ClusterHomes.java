@@ -83,7 +83,9 @@ public final class ClusterHomes {
         // Placed at once from what is known; the database answers within moments.
         apply(player, homes.get(uuid), false);
         String name = player.getCommandSenderName();
-        String assign = CointConfig.cluster.assignHomeOnFirstJoin ? ClusterService.nodeId() : null;
+        // The hub is nobody's home: who comes through it first gets his home where he goes next.
+        String assign = CointConfig.cluster.assignHomeOnFirstJoin && !ClusterHub.isHub() ? ClusterService.nodeId()
+            : null;
         ClusterService.query(db -> db.home(uuid, name, assign), home -> {
             if (home != null && !home.equals(homes.get(uuid))) {
                 homes.put(uuid, home);

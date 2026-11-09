@@ -20,7 +20,6 @@ import coint.CointCore;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
-import serverutils.lib.util.permission.PermissionAPI;
 
 /**
  * The hub: where players wait while their server restarts. A server about to restart sends its players there and
@@ -213,7 +212,6 @@ public final class ClusterHub {
         String here = ClusterService.nodeId();
         int timeout = CointConfig.cluster.nodeTimeoutSeconds;
         int delay = CointConfig.cluster.hubReturnDelaySeconds;
-        boolean stays = PermissionAPI.hasPermission(player, ClusterComfort.HUB_BYPASS);
         ClusterService.query(db -> {
             Arrival a = new Arrival();
             a.moved = db.takeMove(uuid, here, MOVE_SECONDS);
@@ -221,19 +219,25 @@ public final class ClusterHub {
             a.nodes = db.nodes(timeout);
             a.returns = db.returns(Collections.singletonList(uuid), timeout, delay);
             return a;
-        }, a -> arrived(player, a, stays), null);
+        }, a -> arrived(player, a), null);
     }
 
     /**
      * Who joins the hub from the launcher goes on to his home server when it is up, and waits here when it is not.
      * Who was sent here (a restart, /server) stays.
      */
-    private static void arrived(EntityPlayerMP player, Arrival a, boolean stays) {
+    private static void arrived(EntityPlayerMP player, Arrival a) {
         if (player.playerNetServerHandler == null || player.isDead) {
             return;
         }
         boolean waiting = !a.returns.isEmpty() && !a.returns.get(0).ready;
-        if (a.moved || stays || !CointConfig.cluster.hubSendsHome) {
+        CointCore.LOG.info(
+            "[Cluster] {} joined the hub: sent here by the network={}, home={}, hubSendsHome={}",
+            player.getCommandSenderName(),
+            a.moved,
+            a.home,
+            CointConfig.cluster.hubSendsHome);
+        if (a.moved || !CointConfig.cluster.hubSendsHome) {
             if (waiting) {
                 player.addChatMessage(
                     new ChatComponentText(
@@ -246,7 +250,8 @@ public final class ClusterHub {
             }
             return;
         }
-        String target = a.home;
+        // A home on the hub itself (given by an older version) counts as none.
+        String target = a.home != null && a.home.equalsIgnoreCase(ClusterService.nodeId()) ? null : a.home;
         if (target == null) {
             String first = CointConfig.cluster.newPlayerNodeId == null ? ""
                 : CointConfig.cluster.newPlayerNodeId.trim();
@@ -271,12 +276,17 @@ public final class ClusterHub {
             sendLater.put(player.getUniqueID(), new Later(node, System.currentTimeMillis() + SEND_DELAY_MS));
             return;
         }
+        CointCore.LOG.info(
+            "[Cluster] {} stays on the hub: server {} is {}",
+            player.getCommandSenderName(),
+            target,
+            node == null ? "unknown" : node.online ? "up but has no address" : "down");
         String shown = node == null ? target : node.name;
         player.addChatMessage(
             new ChatComponentText(
                 "§6Ваш сервер §e" + shown
                     + "§6 сейчас выключен. §fПодождите на хабе — когда он поднимется, здесь скажут."));
-        if (a.home != null) {
+        if (a.home != null && a.home.equalsIgnoreCase(target)) {
             String uuid = player.getUniqueID()
                 .toString();
             String name = player.getCommandSenderName(), home = a.home;
