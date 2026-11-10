@@ -14,6 +14,7 @@ public enum LateMixins implements IMixins {
             "appliedenergistics2.MixinTickHandlerUnloadFlush",
             "appliedenergistics2.MixinSlotCraftingTermBatchRefresh",
             "appliedenergistics2.AccessorNetworkMonitor",
+            "appliedenergistics2.MixinNetworkMonitorListenerSnapshot",
             "appliedenergistics2.MixinPartExportBusOreCache",
             "appliedenergistics2.MixinMultiCraftingTrackerRetry",
             "appliedenergistics2.MixinSecurityCacheDisabled",
