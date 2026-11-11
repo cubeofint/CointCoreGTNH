@@ -38,6 +38,7 @@ public class CointConfig {
     public static final Cluster cluster = new Cluster();
     public static final Trade trade = new Trade();
     public static final BlockLog blockLog = new BlockLog();
+    public static final PrefixSite prefixSite = new PrefixSite();
 
     public static class General {
 
@@ -53,6 +54,12 @@ public class CointConfig {
         @Config.Comment("Client: register /bptest, which opens the look-only battle pass prototype. Needs a restart")
         @Config.DefaultBoolean(false)
         public boolean battlePassPreview;
+
+        @Config.Comment("Kit (made with /kit create) a new player gets on his first join, once. Empty: none. "
+            + "Set it on the main server only: with a hub, new players come there after it")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String starterKit;
 
         @Config.Comment("Enable entity cleanup")
         @Config.DefaultBoolean(true)
@@ -611,5 +618,26 @@ public class CointConfig {
         @Config.RangeInt(min = 1, max = 365)
         @Config.Reloadable(RELOAD)
         public int retentionDays;
+    }
+
+    public static class PrefixSite {
+
+        @Config.Comment("Sync the prefix players pick (/prefix) with the website (Azuriom, the prefix pages made for "
+            + "ATM10): players see and pick their prefixes on the site too")
+        @Config.DefaultBoolean(false)
+        public boolean enabled;
+
+        @Config.Comment("Site address, e.g. https://example.com (no /api at the end)")
+        @Config.DefaultString("")
+        public String siteUrl;
+
+        @Config.Comment("AzLink token of this server on the site (Azuriom: Servers -> this server -> AzLink). Do not share it")
+        @Config.DefaultString("")
+        public String siteKey;
+
+        @Config.Comment("How often the choices made on the site are fetched (seconds)")
+        @Config.DefaultInt(10)
+        @Config.RangeInt(min = 3, max = 600)
+        public int pollSeconds;
     }
 }

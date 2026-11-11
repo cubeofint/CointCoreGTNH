@@ -19,6 +19,11 @@ public final class CointRankConfigs {
     public static final String REPAIR_COOLDOWN = "cointcore.repair.cooldown";
     public static final String HEAL_COOLDOWN = "cointcore.heal.cooldown";
     public static final String FEED_COOLDOWN = "cointcore.feed.cooldown";
+    public static final String CHARGE_COOLDOWN = "cointcore.charge.cooldown";
+    public static final String MAXCHARGE_COOLDOWN = "cointcore.maxcharge.cooldown";
+    public static final String EXPADD_COOLDOWN = "cointcore.expadd.cooldown";
+    /** Most experience one /expadd gives, in levels (0: none). */
+    public static final String EXPADD_MAX = "cointcore.expadd.max_levels";
 
     /**
      * Bonus claim chunks added on top of serverutilities.claims.max_chunks.
@@ -54,6 +59,10 @@ public final class CointRankConfigs {
         event.register(REPAIR_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
         event.register(HEAL_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
         event.register(FEED_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
+        event.register(CHARGE_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
+        event.register(MAXCHARGE_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
+        event.register(EXPADD_COOLDOWN, new ConfigTimer(Ticks.NO_TICKS, Ticks.DAY), new ConfigTimer(Ticks.NO_TICKS));
+        event.register(EXPADD_MAX, new ConfigInt(0, 0, 10000), new ConfigInt(30, 0, 10000));
         // Bonus claim chunks: default 0, max 10000
         event.register(BONUS_CLAIM_CHUNKS, new ConfigInt(0, 0, 10000), new ConfigInt(0, 0, 10000));
         // Bonus force-load chunks: default 0, max 10000

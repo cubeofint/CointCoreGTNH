@@ -118,6 +118,7 @@ public class CommonProxy {
         DiscordGlobalBridge.start();
         coint.cluster.ClusterService.start();
         coint.blocklog.BlockLog.start();
+        coint.prefix.PrefixSiteSync.start();
         coint.supply.SupplyJournal.replay();
         if (CointConfig.api.wsEnabled) {
             HubWebSocket.get();
@@ -149,6 +150,7 @@ public class CommonProxy {
         coint.blocklog.BlockLog.stop();
         coint.blocklog.CommandBlockLog.reset();
         coint.chunkbonus.ChunkBonus.reset();
+        coint.prefix.PrefixSiteSync.stop();
         coint.cards.CardTables.clear();
         coint.trade.TradeManager.clear();
         coint.supply.SupplyJournal.reset();
