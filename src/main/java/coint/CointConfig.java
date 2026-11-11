@@ -37,6 +37,7 @@ public class CointConfig {
     public static final Restart restart = new Restart();
     public static final Cluster cluster = new Cluster();
     public static final Trade trade = new Trade();
+    public static final BlockLog blockLog = new BlockLog();
 
     public static class General {
 
@@ -590,5 +591,25 @@ public class CointConfig {
         @Config.DefaultStringList({})
         @Config.Reloadable(RELOAD)
         public String[] epochItems;
+    }
+
+    public static class BlockLog {
+
+        @Config.Comment("Log who broke and placed blocks, what explosions destroyed and what players took from and put "
+            + "into containers. Kept in the cluster database (cluster.jdbcUrl, username, password), also when the "
+            + "cluster itself is off. Admins look it up with /blocklog")
+        @Config.DefaultBoolean(false)
+        public boolean enabled;
+
+        @Config.Comment("Log what players take from and put into containers (chests, machines, drawers...)")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean containers;
+
+        @Config.Comment("Days the records are kept")
+        @Config.DefaultInt(30)
+        @Config.RangeInt(min = 1, max = 365)
+        @Config.Reloadable(RELOAD)
+        public int retentionDays;
     }
 }

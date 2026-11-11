@@ -117,6 +117,7 @@ public class CommonProxy {
     public void serverStarted(FMLServerStartedEvent event) {
         DiscordGlobalBridge.start();
         coint.cluster.ClusterService.start();
+        coint.blocklog.BlockLog.start();
         coint.supply.SupplyJournal.replay();
         if (CointConfig.api.wsEnabled) {
             HubWebSocket.get();
@@ -145,6 +146,8 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
         coint.cluster.ClusterService.stop();
+        coint.blocklog.BlockLog.stop();
+        coint.blocklog.CommandBlockLog.reset();
         coint.cards.CardTables.clear();
         coint.trade.TradeManager.clear();
         coint.supply.SupplyJournal.reset();
