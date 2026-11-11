@@ -77,9 +77,12 @@ public final class BlockLog {
 
     // ---------------------------------------------------------------- blocks
 
+    /** Set while the Matter Manipulator asks whether it may edit a block: its edits are not logged. */
+    public static boolean skipping;
+
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBreak(BlockEvent.BreakEvent event) {
-        if (!active() || event.world.isRemote || !isRealPlayer(event.getPlayer())) {
+        if (!active() || skipping || event.world.isRemote || !isRealPlayer(event.getPlayer())) {
             return;
         }
         ItemKey what = describe(event.world, event.x, event.y, event.z, event.block, event.blockMetadata);
@@ -97,7 +100,7 @@ public final class BlockLog {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onPlace(BlockEvent.PlaceEvent event) {
-        if (!active() || event.world.isRemote || !isRealPlayer(event.player)) {
+        if (!active() || skipping || event.world.isRemote || !isRealPlayer(event.player)) {
             return;
         }
         ItemKey what;
@@ -235,6 +238,7 @@ public final class BlockLog {
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END) {
+            skipping = false;
             BlockLogStore.runResults();
         }
     }

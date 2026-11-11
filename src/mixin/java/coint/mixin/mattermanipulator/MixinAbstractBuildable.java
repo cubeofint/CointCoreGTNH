@@ -47,14 +47,47 @@ public abstract class MixinAbstractBuildable {
         remap = false,
         require = 0)
     private void cointcore$denyClaimedChunks(World world, int x, int y, int z, CallbackInfoReturnable<Boolean> cir) {
+        cointcore$denyIfClaimed(world, x, y, z, cir);
+    }
+
+    /** Newer MatterManipulator (0.1.38+): isEditable also says whether it is a placement. */
+    @Dynamic("Target method exists in MatterManipulator 0.1.38+")
+    @Inject(
+        method = "isEditable(Lnet/minecraft/world/World;IIIZ)Z",
+        at = @At("HEAD"),
+        cancellable = true,
+        remap = false,
+        require = 0)
+    private void cointcore$denyClaimedChunksPlacement(World world, int x, int y, int z, boolean isPlacement,
+        CallbackInfoReturnable<Boolean> cir) {
+        cointcore$denyIfClaimed(world, x, y, z, cir);
+    }
+
+    @Unique
+    private void cointcore$denyIfClaimed(World world, int x, int y, int z, CallbackInfoReturnable<Boolean> cir) {
         if (world == null || world.isRemote || cointcore$player == null || !ClaimedChunks.isActive()) {
             return;
         }
 
         if (cointcore$isClaimDenied(cointcore$player, x, y, z)) {
             ClaimGuardNotifier.notifyDenied(cointcore$player);
+            // Returning here skips the RETURN hook below, so the block log is switched back on now.
+            coint.blocklog.BlockLog.skipping = false;
             cir.setReturnValue(false);
         }
+    }
+
+    /**
+     * The events MM posts to ask whether it may edit a block are not the player's own work: the block log skips them.
+     */
+    @Inject(method = "isEditable", at = @At("HEAD"), remap = false, require = 0)
+    private void cointcore$blockLogSkipStart(CallbackInfoReturnable<Boolean> cir) {
+        coint.blocklog.BlockLog.skipping = true;
+    }
+
+    @Inject(method = "isEditable", at = @At("RETURN"), remap = false, require = 0)
+    private void cointcore$blockLogSkipEnd(CallbackInfoReturnable<Boolean> cir) {
+        coint.blocklog.BlockLog.skipping = false;
     }
 
     @Unique
