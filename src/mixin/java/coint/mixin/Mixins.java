@@ -25,6 +25,7 @@ public enum Mixins implements IMixins {
         "minecraft.MixinBanEntryClusterView",
         "minecraft.MixinUserListClusterSync",
         "minecraft.MixinCommandListPlayersCluster",
+        "minecraft.MixinMinecraftServerClusterNames",
         "minecraft.MixinSpawnerAnimals",
         "minecraft.MixinWorldServerHodgepodgeFastPath",
         "minecraft.MixinWorldRandomTickRadius",

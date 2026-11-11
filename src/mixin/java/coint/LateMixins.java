@@ -112,7 +112,8 @@ public enum LateMixins implements IMixins {
             "serverutilities.MixinForgeTeamPDimReward",
             "serverutilities.MixinClaimedChunksDisabledRightClick",
             "serverutilities.MixinCmdTPACluster",
-            "serverutilities.MixinCmdTPAcceptCluster")
+            "serverutilities.MixinCmdTPAcceptCluster",
+            "serverutilities.MixinServerUtilitiesPlayerDataNickSync")
         .addClientMixins("serverutilities.MixinMessageUpdateTabName")),
 
     THAUMICEXPLORATION(new MixinBuilder("Thaumic Exploration").addRequiredMod(TargetMod.THAUMICEXPLORATION)

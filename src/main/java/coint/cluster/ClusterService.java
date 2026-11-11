@@ -50,6 +50,12 @@ public final class ClusterService {
     static final String KIND_TPA = "tpa", KIND_TPA_OK = "tpaok";
     /** A finished AE2 craft a player follows, for him on another server. */
     static final String KIND_CRAFT = "craft";
+    /** /tpl to a player on another server: his server notes where he stands and answers as for an accepted /tpa. */
+    static final String KIND_TPL = "tpl";
+    /** A command of an admin for a player on another server (/fly, /god, /heal, /nickfor), and what it answered. */
+    static final String KIND_COMMAND = "cmd", KIND_COMMAND_REPLY = "cmdreply";
+    /** A nickname set on one server, for the others. */
+    static final String KIND_NICK = "nick";
     private static final int CHAT_BATCH = 100;
     /** How far below its last id a read starts again, for lines committed late. */
     private static final int CHAT_REREAD = 100;
@@ -82,6 +88,8 @@ public final class ClusterService {
     private static long nextHeartbeatAt, nextPollAt;
     /** The players of the other servers in the tab list: name, and the name of their server. */
     private static Map<String, String> remoteTab = Collections.emptyMap();
+    /** Their tab names (nickname, rank) as chat component JSON, where their server gave one. */
+    private static Map<String, String> remoteDisplay = Collections.emptyMap();
 
     private ClusterService() {}
 
@@ -162,6 +170,7 @@ public final class ClusterService {
         connectedLogged = false;
         nextHeartbeatAt = nextPollAt = 0;
         ClusterTpa.reset();
+        ClusterCommands.reset();
         ClusterSanctions.reset();
         running = true;
         CointCore.LOG.info("[Cluster] Starting as node '{}' ({})", nodeId, displayName);
@@ -308,6 +317,7 @@ public final class ClusterService {
         }
         ClusterSanctions.tick(now);
         ClusterTpa.prune();
+        ClusterCommands.prune();
     }
 
     @SubscribeEvent
@@ -315,11 +325,18 @@ public final class ClusterService {
         if (event.player instanceof EntityPlayerMP player) {
             ClusterSanctions.onLogin(player);
             ClusterTpa.onLogin(player);
+            Map<String, String> names = new HashMap<>();
             for (String name : remoteTab.keySet()) {
                 if (!name.equals(player.getCommandSenderName())) {
                     player.playerNetServerHandler.sendPacket(new S38PacketPlayerListItem(name, true, 0));
+                    String display = remoteDisplay.get(name);
+                    if (display != null) {
+                        names.put(name, display);
+                    }
                 }
             }
+            ClusterTabNames.send(names, player);
+            ClusterCommands.onLogin(player);
         }
     }
 
@@ -332,11 +349,7 @@ public final class ClusterService {
                 // Hidden here, so hidden from the other servers too: tab, /list, /seen, /msg and /tpa.
                 continue;
             }
-            players.add(
-                new ClusterDatabase.PlayerRow(
-                    player.getUniqueID()
-                        .toString(),
-                    player.getCommandSenderName()));
+            players.add(row(player));
         }
         double tps = tps(server);
         ClusterDatabase db = database;
@@ -360,6 +373,35 @@ public final class ClusterService {
                 results.add(() -> applyRemoteTab(Collections.emptyList()));
             } finally {
                 heartbeatInFlight.set(false);
+            }
+        });
+    }
+
+    private static ClusterDatabase.PlayerRow row(EntityPlayerMP player) {
+        return new ClusterDatabase.PlayerRow(
+            player.getUniqueID()
+                .toString(),
+            player.getCommandSenderName(),
+            ClusterTabNames.displayJson(player),
+            player.dimension,
+            player.posX,
+            player.posY,
+            player.posZ);
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!running || !(event.player instanceof EntityPlayerMP player) || ServerUtils.isVanished(player)) {
+            return;
+        }
+        ClusterDatabase.PlayerRow row = row(player);
+        ClusterDatabase db = database;
+        String id = nodeId;
+        submit(() -> {
+            try {
+                db.leftAt(id, row);
+            } catch (SQLException e) {
+                logError("last place", e);
             }
         });
     }
@@ -446,6 +488,10 @@ public final class ClusterService {
                 ClusterTpa.onMessage(row);
                 continue;
             }
+            if (ClusterCommands.isKind(row.kind)) {
+                ClusterCommands.onMessage(row);
+                continue;
+            }
             if (ClusterTrades.isTradeKind(row.kind)) {
                 ClusterTrades.onMessage(row);
                 continue;
@@ -467,13 +513,18 @@ public final class ClusterService {
 
     private static void applyRemoteTab(List<ClusterDatabase.RemotePlayer> players) {
         Map<String, String> next = new HashMap<>();
+        Map<String, String> nextDisplay = new HashMap<>();
         if (running) {
             for (ClusterDatabase.RemotePlayer player : players) {
                 next.put(player.name, player.nodeName);
+                if (player.display != null) {
+                    nextDisplay.put(player.name, player.display);
+                }
             }
         }
         Map<String, String> previous = remoteTab;
-        if (next.equals(previous)) {
+        Map<String, String> previousDisplay = remoteDisplay;
+        if (next.equals(previous) && nextDisplay.equals(previousDisplay)) {
             return;
         }
         MinecraftServer server = MinecraftServer.getServer();
@@ -493,11 +544,23 @@ public final class ClusterService {
             }
         }
         remoteTab = Collections.unmodifiableMap(next);
+        Map<String, String> changed = new HashMap<>();
+        for (Map.Entry<String, String> e : nextDisplay.entrySet()) {
+            String name = e.getKey();
+            // A new line, or a new name on a line already shown.
+            if (!localNames.contains(name) && (!previous.containsKey(name) || !e.getValue()
+                .equals(previousDisplay.get(name)))) {
+                changed.put(name, e.getValue());
+            }
+        }
+        remoteDisplay = Collections.unmodifiableMap(nextDisplay);
+        ClusterTabNames.send(changed, null);
     }
 
     private static void clearRemoteTab() {
         applyRemoteTab(Collections.emptyList());
         remoteTab = Collections.emptyMap();
+        remoteDisplay = Collections.emptyMap();
     }
 
     private static void broadcast(S38PacketPlayerListItem packet) {

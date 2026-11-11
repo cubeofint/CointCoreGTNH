@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 11;
+    private static final int SCHEMA_VERSION = 12;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -177,6 +177,13 @@ final class ClusterDatabase {
                         + "created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)"
                         + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             }
+            if (version < 12) {
+                // The name a player shows with in the tab (nickname, rank), and where he stood when last seen.
+                s.executeUpdate("ALTER TABLE cluster_players ADD COLUMN display VARCHAR(2048) NULL");
+                s.executeUpdate(
+                    "ALTER TABLE cluster_seen ADD COLUMN dim INT NULL, ADD COLUMN x DOUBLE NULL, "
+                        + "ADD COLUMN y DOUBLE NULL, ADD COLUMN z DOUBLE NULL");
+            }
         }
         try (PreparedStatement p = c.prepareStatement(
             "INSERT INTO cluster_meta (meta_key, meta_value) VALUES ('schema_version', ?) "
@@ -214,24 +221,24 @@ final class ClusterDatabase {
             if (!players.isEmpty()) {
                 // A player seen here last is here now: a row left by another server is taken over.
                 try (PreparedStatement p = c.prepareStatement(
-                    "INSERT INTO cluster_players (uuid, name, node_id, updated_at) VALUES (?, ?, ?, NOW(3)) "
-                        + "ON DUPLICATE KEY UPDATE name = VALUES(name), node_id = VALUES(node_id), updated_at = NOW(3)")) {
+                    "INSERT INTO cluster_players (uuid, name, node_id, display, updated_at) VALUES (?, ?, ?, ?, NOW(3)) "
+                        + "ON DUPLICATE KEY UPDATE name = VALUES(name), node_id = VALUES(node_id), "
+                        + "display = VALUES(display), updated_at = NOW(3)")) {
                     for (PlayerRow player : players) {
                         p.setString(1, player.uuid);
                         p.setString(2, player.name);
                         p.setString(3, nodeId);
+                        p.setString(
+                            4,
+                            player.display == null || player.display.length() > 2048 ? null : player.display);
                         p.addBatch();
                     }
                     p.executeBatch();
                 }
-                // Where and when each was seen last, for /seen once he is gone.
-                try (PreparedStatement p = c.prepareStatement(
-                    "INSERT INTO cluster_seen (uuid, name, node_id, last_seen) VALUES (?, ?, ?, NOW(3)) "
-                        + "ON DUPLICATE KEY UPDATE name = VALUES(name), node_id = VALUES(node_id), last_seen = NOW(3)")) {
+                // Where and when each was seen last, for /seen and /tpl once he is gone.
+                try (PreparedStatement p = c.prepareStatement(SEEN_UPSERT)) {
                     for (PlayerRow player : players) {
-                        p.setString(1, player.uuid);
-                        p.setString(2, player.name);
-                        p.setString(3, nodeId);
+                        bindSeen(p, player, nodeId);
                         p.addBatch();
                     }
                     p.executeBatch();
@@ -243,6 +250,54 @@ final class ClusterDatabase {
             throw e;
         } finally {
             c.setAutoCommit(true);
+        }
+    }
+
+    private static final String SEEN_UPSERT = "INSERT INTO cluster_seen (uuid, name, node_id, last_seen, dim, x, y, z) "
+        + "VALUES (?, ?, ?, NOW(3), ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), node_id = VALUES(node_id), "
+        + "last_seen = NOW(3), dim = VALUES(dim), x = VALUES(x), y = VALUES(y), z = VALUES(z)";
+
+    private static void bindSeen(PreparedStatement p, PlayerRow player, String nodeId) throws SQLException {
+        p.setString(1, player.uuid);
+        p.setString(2, player.name);
+        p.setString(3, nodeId);
+        p.setInt(4, player.dim);
+        p.setDouble(5, player.x);
+        p.setDouble(6, player.y);
+        p.setDouble(7, player.z);
+    }
+
+    /** A player leaving this server: where he stood, so /tpl finds the spot while he is away. */
+    void leftAt(String nodeId, PlayerRow player) throws SQLException {
+        try (PreparedStatement p = connection().prepareStatement(SEEN_UPSERT)) {
+            bindSeen(p, player, nodeId);
+            p.executeUpdate();
+        }
+    }
+
+    /** Where a player (by name) stood when last seen on any server, or null when never or the spot is unknown. */
+    LastPlace lastPlace(String name, int timeoutSeconds) throws SQLException {
+        try (PreparedStatement p = connection().prepareStatement(
+            "SELECT s.name, s.uuid, s.node_id, COALESCE(n.display_name, s.node_id), "
+                + "(n.node_id IS NOT NULL AND NOT n.stopped AND n.last_seen > NOW(3) - INTERVAL ? SECOND), "
+                + "s.dim, s.x, s.y, s.z FROM cluster_seen s LEFT JOIN cluster_nodes n ON n.node_id = s.node_id "
+                + "WHERE s.name = ? AND s.dim IS NOT NULL ORDER BY s.last_seen DESC LIMIT 1")) {
+            p.setInt(1, timeoutSeconds);
+            p.setString(2, clip(name, 32));
+            try (ResultSet r = p.executeQuery()) {
+                return r.next()
+                    ? new LastPlace(
+                        r.getString(1),
+                        r.getString(2),
+                        r.getString(3),
+                        r.getString(4),
+                        r.getBoolean(5),
+                        r.getInt(6),
+                        r.getDouble(7),
+                        r.getDouble(8),
+                        r.getDouble(9))
+                    : null;
+            }
         }
     }
 
@@ -263,14 +318,14 @@ final class ClusterDatabase {
     List<RemotePlayer> remotePlayers(String nodeId, int timeoutSeconds) throws SQLException {
         List<RemotePlayer> result = new ArrayList<>();
         try (PreparedStatement p = connection().prepareStatement(
-            "SELECT p.name, p.node_id, n.display_name FROM cluster_players p "
+            "SELECT p.name, p.node_id, n.display_name, p.display FROM cluster_players p "
                 + "JOIN cluster_nodes n ON n.node_id = p.node_id "
                 + "WHERE p.node_id <> ? AND NOT n.stopped AND n.last_seen > NOW(3) - INTERVAL ? SECOND")) {
             p.setString(1, nodeId);
             p.setInt(2, timeoutSeconds);
             try (ResultSet r = p.executeQuery()) {
                 while (r.next()) {
-                    result.add(new RemotePlayer(r.getString(1), r.getString(2), r.getString(3)));
+                    result.add(new RemotePlayer(r.getString(1), r.getString(2), r.getString(3), r.getString(4)));
                 }
             }
         }
@@ -597,10 +652,40 @@ final class ClusterDatabase {
     static final class PlayerRow {
 
         final String uuid, name;
+        /** The tab name as chat component JSON, or null. */
+        final String display;
+        final int dim;
+        final double x, y, z;
 
-        PlayerRow(String uuid, String name) {
+        PlayerRow(String uuid, String name, String display, int dim, double x, double y, double z) {
             this.uuid = uuid;
             this.name = name;
+            this.display = display;
+            this.dim = dim;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+    }
+
+    static final class LastPlace {
+
+        final String name, uuid, nodeId, nodeName;
+        final boolean online;
+        final int dim;
+        final double x, y, z;
+
+        LastPlace(String name, String uuid, String nodeId, String nodeName, boolean online, int dim, double x, double y,
+            double z) {
+            this.name = name;
+            this.uuid = uuid;
+            this.nodeId = nodeId;
+            this.nodeName = nodeName;
+            this.online = online;
+            this.dim = dim;
+            this.x = x;
+            this.y = y;
+            this.z = z;
         }
     }
 
@@ -639,11 +724,14 @@ final class ClusterDatabase {
     static final class RemotePlayer {
 
         final String name, nodeId, nodeName;
+        /** The tab name as chat component JSON, or null. */
+        final String display;
 
-        RemotePlayer(String name, String nodeId, String nodeName) {
+        RemotePlayer(String name, String nodeId, String nodeName, String display) {
             this.name = name;
             this.nodeId = nodeId;
             this.nodeName = nodeName;
+            this.display = display;
         }
     }
 

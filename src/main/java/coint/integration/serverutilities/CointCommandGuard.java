@@ -10,9 +10,14 @@ import net.minecraftforge.event.CommandEvent;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
+import coint.cluster.ClusterCommands;
+import coint.cluster.ClusterService;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import serverutils.ServerUtilitiesPermissions;
 import serverutils.command.CmdFly;
 import serverutils.command.CmdGod;
+import serverutils.command.CmdHeal;
+import serverutils.command.CmdNickFor;
 import serverutils.command.tp.CmdTplast;
 import serverutils.lib.util.permission.PermissionAPI;
 
@@ -65,7 +70,49 @@ public class CointCommandGuard {
 
         if (node != null && !PermissionAPI.hasPermission(player, node)) {
             cointcore$deny(event, player);
+            return;
         }
+
+        // The player named is on another server of the network (or, for /tpl, was last seen there).
+        if (event.command instanceof CmdTplast && args.length == 1) {
+            String remote = ClusterService.remotePlayerName(args[0]);
+            if (remote != null && cointcore$isOp(remote)
+                && !PermissionAPI.hasPermission(player, CointSUPermissions.TPL_TO_PROTECTED)) {
+                cointcore$deny(event, player);
+                return;
+            }
+            if (ClusterCommands.tpl(player, args[0], event.command, args)) {
+                event.setCanceled(true);
+            }
+            return;
+        }
+        String name = event.command.getCommandName();
+        if (event.command instanceof CmdHeal && args.length > 0
+            && !PermissionAPI.hasPermission(player, ServerUtilitiesPermissions.HEAL_OTHER)) {
+            return;
+        }
+        if (event.command instanceof CmdNickFor && args.length < 2) {
+            return;
+        }
+        if ((event.command instanceof CmdFly || event.command instanceof CmdGod
+            || event.command instanceof CmdHeal
+            || event.command instanceof CmdNickFor) && ClusterCommands.remote(player, name, args)) {
+            event.setCanceled(true);
+        }
+    }
+
+    private static boolean cointcore$isOp(String name) {
+        MinecraftServer server = MinecraftServer.getServer();
+        if (server == null) {
+            return false;
+        }
+        for (String op : server.getConfigurationManager()
+            .func_152606_n()) {
+            if (op.equalsIgnoreCase(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void cointcore$deny(CommandEvent event, EntityPlayerMP player) {
