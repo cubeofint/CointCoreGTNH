@@ -148,6 +148,7 @@ public class CommonProxy {
         coint.cluster.ClusterService.stop();
         coint.blocklog.BlockLog.stop();
         coint.blocklog.CommandBlockLog.reset();
+        coint.chunkbonus.ChunkBonus.reset();
         coint.cards.CardTables.clear();
         coint.trade.TradeManager.clear();
         coint.supply.SupplyJournal.reset();

@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import coint.chunkbonus.ChunkBonus;
 import coint.integration.serverutilities.CointRankConfigs;
 import serverutils.ServerUtilitiesPermissions;
 import serverutils.data.ClaimedChunks;
@@ -109,6 +110,8 @@ public class MixinServerUtilitiesTeamData {
             bonus += player.getRankConfig(CointRankConfigs.EBOBONUS_FORCELOAD_CHUNKS)
                 .getInt();
         }
+        // Chunk loading bought on the website by the members.
+        bonus += ChunkBonus.bonusOf(self.team);
 
         cachedMaxChunkloaderChunks = maxBase + bonus;
         cir.setReturnValue(cachedMaxChunkloaderChunks);
