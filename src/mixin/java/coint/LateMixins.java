@@ -105,6 +105,7 @@ public enum LateMixins implements IMixins {
         .setPhase(Phase.LATE)
         .addCommonMixins(
             "serverutilities.MixinCmdHome",
+            "serverutilities.MixinRanksAccessRecovery",
             "serverutilities.MixinCmdVanishSameDimension",
             "serverutilities.MixinCmdSetHome",
             "serverutilities.MixinServerUtilitiesTeamData",
@@ -113,8 +114,7 @@ public enum LateMixins implements IMixins {
             "serverutilities.MixinClaimedChunksDisabledRightClick",
             "serverutilities.MixinCmdTPACluster",
             "serverutilities.MixinCmdTPAcceptCluster",
-            "serverutilities.MixinServerUtilitiesPlayerDataNickSync",
-            "serverutilities.MixinServerUtilitiesPlayerDataPrefix")
+            "serverutilities.MixinServerUtilitiesPlayerDataNickSync")
         .addClientMixins("serverutilities.MixinMessageUpdateTabName")),
 
     THAUMICEXPLORATION(new MixinBuilder("Thaumic Exploration").addRequiredMod(TargetMod.THAUMICEXPLORATION)

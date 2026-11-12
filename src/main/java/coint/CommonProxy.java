@@ -49,7 +49,13 @@ public class CommonProxy {
             throw new RuntimeException(e);
         }
 
+        coint.cluster.ClusterAccess.configure(
+            CointConfig.cluster.accessAuthorityNodeId,
+            CointConfig.cluster.accessPollSeconds,
+            CointConfig.cluster.accessSyncOperators);
+
         WorldTravelNetwork.init();
+        coint.migration.MigrationNetwork.init();
         coint.supply.SupplyBlocks.register();
         coint.cards.CardBlocks.register();
         if (event.getSide()
@@ -110,6 +116,12 @@ public class CommonProxy {
      * Called when server is starting
      */
     public void serverStarting(FMLServerStartingEvent event) {
+        coint.cluster.ClusterAccess.configure(
+            CointConfig.cluster.accessAuthorityNodeId,
+            CointConfig.cluster.accessPollSeconds,
+            CointConfig.cluster.accessSyncOperators);
+        coint.cluster.MigrationCoordinator
+            .configure(CointConfig.cluster.migrationEnabled, CointConfig.cluster.migrationSharedDirectory);
         CmdRegistry.register(event);
     }
 
@@ -118,7 +130,6 @@ public class CommonProxy {
         DiscordGlobalBridge.start();
         coint.cluster.ClusterService.start();
         coint.blocklog.BlockLog.start();
-        coint.prefix.PrefixSiteSync.start();
         coint.supply.SupplyJournal.replay();
         if (CointConfig.api.wsEnabled) {
             HubWebSocket.get();
@@ -142,15 +153,17 @@ public class CommonProxy {
             Universe.get()
                 .scheduleTask(new TempRankTask());
         }
+        coint.cluster.ClusterAccess.start();
     }
 
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
+        coint.migration.MigrationStorage.stop();
+        coint.cluster.ClusterAccess.reset();
         coint.cluster.ClusterService.stop();
         coint.blocklog.BlockLog.stop();
         coint.blocklog.CommandBlockLog.reset();
         coint.chunkbonus.ChunkBonus.reset();
-        coint.prefix.PrefixSiteSync.stop();
         coint.cards.CardTables.clear();
         coint.trade.TradeManager.clear();
         coint.supply.SupplyJournal.reset();

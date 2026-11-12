@@ -40,6 +40,8 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
 import coint.CointCore;
+import coint.cluster.ClusterService;
+import coint.commands.CommandMigrate;
 import coint.integration.personalspace.PersonalSpaceBinding;
 import coint.player.TeamsManager;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -66,6 +68,16 @@ public final class MigrationExporter {
         .create();
     private static final ConcurrentLinkedQueue<Runnable> MAIN_THREAD = new ConcurrentLinkedQueue<>();
     private static volatile boolean running;
+    private static volatile MigrationStorage.Session exportSession;
+    private static Thread worker;
+
+    public static synchronized void stop() {
+        exportSession = null;
+        if (worker != null) worker.interrupt();
+        worker = null;
+        running = false;
+        MAIN_THREAD.clear();
+    }
 
     private MigrationExporter() {}
 
@@ -75,10 +87,22 @@ public final class MigrationExporter {
 
     /** Runs on the server thread. Returns null on success, or the reason the export could not start. */
     public static String export(ICommandSender sender, ForgePlayer target) {
-        if (running) {
+        return export(sender, target, archive -> {});
+    }
+
+    public static String export(ICommandSender sender, ForgePlayer target, java.util.function.Consumer<String> ready) {
+        if (!CommandMigrate.allowed(sender)) return "Нет права на миграцию";
+        if (running || MigrationImporter.isRunning()) {
             return "Уже идёт другой экспорт, дождитесь его окончания";
         }
         MinecraftServer server = MinecraftServer.getServer();
+        final MigrationStorage.Session session;
+        try {
+            session = MigrationStorage.session();
+            session.check();
+        } catch (IOException e) {
+            return e.getMessage();
+        }
         ForgeTeam team = target.hasTeam() ? target.team : null;
 
         List<ForgePlayer> players = new ArrayList<>();
@@ -94,9 +118,7 @@ public final class MigrationExporter {
         }
 
         Set<Integer> dims = findTeamDimensions(team);
-        File worldDir = DimensionManager.getCurrentSaveRootDirectory();
-        File serverDir = worldDir.getAbsoluteFile()
-            .getParentFile();
+        File worldDir = session.world;
         String worldName = worldDir.getName();
 
         // 1. Same as /save-all: players, every world (fires WorldEvent.Save, so ServerUtilities and
@@ -112,20 +134,27 @@ public final class MigrationExporter {
         Map<File, String> files = new LinkedHashMap<>();
         List<String> missing = new ArrayList<>();
         List<Map<String, Object>> dimInfo = new ArrayList<>();
-        for (int dimId : dims) {
-            DimensionConfig config = DimensionConfig.getForDimension(dimId, false);
-            String folder = config == null ? "PERSONAL_DIM_" + dimId : config.getSaveDir(dimId);
-            File dimDir = new File(worldDir, folder);
-            Map<String, Object> info = new LinkedHashMap<>();
-            info.put("dimension", dimId);
-            info.put("folder", folder);
-            if (dimDir.isDirectory()) {
-                addTree(dimDir, worldName + "/" + folder, files);
-            } else {
-                missing.add(worldName + "/" + folder);
-                info.put("missing", true);
+        try {
+            for (int dimId : dims) {
+                DimensionConfig config = DimensionConfig.getForDimension(dimId, false);
+                String folder = config == null ? "PERSONAL_DIM_" + dimId : config.getSaveDir(dimId);
+                if (dimId <= 1 || !folder.equals("PERSONAL_DIM_" + dimId))
+                    throw new IOException("Unsupported personal dimension folder: " + folder);
+                File dimDir = MigrationStorage.child(worldDir, folder);
+                Map<String, Object> info = new LinkedHashMap<>();
+                info.put("dimension", dimId);
+                info.put("folder", folder);
+                if (dimDir.isDirectory()) {
+                    addTree(dimDir, worldName + "/" + folder, files);
+                } else {
+                    missing.add(worldName + "/" + folder);
+                    info.put("missing", true);
+                }
+                dimInfo.add(info);
             }
-            dimInfo.add(info);
+        } catch (IOException | java.io.UncheckedIOException e) {
+            CointCore.LOG.error("[Migrate] Could not collect personal dimension files", e);
+            return "Экспорт отменён: не удалось полностью прочитать персональный мир: " + e.getMessage();
         }
 
         List<Map<String, Object>> playerInfo = new ArrayList<>();
@@ -183,9 +212,9 @@ public final class MigrationExporter {
 
         // 3. Copy to a staging folder now, while nothing can change (we are on the server thread).
         String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date());
-        String baseName = sanitize(target.getName()) + "_" + stamp;
-        File migrations = new File(serverDir, "migrations");
-        File staging = new File(migrations, ".staging-" + baseName);
+        String baseName = sanitize(target.getName()) + "_" + stamp + "_" + UUID.randomUUID();
+        File migrations = MigrationStorage.archives();
+        File staging = new File(MigrationStorage.localDirectory(), ".staging-" + baseName);
         long bytes = 0;
         try {
             for (Map.Entry<File, String> entry : files.entrySet()) {
@@ -211,6 +240,7 @@ public final class MigrationExporter {
             manifest.put("idMap", MigrationData.idMap());
             manifest.put("exportedAt", new Date().toString());
             manifest.put("sourceServer", CointConfig.api.serverTag);
+            manifest.put("sourceNode", ClusterService.isRunning() ? ClusterService.nodeId() : "");
             manifest.put("worldFolder", worldName);
             manifest.put("team", teamInfo);
             manifest.put("players", playerInfo);
@@ -236,6 +266,7 @@ public final class MigrationExporter {
 
         // 4. Compress in the background.
         running = true;
+        exportSession = session;
         File zip = new File(migrations, baseName + ".zip");
         int fileCount = files.size();
         long totalBytes = bytes;
@@ -251,25 +282,46 @@ public final class MigrationExporter {
                     + "). Упаковываю в архив..."));
         Thread thread = new Thread(() -> {
             String result;
+            boolean complete = false;
             try {
-                zipDirectory(staging.toPath(), zip);
-                result = "§aАрхив готов: §f" + serverDir.toPath()
-                    .relativize(zip.toPath()) + " §a(" + (zip.length() / (1024 * 1024)) + " МБ)";
+                zipDirectory(staging.toPath(), zip, session);
+                complete = true;
+                result = "§aАрхив готов: §f" + zip.getAbsolutePath()
+                    + " §a("
+                    + (zip.length() / (1024 * 1024))
+                    + " МБ). /migrate ui";
                 if (!missingCopy.isEmpty()) {
                     result += "\n§eНе найдены (пропущены): §f" + String.join(", ", missingCopy);
                 }
                 CointCore.LOG.info("[Migrate] Exported {} to {}", target.getName(), zip);
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
                 CointCore.LOG.error("[Migrate] Zip failed", e);
                 result = "§cОшибка упаковки архива: " + e.getMessage();
             } finally {
                 deleteQuietly(staging);
-                running = false;
             }
             String message = result;
-            MAIN_THREAD.add(() -> sender.addChatMessage(new ChatComponentText(message)));
+            boolean published = complete;
+            synchronized (MigrationExporter.class) {
+                if (exportSession == session && session.current()) {
+                    MAIN_THREAD.add(() -> {
+                        if (exportSession != session || !session.current()) return;
+                        running = false;
+                        exportSession = null;
+                        worker = null;
+                        if (!CommandMigrate.allowed(sender)) return;
+                        sender.addChatMessage(new ChatComponentText(message));
+                        if (published) ready.accept(zip.getName());
+                    });
+                } else if (exportSession == session) {
+                    exportSession = null;
+                    worker = null;
+                    running = false;
+                }
+            }
         }, "CointCore migration export");
         thread.setDaemon(false);
+        worker = thread;
         thread.start();
         return null;
     }
@@ -319,22 +371,21 @@ public final class MigrationExporter {
         ThreadedFileIOBase.threadedIOInstance.waitForFinish();
     }
 
-    private static void addTree(File dir, String archivePrefix, Map<File, String> files) {
-        try (Stream<Path> walk = Files.walk(dir.toPath())) {
-            walk.filter(Files::isRegularFile)
-                .forEach(path -> {
-                    String rel = dir.toPath()
-                        .relativize(path)
-                        .toString()
-                        .replace(File.separatorChar, '/');
-                    // session.lock belongs to the running server, never ship it
-                    if (!rel.equals("session.lock")) {
-                        files.put(path.toFile(), archivePrefix + "/" + rel);
-                    }
-                });
-        } catch (IOException e) {
-            CointCore.LOG.error("[Migrate] Could not list {}", dir, e);
-        }
+    private static void addTree(File dir, String archivePrefix, Map<File, String> files) throws IOException {
+        Files.walkFileTree(dir.toPath(), new java.nio.file.SimpleFileVisitor<Path>() {
+
+            @Override
+            public java.nio.file.FileVisitResult visitFile(Path path, java.nio.file.attribute.BasicFileAttributes attrs)
+                throws IOException {
+                if (!attrs.isRegularFile()) throw new IOException("Unsupported file in dimension: " + path);
+                String rel = dir.toPath()
+                    .relativize(path)
+                    .toString()
+                    .replace(File.separatorChar, '/');
+                if (!rel.equals("session.lock")) files.put(path.toFile(), archivePrefix + "/" + rel);
+                return java.nio.file.FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     private static void addFile(File worldDir, String worldName, String rel, Map<File, String> files,
@@ -361,7 +412,7 @@ public final class MigrationExporter {
         return matches == null || matches.length == 0 ? null : "playerdata/" + matches[0].getName();
     }
 
-    private static void zipDirectory(Path root, File zipFile) throws IOException {
+    private static void zipDirectory(Path root, File zipFile, MigrationStorage.Session session) throws IOException {
         Files.createDirectories(
             zipFile.toPath()
                 .getParent());
@@ -369,6 +420,7 @@ public final class MigrationExporter {
         try (ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(partial)));
             Stream<Path> walk = Files.walk(root)) {
             for (Path path : (Iterable<Path>) walk.filter(Files::isRegularFile)::iterator) {
+                session.check();
                 String name = root.relativize(path)
                     .toString()
                     .replace(File.separatorChar, '/');
@@ -377,7 +429,11 @@ public final class MigrationExporter {
                 zip.closeEntry();
             }
         }
-        Files.move(partial.toPath(), zipFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        synchronized (MigrationExporter.class) {
+            session.check();
+            if (exportSession != session) throw new IOException("Export cancelled");
+            Files.move(partial.toPath(), zipFile.toPath());
+        }
     }
 
     private static void deleteQuietly(File dir) {

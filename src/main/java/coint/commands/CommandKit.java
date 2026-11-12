@@ -23,6 +23,7 @@ import net.minecraft.util.Vec3;
 
 import coint.commands.kit.KitDefinition;
 import coint.commands.kit.KitManager;
+import coint.commands.kit.KitOrigin;
 import coint.player.PlayerLookup;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -259,7 +260,13 @@ public class CommandKit extends CommandBase {
                     return;
                 }
 
-                if (!canFitAll(player, kit.getItems())) {
+                List<ItemStack> issuedItems = new ArrayList<>();
+                for (ItemStack stack : kit.getItems()) {
+                    if (stack != null) {
+                        issuedItems.add(KitOrigin.issuedCopy(stack, name, player));
+                    }
+                }
+                if (!canFitAll(player, issuedItems)) {
                     sendError(sender, "Инвентарь полон, набор не получен");
                     return;
                 }
@@ -267,8 +274,8 @@ public class CommandKit extends CommandBase {
                 if (kit.getMaxClaims() < 0) {
                     int bonus = KitManager.getKitBonusRemaining(player, name);
                     if (bonus > 0) {
-                        for (ItemStack stack : kit.getItems()) {
-                            giveItem(player, stack.copy());
+                        for (ItemStack stack : issuedItems) {
+                            giveItem(player, stack);
                         }
                         KitManager.setKitBonusRemaining(player, name, bonus - 1);
                         sendSuccess(sender, "Набор получен: " + name);
@@ -280,8 +287,8 @@ public class CommandKit extends CommandBase {
 
                 if (hasRemainingClaims(player, name, kit)) {
                     int claims = KitManager.getKitClaimCount(player, name);
-                    for (ItemStack stack : kit.getItems()) {
-                        giveItem(player, stack.copy());
+                    for (ItemStack stack : issuedItems) {
+                        giveItem(player, stack);
                     }
                     KitManager.setKitClaimCount(player, name, claims + 1);
                     sendSuccess(sender, "Набор получен: " + name);

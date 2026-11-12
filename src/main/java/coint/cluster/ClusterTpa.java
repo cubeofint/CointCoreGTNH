@@ -158,6 +158,14 @@ public final class ClusterTpa {
             if (place == null || player.playerNetServerHandler == null || player.isDead) {
                 return;
             }
+            if (!net.minecraftforge.common.DimensionManager.isDimensionRegistered((int) place[0])) {
+                player.addChatMessage(new ChatComponentText("§cИзмерения " + (int) place[0] + " здесь нет."));
+                CointCore.LOG.warn(
+                    "[Cluster] Rejected arrival for {}: unknown DIM {}",
+                    player.getCommandSenderName(),
+                    (int) place[0]);
+                return;
+            }
             CointCore.LOG.info(
                 "[Cluster] {} arrived by /tpa: DIM {} {} {} {}",
                 player.getCommandSenderName(),

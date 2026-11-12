@@ -37,6 +37,8 @@ import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.common.registry.GameData;
 import cpw.mods.fml.relauncher.ReflectionHelper;
+import gregtech.api.GregTechAPI;
+import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 
 /**
  * Notes who broke and placed blocks, what explosions destroyed, and what players took from and put into containers.
@@ -177,6 +179,15 @@ public final class BlockLog {
     /** The item a block is picked as (a GregTech machine as that machine), else the block itself. */
     private static ItemKey describe(World world, int x, int y, int z, Block block, int meta) {
         try {
+            // GregTech machines all share one block: only the tile entity knows which machine it is.
+            ItemKey machine = gregTechMachine(world.getTileEntity(x, y, z));
+            if (machine != null) {
+                return machine;
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            // GregTech is not there or the machine is half built.
+        }
+        try {
             MovingObjectPosition target = new MovingObjectPosition(x, y, z, 1, Vec3.createVectorHelper(x, y, z));
             ItemStack picked = block.getPickBlock(target, world, x, y, z);
             if (picked != null && picked.getItem() != null) {
@@ -198,6 +209,15 @@ public final class BlockLog {
         String name = GameData.getBlockRegistry()
             .getNameForObject(block);
         return new ItemKey("b:" + (name == null ? "?" : name), meta);
+    }
+
+    private static ItemKey gregTechMachine(TileEntity tile) {
+        if (!(tile instanceof IGregTechTileEntity machine)) {
+            return null;
+        }
+        // getDrops() invokes onBaseTEDestroyed(): observing a machine must never call it.
+        Item item = Item.getItemFromBlock(GregTechAPI.sBlockMachines);
+        return item == null ? null : new ItemKey(itemName(item), machine.getMetaTileID());
     }
 
     private static String itemName(Item item) {

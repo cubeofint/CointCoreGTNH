@@ -44,8 +44,6 @@ public class CmdRegistry {
         event.registerServerCommand(new coint.cluster.CommandCluster());
         event.registerServerCommand(new coint.blocklog.CommandBlockLog());
         event.registerServerCommand(new coint.chunkbonus.CommandChunkBonus());
-        event.registerServerCommand(new coint.prefix.CommandPrefix(false));
-        event.registerServerCommand(new coint.prefix.CommandPrefix(true));
         event.registerServerCommand(new coint.cluster.CommandSeen());
         event.registerServerCommand(new coint.trade.CommandTrade());
         CointCore.LOG.debug("Registered server commands");

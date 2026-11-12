@@ -25,8 +25,9 @@ import serverutils.lib.config.RankConfigAPI;
 public class MixinCmdSetHome {
 
     @Redirect(
-        method = "processCommand(Lnet/minecraft/command/ICommandSender;[Ljava/lang/String;)V",
-        at = @At(value = "INVOKE", target = "Lserverutils/lib/config/ConfigValue;getInt()I"))
+        method = "processCommand",
+        remap = true,
+        at = @At(value = "INVOKE", target = "Lserverutils/lib/config/ConfigValue;getInt()I", remap = false))
     private int cointcore$withBonusHomes(ConfigValue self, ICommandSender sender, String[] args) {
         int base = self.getInt();
         if (sender instanceof EntityPlayerMP player) {

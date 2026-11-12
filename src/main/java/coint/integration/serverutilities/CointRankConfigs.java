@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+import com.gtnewhorizon.gtnhlib.eventbus.Phase;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import serverutils.events.RegisterRankConfigEvent;
@@ -12,7 +13,8 @@ import serverutils.lib.config.ConfigStringEnum;
 import serverutils.lib.config.ConfigTimer;
 import serverutils.lib.math.Ticks;
 
-@EventBusSubscriber
+// SU fires RegisterRankConfigEvent once during its INIT, before CointCore's INIT.
+@EventBusSubscriber(phase = Phase.PRE)
 public final class CointRankConfigs {
 
     public static final String REPAIR_MODE = "cointcore.repair.level";

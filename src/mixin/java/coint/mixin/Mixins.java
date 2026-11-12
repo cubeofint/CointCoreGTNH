@@ -7,6 +7,8 @@ public enum Mixins implements IMixins {
 
     VANILLA(new MixinBuilder("Vanilla/Forge").addCommonMixins(
         "minecraft.MixinCommandMessage",
+        "minecraft.MixinItemStackKitOrigin",
+        "minecraft.MixinPacketBufferKitOrigin",
         "minecraft.MixinEntityItemMeteorBoots",
         "minecraft.MixinEntityMeteorBootsSetDead",
         "minecraft.MixinWorldMeteorBoots",
@@ -26,6 +28,7 @@ public enum Mixins implements IMixins {
         "minecraft.MixinUserListClusterSync",
         "minecraft.MixinCommandListPlayersCluster",
         "minecraft.MixinMinecraftServerClusterNames",
+        "minecraft.MixinServerConfigurationManagerClusterNames",
         "minecraft.MixinSpawnerAnimals",
         "minecraft.MixinWorldServerHodgepodgeFastPath",
         "minecraft.MixinWorldRandomTickRadius",

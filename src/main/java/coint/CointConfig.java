@@ -38,7 +38,6 @@ public class CointConfig {
     public static final Cluster cluster = new Cluster();
     public static final Trade trade = new Trade();
     public static final BlockLog blockLog = new BlockLog();
-    public static final PrefixSite prefixSite = new PrefixSite();
 
     public static class General {
 
@@ -54,12 +53,6 @@ public class CointConfig {
         @Config.Comment("Client: register /bptest, which opens the look-only battle pass prototype. Needs a restart")
         @Config.DefaultBoolean(false)
         public boolean battlePassPreview;
-
-        @Config.Comment("Kit (made with /kit create) a new player gets on his first join, once. Empty: none. "
-            + "Set it on the main server only: with a hub, new players come there after it")
-        @Config.DefaultString("")
-        @Config.Reloadable(RELOAD)
-        public String starterKit;
 
         @Config.Comment("Enable entity cleanup")
         @Config.DefaultBoolean(true)
@@ -571,6 +564,31 @@ public class CointConfig {
         @Config.DefaultBoolean(true)
         @Config.Reloadable(RELOAD)
         public boolean hubSendsHome;
+
+        @Config.Comment("Node that owns the shared ServerUtilities ranks, player permissions and optional OP list. "
+            + "Use the same node id on every server. Empty disables access synchronization. Edit global ranks on that node.")
+        @Config.DefaultString("")
+        public String accessAuthorityNodeId;
+
+        @Config.Comment("Seconds between shared rank/permission checks")
+        @Config.DefaultInt(5)
+        @Config.RangeInt(min = 1, max = 300)
+        public int accessPollSeconds;
+
+        @Config.Comment("Also synchronize the authoritative node's OP list. Enable on the authority and followers "
+            + "only when their OP lists should be identical")
+        @Config.DefaultBoolean(false)
+        public boolean accessSyncOperators;
+
+        @Config.Comment("Directory containing migration ZIP archives, shared by all participating nodes. "
+            + "Use the same absolute path on one host, or a shared filesystem mount across hosts. "
+            + "Temporary data and replacement backups stay in each server's local migrations directory.")
+        @Config.DefaultString("migrations")
+        public String migrationSharedDirectory;
+
+        @Config.Comment("Enable the admin migration handoff queue between nodes using the shared archive directory")
+        @Config.DefaultBoolean(false)
+        public boolean migrationEnabled;
     }
 
     public static class Trade {
@@ -620,24 +638,4 @@ public class CointConfig {
         public int retentionDays;
     }
 
-    public static class PrefixSite {
-
-        @Config.Comment("Sync the prefix players pick (/prefix) with the website (Azuriom, the prefix pages made for "
-            + "ATM10): players see and pick their prefixes on the site too")
-        @Config.DefaultBoolean(false)
-        public boolean enabled;
-
-        @Config.Comment("Site address, e.g. https://example.com (no /api at the end)")
-        @Config.DefaultString("")
-        public String siteUrl;
-
-        @Config.Comment("AzLink token of this server on the site (Azuriom: Servers -> this server -> AzLink). Do not share it")
-        @Config.DefaultString("")
-        public String siteKey;
-
-        @Config.Comment("How often the choices made on the site are fetched (seconds)")
-        @Config.DefaultInt(10)
-        @Config.RangeInt(min = 3, max = 600)
-        public int pollSeconds;
-    }
 }

@@ -14,6 +14,7 @@ import net.minecraft.util.EnumChatFormatting;
 
 import coint.integration.serverutilities.CointRankConfigs;
 import coint.util.TimeUtil;
+import serverutils.ServerUtilitiesPermissions;
 import serverutils.lib.config.RankConfigAPI;
 import serverutils.lib.math.Ticks;
 import serverutils.lib.util.NBTUtils;
@@ -37,19 +38,32 @@ public class CommandHeal extends CommandBase {
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
         if (sender instanceof EntityPlayer player) {
-            return PermissionAPI.hasPermission(player, PERMISSION);
+            return PermissionAPI.hasPermission(player, PERMISSION)
+                || PermissionAPI.hasPermission(player, ServerUtilitiesPermissions.HEAL_OTHER);
         }
         return true; // console/RCON
     }
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/heal";
+        return "/heal [player]";
     }
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
-        EntityPlayer player = (EntityPlayer) sender;
+        if (args.length > 0) {
+            // Targeted use is handled by ClusterCommands' CommandEvent hook after the HEAL_OTHER check.
+            sendError(sender, "Для исцеления другого игрока используйте /heal [player].");
+            return;
+        }
+        if (!(sender instanceof EntityPlayer player)) {
+            sendError(sender, "Укажите игрока: /heal <player>.");
+            return;
+        }
+        if (!PermissionAPI.hasPermission(player, PERMISSION)) {
+            sendError(sender, "У вас нет разрешения на исцеление себя.");
+            return;
+        }
         if (isOnCooldown(sender, player)) {
             return;
         }

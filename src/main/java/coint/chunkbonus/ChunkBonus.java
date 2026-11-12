@@ -23,6 +23,7 @@ import com.google.gson.reflect.TypeToken;
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointCore;
+import coint.util.TimeUtil;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import serverutils.data.ClaimedChunk;
@@ -76,22 +77,25 @@ public final class ChunkBonus {
         ticks = 0;
     }
 
-    /** Adds a purchase. */
-    static Entry add(String player, int chunks, long days, String note) {
+    /** Adds a purchase with a duration in milliseconds. */
+    static Entry add(String player, int chunks, long durationMs, String note) {
         Entry e = new Entry();
         e.player = player.toLowerCase(Locale.ROOT);
         e.chunks = chunks;
         e.addedAt = System.currentTimeMillis();
-        e.expiresAt = e.addedAt + days * 86_400_000L;
+        if (durationMs < 60_000L || durationMs > 3650L * 86_400_000L) {
+            throw new IllegalArgumentException("Chunk bonus duration must be between 1 minute and 3650 days");
+        }
+        e.expiresAt = Math.addExact(e.addedAt, durationMs);
         e.note = note;
         entries().add(e);
         save();
         refresh(e.player);
         CointCore.LOG.info(
-            "[ChunkBonus] +{} loaded chunks for {} for {} days{}",
+            "[ChunkBonus] +{} loaded chunks for {} for {}{}",
             chunks,
             player,
-            days,
+            TimeUtil.formatDuration(durationMs),
             note == null ? "" : " (" + note + ")");
         return e;
     }

@@ -41,6 +41,7 @@ import com.google.gson.reflect.TypeToken;
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointCore;
+import coint.commands.CommandMigrate;
 import coint.player.TeamsManager;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -67,6 +68,65 @@ public final class MigrationImporter {
     private static final String DIM_METADATA = "personalspace_metadata.cfg";
     private static final java.util.concurrent.ConcurrentLinkedQueue<Runnable> MAIN_THREAD = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private static volatile boolean running;
+    private static volatile Operation activeOperation;
+
+    private static final class Operation {
+
+        final ICommandSender sender;
+        final MigrationStorage.Session session;
+        final File original, workspace, staging, snapshot, archiveDirectory;
+        final Path lock;
+        final java.util.function.Consumer<Boolean> done;
+        final String expectedSource;
+        Thread worker;
+        boolean preparing = true, cancelled, cleaned;
+
+        Operation(ICommandSender sender, MigrationStorage.Session session, File original, Path lock,
+            String expectedSource, java.util.function.Consumer<Boolean> done) {
+            this.sender = sender;
+            this.session = session;
+            this.original = original;
+            this.lock = lock;
+            this.expectedSource = expectedSource;
+            this.done = done;
+            archiveDirectory = original.getParentFile();
+            workspace = new File(session.world.getParentFile(), "migrations/.import-" + UUID.randomUUID());
+            staging = new File(workspace, "unpacked");
+            snapshot = new File(workspace, original.getName());
+        }
+
+        boolean current() {
+            return !cancelled && activeOperation == this && session.current();
+        }
+
+        synchronized void clean() {
+            if (cleaned) return;
+            cleaned = true;
+            deleteQuietly(workspace);
+            try {
+                Files.deleteIfExists(lock);
+            } catch (IOException e) {
+                CointCore.LOG.error("[Migrate] Could not release shared import lock {}", lock, e);
+            }
+        }
+    }
+
+    public static void stop() {
+        Operation operation = activeOperation;
+        activeOperation = null;
+        running = false;
+        if (operation != null) {
+            synchronized (operation) {
+                operation.cancelled = true;
+                if (operation.worker != null) operation.worker.interrupt();
+                if (!operation.preparing) operation.clean();
+            }
+        }
+        MAIN_THREAD.clear();
+        later.clear();
+        laterTasks.clear();
+        tick = 0;
+    }
 
     private MigrationImporter() {}
 
@@ -77,7 +137,8 @@ public final class MigrationImporter {
     /** The zips in migrations/ that can be imported. */
     public static List<String> available() {
         List<String> names = new ArrayList<>();
-        File[] zips = migrationsDir().listFiles((d, n) -> n.endsWith(".zip"));
+        File[] zips = MigrationStorage.archives()
+            .listFiles(f -> f.isFile() && MigrationStorage.validArchiveName(f.getName()));
         if (zips != null) {
             for (File zip : zips) {
                 names.add(zip.getName());
@@ -94,63 +155,126 @@ public final class MigrationImporter {
     }
 
     static File migrationsDir() {
-        return new File(serverDir(), "migrations");
+        return MigrationStorage.localDirectory();
     }
 
     /** Runs on the server thread. Null when the import started, else why not. */
     public static String start(ICommandSender sender, String fileName) {
+        return start(sender, fileName, success -> {});
+    }
+
+    /** Completion runs on the server thread, once the existing validation/apply path finishes. */
+    public static String start(ICommandSender sender, String fileName, java.util.function.Consumer<Boolean> done) {
+        return start(sender, fileName, null, null, done);
+    }
+
+    public static String start(ICommandSender sender, String fileName, String expectedSha256, String expectedSourceNode,
+        java.util.function.Consumer<Boolean> done) {
+        if (!CommandMigrate.allowed(sender)) return "Нет права на миграцию";
         if (running || MigrationExporter.isRunning()) {
             return "Уже идёт перенос, дождитесь его окончания";
         }
-        File zip = new File(migrationsDir(), new File(fileName).getName());
-        if (!zip.isFile()) {
-            return "Нет файла migrations/" + zip.getName();
+        if (!MigrationStorage.validArchiveName(fileName)) {
+            return "Недопустимое имя ZIP: укажите только имя архива";
         }
-        File staging = new File(migrationsDir(), ".import-" + zip.getName());
+        File zip = new File(MigrationStorage.archives(), fileName);
+        if (!zip.isFile()) {
+            return "Нет файла " + zip.getAbsolutePath();
+        }
+        if (expectedSha256 != null && !expectedSha256.matches("[a-fA-F0-9]{64}")) return "Некорректный SHA-256";
+        final Operation operation;
+        try {
+            MigrationStorage.Session session = MigrationStorage.session();
+            session.check();
+            operation = new Operation(sender, session, zip, MigrationStorage.lock(), expectedSourceNode, done);
+        } catch (IOException e) {
+            return "Общая папка недоступна или занята импортом (.import.lock): " + e.getMessage();
+        }
         running = true;
+        activeOperation = operation;
         sender.addChatMessage(new ChatComponentText("§eРаспаковываю §f" + zip.getName() + "§e..."));
         Thread thread = new Thread(() -> {
             String error = null;
             try {
-                deleteQuietly(staging);
-                unzip(zip, staging);
-            } catch (IOException e) {
+                operation.session.check();
+                Files.createDirectories(operation.workspace.toPath());
+                // Only this local snapshot is hashed, unpacked, and later retained as the imported archive.
+                Files.copy(zip.toPath(), operation.snapshot.toPath());
+                String hash = MigrationStorage.sha256(operation.snapshot.toPath());
+                if (expectedSha256 != null && !hash.equalsIgnoreCase(expectedSha256)) {
+                    throw new IOException("SHA-256 архива отличается от подтверждённого запроса");
+                }
+                operation.session.check();
+                unzip(operation.snapshot, operation.staging);
+                Map<String, Object> manifest = readManifest(operation.staging);
+                if (expectedSourceNode != null && !expectedSourceNode.equals(str(manifest.get("sourceNode")))) {
+                    throw new IOException("sourceNode архива отличается от подтверждённого запроса");
+                }
+                validatePaths(operation, manifest);
+                operation.session.check();
+            } catch (IOException | RuntimeException e) {
                 CointCore.LOG.error("[Migrate] Could not unpack {}", zip, e);
                 error = "Не удалось распаковать архив: " + e.getMessage();
             }
-            String failed = error;
-            MAIN_THREAD.add(() -> attempt(sender, zip, staging, failed, 0));
+            synchronized (operation) {
+                operation.preparing = false;
+                if (operation.current()) {
+                    String failed = error;
+                    MAIN_THREAD.add(() -> attempt(operation, failed, 0));
+                } else operation.clean();
+            }
         }, "CointCore migration import");
         thread.setDaemon(true);
+        operation.worker = thread;
         thread.start();
         return null;
     }
 
     /** One try at the import; a personal world still loaded here is unloaded and the import tried again shortly. */
-    private static void attempt(ICommandSender sender, File zip, File staging, String failed, int tries) {
+    private static void attempt(Operation operation, String failed, int tries) {
+        if (!operation.current()) {
+            operation.clean();
+            if (activeOperation == operation) {
+                activeOperation = null;
+                running = false;
+            }
+            return;
+        }
+        ICommandSender sender = operation.sender;
+        File zip = operation.snapshot;
+        File staging = operation.staging;
         boolean again = false;
+        boolean success = false;
         try {
-            String result = failed != null ? failed : apply(sender, zip, staging);
+            String result = !CommandMigrate.allowed(sender) ? "право на миграцию отозвано"
+                : failed != null ? failed : apply(operation);
             if (result == RETRY && tries < 10) {
                 again = true;
                 if (tries == 0) {
                     sender.addChatMessage(new ChatComponentText("§eПерсональный мир здесь загружен, выгружаю его..."));
                 }
                 later.add(new long[] { tick + 40 });
-                laterTasks.add(() -> attempt(sender, zip, staging, null, tries + 1));
+                laterTasks.add(() -> attempt(operation, null, tries + 1));
             } else if (result == RETRY) {
                 sender.addChatMessage(
                     new ChatComponentText("§cИмпорт не выполнен: персональный мир не выгружается (чанклоадеры?)"));
             } else if (result != null) {
                 sender.addChatMessage(new ChatComponentText("§cИмпорт не выполнен: " + result));
+            } else {
+                success = true;
             }
         } catch (RuntimeException e) {
             CointCore.LOG.error("[Migrate] Import of {} failed", zip, e);
             sender.addChatMessage(new ChatComponentText("§cИмпорт прерван ошибкой: " + e + ". Подробности в логе."));
         } finally {
             if (!again) {
-                deleteQuietly(staging);
-                running = false;
+                boolean notify = operation.current();
+                operation.clean();
+                if (activeOperation == operation) {
+                    activeOperation = null;
+                    running = false;
+                }
+                if (notify && operation.done != null) operation.done.accept(success);
             }
         }
     }
@@ -180,13 +304,96 @@ public final class MigrationImporter {
 
     // ---------------------------------------------------------------- the import itself
 
-    /** On the server thread, after unpacking. Null when done, else why nothing was changed. */
-    private static String apply(ICommandSender sender, File zip, File staging) {
-        Map<String, Object> manifest;
+    private static Map<String, Object> readManifest(File staging) throws IOException {
         try (Reader reader = new InputStreamReader(
             new FileInputStream(new File(staging, MANIFEST)),
             StandardCharsets.UTF_8)) {
-            manifest = GSON.fromJson(reader, new TypeToken<Map<String, Object>>() {}.getType());
+            Map<String, Object> manifest = GSON.fromJson(reader, new TypeToken<Map<String, Object>>() {}.getType());
+            if (manifest == null) throw new IOException("Empty manifest");
+            return manifest;
+        } catch (RuntimeException e) {
+            throw new IOException("Invalid manifest", e);
+        }
+    }
+
+    /** All paths, metadata IDs and player names are checked together before unloading or moving anything. */
+    private static void validatePaths(Operation operation, Map<String, Object> manifest) throws IOException {
+        String world = str(manifest.get("worldFolder"));
+        if (world.isEmpty() || !world.equals(new File(world).getName())
+            || world.contains("/")
+            || world.contains("\\")) {
+            throw new IOException("Invalid worldFolder: " + world);
+        }
+        File source = MigrationStorage.child(operation.staging, world);
+        if (!source.isDirectory()) throw new IOException("Missing world folder: " + world);
+        File destination = operation.session.world;
+        File backupRoot = MigrationStorage.child(destination.getParentFile(), "migrations/replaced");
+        Set<Integer> dimensions = new HashSet<>();
+        Set<String> folders = new HashSet<>();
+        for (Map<String, Object> dim : list(manifest.get("personalDimensions"))) {
+            double number = num(dim.get("dimension"));
+            int id = (int) number;
+            String folder = str(dim.get("folder"));
+            if (number != id || id <= 1
+                || !folder.equals("PERSONAL_DIM_" + id)
+                || !dimensions.add(id)
+                || !folders.add(folder)) {
+                throw new IOException("Invalid personal dimension/folder: " + id + " / " + folder);
+            }
+            File incoming = MigrationStorage.child(source, folder);
+            MigrationStorage.child(destination, folder);
+            MigrationStorage.child(backupRoot, folder);
+            if (dim.get("missing") == null) {
+                File metadata = MigrationStorage.child(incoming, DIM_METADATA);
+                if (!incoming.isDirectory() || !metadata.isFile())
+                    throw new IOException("Missing personal dimension metadata: " + folder);
+                net.minecraftforge.common.config.Configuration config = new net.minecraftforge.common.config.Configuration(
+                    metadata);
+                config.load();
+                if (config.get("worldgen", "dimId", Integer.MIN_VALUE)
+                    .getInt() != id) {
+                    throw new IOException("Personal dimension metadata ID mismatch: " + folder);
+                }
+            }
+        }
+        Set<String> uuids = new HashSet<>();
+        for (Map<String, Object> player : list(manifest.get("players"))) {
+            String uuid = str(player.get("uuid"));
+            String name = str(player.get("name"));
+            if (!UUID.fromString(uuid)
+                .toString()
+                .equals(uuid) || !uuids.add(uuid) || !name.matches("[A-Za-z0-9_]{1,16}")) {
+                throw new IOException("Invalid player identity");
+            }
+            for (String relative : new String[] { "playerdata/" + uuid + ".dat", "stats/" + uuid + ".json",
+                "gtnhteams/" + uuid + ".json", "betterquesting/QuestProgress/" + uuid + ".json" }) {
+                MigrationStorage.child(source, relative);
+                MigrationStorage.child(destination, relative);
+                MigrationStorage.child(backupRoot, relative);
+            }
+            for (File file : playerFiles(source, uuid, name)) {
+                String relative = source.toPath()
+                    .relativize(file.toPath())
+                    .toString()
+                    .replace(File.separatorChar, '/');
+                MigrationStorage.child(source, relative);
+                MigrationStorage.child(destination, relative);
+                MigrationStorage.child(backupRoot, relative);
+            }
+        }
+    }
+
+    /** On the server thread, after unpacking. Null when done, else why nothing was changed. */
+    private static String apply(Operation operation) {
+        if (!operation.current() || !CommandMigrate.allowed(operation.sender))
+            return "сессия или право миграции изменились";
+        ICommandSender sender = operation.sender;
+        File zip = operation.snapshot;
+        File staging = operation.staging;
+        Map<String, Object> manifest;
+        try {
+            manifest = readManifest(staging);
+            validatePaths(operation, manifest);
         } catch (IOException | RuntimeException e) {
             return "нет или битый " + MANIFEST + " (" + e.getMessage() + ")";
         }
@@ -205,7 +412,7 @@ public final class MigrationImporter {
                 + String.join("; ", mismatches.subList(0, Math.min(3, mismatches.size())))
                 + ". Мир должен быть копией исходного.";
         }
-        File worldDir = DimensionManager.getCurrentSaveRootDirectory();
+        File worldDir = operation.session.world;
         String sourceWorld = str(manifest.get("worldFolder"));
         File sourceRoot = new File(staging, sourceWorld);
         if (sourceWorld.isEmpty() || !sourceRoot.isDirectory()) {
@@ -228,6 +435,9 @@ public final class MigrationImporter {
                 continue;
             }
             dimIds.add(dim);
+            if (DimensionManager.isDimensionRegistered(dim) && DimensionConfig.getForDimension(dim, false) == null) {
+                return "измерение " + dim + " занято другим модом";
+            }
             if (DimensionManager.getWorld(dim) != null) {
                 if (!DimensionManager.getWorld(dim).playerEntities.isEmpty()) {
                     return "в измерении " + dim + " сейчас есть игроки";
@@ -248,8 +458,9 @@ public final class MigrationImporter {
         }
 
         // 2. Files. Whatever is replaced goes to migrations/replaced/<stamp>/.
-        String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date());
-        File replaced = new File(migrationsDir(), "replaced/" + stamp);
+        String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date()) + "-" + UUID.randomUUID();
+        File replaced = new File(worldDir.getParentFile(), "migrations/replaced/" + stamp);
+        if (!operation.current() || !CommandMigrate.allowed(sender)) return "сессия или право миграции изменились";
         int[] entry = team == null ? null : ints(team.get("entry"));
         try {
             for (Map<String, Object> d : dims) {
@@ -331,14 +542,15 @@ public final class MigrationImporter {
         MigrationPending.Entry pending = MigrationPending.Entry.from(manifest);
         String state = MigrationPending.add(pending);
 
-        File done = new File(migrationsDir(), "imported/" + zip.getName());
+        File done = new File(operation.archiveDirectory, "imported/" + zip.getName());
         try {
             Files.createDirectories(
                 done.getParentFile()
                     .toPath());
-            Files.move(zip.toPath(), done.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            // Keep exactly the bytes that were verified. Never move/delete the mutable shared input by name.
+            Files.copy(zip.toPath(), done.toPath());
         } catch (IOException e) {
-            notes.add("§eархив не перемещён в migrations/imported: " + e.getMessage());
+            notes.add("§eархив не перемещён в " + done.getParent() + ": " + e.getMessage());
         }
         CointCore.LOG.info("[Migrate] Imported {} ({} players, worlds {})", zip.getName(), players.size(), dimIds);
         sender.addChatMessage(

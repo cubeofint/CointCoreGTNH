@@ -17,12 +17,24 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
+import net.minecraftforge.event.CommandEvent;
+
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
 import coint.CointCore;
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import serverutils.ServerUtilitiesPermissions;
+import serverutils.command.CmdFly;
+import serverutils.command.CmdGod;
+import serverutils.command.CmdHeal;
+import serverutils.command.CmdNickFor;
+import serverutils.command.tp.CmdTplast;
 import serverutils.data.ServerUtilitiesPlayerData;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
+import serverutils.lib.util.permission.PermissionAPI;
 
 /**
  * ServerUtilities commands aimed at a player on another server of the network.
@@ -37,6 +49,7 @@ import serverutils.lib.data.Universe;
  * <p>
  * Server thread only.
  */
+@EventBusSubscriber
 public final class ClusterCommands {
 
     /** What may be run here for an admin of another server. */
@@ -50,6 +63,67 @@ public final class ClusterCommands {
     private static boolean applyingNick;
 
     private ClusterCommands() {}
+
+    /** SU's Universe lookup otherwise accepts the first substring match, even for destructive commands. */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void exactTargets(CommandEvent event) {
+        if (!(event.command instanceof CmdNickFor || event.command instanceof CmdHeal
+            || event.command instanceof coint.commands.CommandHeal
+            || event.command instanceof CmdTplast)) {
+            return;
+        }
+        String[] args = event.parameters;
+        if (event.command instanceof CmdTplast && args.length >= 3) {
+            return; // Coordinates, not names.
+        }
+        for (int i = 0; i < Math.min(args.length, event.command instanceof CmdTplast ? 2 : 1); i++) {
+            String name = args[i];
+            // Keep explicit selectors and UUIDs, but reject implicit substring matching.
+            if (name.startsWith("@") || name.matches("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")) {
+                continue;
+            }
+            ForgePlayer local = Universe.loaded() ? Universe.get()
+                .getPlayer(name) : null;
+            boolean routed = !(event.command instanceof CmdTplast) || args.length == 1;
+            if (local != null && !local.getName()
+                .equalsIgnoreCase(name) && (!routed || ClusterService.remotePlayerName(name) == null)) {
+                event.setCanceled(true);
+                event.sender.addChatMessage(new ChatComponentText("§cУкажите полное имя игрока (Tab)."));
+                return;
+            }
+        }
+    }
+
+    /** The registered Coint heal shadows SU heal; its zero-argument cooldown behavior stays in that command. */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void targetedHeal(CommandEvent event) {
+        if (!(event.command instanceof coint.commands.CommandHeal) || event.parameters.length == 0) {
+            return;
+        }
+        event.setCanceled(true);
+        if (event.parameters.length != 1) {
+            event.sender.addChatMessage(new ChatComponentText("§c/heal [player]"));
+            return;
+        }
+        if (event.sender instanceof EntityPlayerMP player
+            && !PermissionAPI.hasPermission(player, ServerUtilitiesPermissions.HEAL_OTHER)) {
+            event.sender.addChatMessage(new ChatComponentTranslation("commands.generic.permission"));
+            return;
+        }
+        String target = event.parameters[0];
+        if (remote(event.sender, "heal", event.parameters)) {
+            return;
+        }
+        if (!isHere(target)) {
+            event.sender.addChatMessage(new ChatComponentTranslation("commands.generic.player.notFound", target));
+            return;
+        }
+        try {
+            new CmdHeal().processCommand(event.sender, event.parameters);
+        } catch (CommandException e) {
+            event.sender.addChatMessage(new ChatComponentTranslation(e.getMessage(), e.getErrorOjbects()));
+        }
+    }
 
     static boolean isKind(String kind) {
         return ClusterService.KIND_TPL.equals(kind) || ClusterService.KIND_COMMAND.equals(kind)
@@ -71,7 +145,9 @@ public final class ClusterCommands {
      * seen here (or knows nothing of him).
      */
     public static boolean tpl(EntityPlayerMP player, String name, ICommand command, String[] args) {
-        if (!ClusterService.isRunning() || isHere(name)) {
+        if (!ClusterService.isRunning() || isHere(name)
+            || name.startsWith("@")
+            || name.matches("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")) {
             return false;
         }
         String target = ClusterService.remotePlayerName(name);
@@ -132,6 +208,12 @@ public final class ClusterCommands {
             return;
         }
         try {
+            ForgePlayer target = Universe.loaded() ? Universe.get()
+                .getPlayer(args[0]) : null;
+            if (target == null || !target.getName()
+                .equalsIgnoreCase(args[0])) {
+                throw new CommandException("commands.generic.player.notFound", args[0]);
+            }
             command.processCommand(player, args);
         } catch (CommandException e) {
             ChatComponentTranslation message = new ChatComponentTranslation(e.getMessage(), e.getErrorOjbects());
@@ -140,6 +222,52 @@ public final class ClusterCommands {
             player.addChatMessage(message);
         } catch (RuntimeException e) {
             CointCore.LOG.warn("[Cluster] /tpl failed", e);
+        }
+    }
+
+    /**
+     * Takes the player to a spot on any server of the network: here at once, elsewhere by moving him to that server,
+     * which puts him on the spot when he arrives.
+     */
+    public static void teleport(EntityPlayerMP player, String nodeId, int dim, double x, double y, double z) {
+        String localNode = ClusterService.isRunning() ? ClusterService.nodeId() : CointConfig.cluster.nodeId.trim();
+        if (nodeId != null && !localNode.isEmpty() && nodeId.equals(localNode)) {
+            if (net.minecraftforge.common.DimensionManager.isDimensionRegistered(dim)) {
+                serverutils.lib.math.TeleporterDimPos.of(x, y, z, dim)
+                    .teleport(player);
+            } else {
+                player.addChatMessage(new ChatComponentText("§cИзмерения " + dim + " здесь нет."));
+            }
+            return;
+        }
+        if (!ClusterService.isRunning() || nodeId == null || nodeId.isEmpty()) {
+            player.addChatMessage(new ChatComponentText("§cСеть серверов сейчас недоступна."));
+            return;
+        }
+        String uuid = player.getUniqueID()
+            .toString();
+        int timeout = CointConfig.cluster.nodeTimeoutSeconds;
+        boolean started = ClusterService.query(db -> {
+            for (ClusterDatabase.NodeRow node : db.nodes(timeout)) {
+                if (node.id.equals(nodeId) && node.online) {
+                    db.setArrival(uuid, nodeId, dim, x, y, z);
+                    return node;
+                }
+            }
+            return null;
+        }, node -> {
+            if (player.playerNetServerHandler == null) {
+                return;
+            }
+            if (node != null) {
+                player.addChatMessage(new ChatComponentText("§eПереход на сервер " + nodeId + ", на место..."));
+                ClusterTransfers.send(player, node);
+            } else {
+                player.addChatMessage(new ChatComponentText("§cСервер " + nodeId + " сейчас недоступен."));
+            }
+        }, error -> player.addChatMessage(new ChatComponentText("§cСеть серверов сейчас недоступна.")));
+        if (!started) {
+            player.addChatMessage(new ChatComponentText("§cСеть серверов сейчас недоступна."));
         }
     }
 
@@ -234,12 +362,36 @@ public final class ClusterCommands {
         if (!REMOTE.contains(name)) {
             return;
         }
-        MinecraftServer server = MinecraftServer.getServer();
         RemoteCommandSender sender = new RemoteCommandSender(row.sender);
         CointCore.LOG.info("[Cluster] {} from {} runs /{}", row.sender, row.nodeName, text);
         try {
-            server.getCommandManager()
-                .executeCommand(sender, text);
+            String[] args = text.split(" +");
+            // Bind the request to its exact envelope target. Never execute selectors or arbitrary registered commands.
+            if (args.length < 2 || !args[1].equalsIgnoreCase(row.target)
+                || !isHere(args[1])
+                || ("nickfor".equals(name) ? args.length < 3 : args.length != 2)) {
+                throw new CommandException("commands.generic.player.notFound", row.target);
+            }
+            ICommand command;
+            switch (name) {
+                case "fly":
+                    command = new CmdFly();
+                    break;
+                case "god":
+                    command = new CmdGod();
+                    break;
+                case "heal":
+                    command = new CmdHeal();
+                    break;
+                case "nickfor":
+                    command = new CmdNickFor();
+                    break;
+                default:
+                    return;
+            }
+            command.processCommand(sender, Arrays.copyOfRange(args, 1, args.length));
+        } catch (CommandException e) {
+            sender.addChatMessage(new ChatComponentTranslation(e.getMessage(), e.getErrorOjbects()));
         } catch (RuntimeException e) {
             CointCore.LOG.warn("[Cluster] Command from another server failed", e);
             sender.addChatMessage(new ChatComponentText("§cКоманда не выполнилась: " + e));
@@ -291,6 +443,10 @@ public final class ClusterCommands {
     private static void onNick(ClusterDatabase.ChatRow row) {
         Universe universe = Universe.get();
         ForgePlayer player = universe == null ? null : universe.getPlayer(row.sender);
+        if (player != null && !player.getName()
+            .equalsIgnoreCase(row.sender)) {
+            return; // Universe.getPlayer also accepts substrings; broadcasts must never rename a different player.
+        }
         if (player == null) {
             return;
         }
@@ -339,12 +495,14 @@ public final class ClusterCommands {
 
     static void prune() {
         long now = System.currentTimeMillis();
+        ClusterCompletion.tick(now);
         pending.values()
             .removeIf(p -> p.expiresAt < now);
     }
 
     static void reset() {
         pending.clear();
+        ClusterCompletion.reset();
     }
 
     private static final class Pending {

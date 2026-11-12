@@ -27,7 +27,7 @@ public class CommandCluster extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/cluster home <player> <server>";
+        return "/cluster home <player> <server> | access accept-local confirm (console)";
     }
 
     @Override
@@ -40,6 +40,24 @@ public class CommandCluster extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
+        if (args.length == 3 && "access".equalsIgnoreCase(args[0])
+            && "accept-local".equalsIgnoreCase(args[1])
+            && "confirm".equalsIgnoreCase(args[2])) {
+            if (sender instanceof EntityPlayer) {
+                sender.addChatMessage(
+                    new ChatComponentText("§cВосстановление источника прав доступно только из консоли."));
+                return;
+            }
+            try {
+                ClusterAccess.acceptLocalAuthorityState();
+                sender.addChatMessage(
+                    new ChatComponentText(
+                        "§eЛокальные права приняты как источник; синхронизация выполнится при следующем опросе."));
+            } catch (IllegalStateException e) {
+                sender.addChatMessage(new ChatComponentText("§c" + e.getMessage()));
+            }
+            return;
+        }
         if (args.length != 3 || !"home".equalsIgnoreCase(args[0])) {
             throw new WrongUsageException(getCommandUsage(sender));
         }

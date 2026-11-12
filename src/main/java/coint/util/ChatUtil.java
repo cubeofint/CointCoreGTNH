@@ -65,7 +65,6 @@ public class ChatUtil {
 
             String format = Ranks.INSTANCE.getPlayerRank(player.getGameProfile())
                 .getPermission(ServerUtilitiesPermissions.CHAT_NAME_FORMAT);
-            format = coint.prefix.PrefixService.format(player, format);
             if (format.isEmpty()) {
                 return plainName;
             }

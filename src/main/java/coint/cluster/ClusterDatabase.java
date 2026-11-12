@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 12;
+    private static final int SCHEMA_VERSION = 13;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -184,6 +184,10 @@ final class ClusterDatabase {
                     "ALTER TABLE cluster_seen ADD COLUMN dim INT NULL, ADD COLUMN x DOUBLE NULL, "
                         + "ADD COLUMN y DOUBLE NULL, ADD COLUMN z DOUBLE NULL");
             }
+            if (version < 13) {
+                AccessStore.createTables(s);
+                MigrationCoordinator.createTables(s);
+            }
         }
         try (PreparedStatement p = c.prepareStatement(
             "INSERT INTO cluster_meta (meta_key, meta_value) VALUES ('schema_version', ?) "
@@ -273,6 +277,20 @@ final class ClusterDatabase {
             bindSeen(p, player, nodeId);
             p.executeUpdate();
         }
+    }
+
+    /** Background snapshot for /tpl completion, including players never seen on this node. */
+    List<String> completionNames() throws SQLException {
+        List<String> names = new ArrayList<>();
+        try (
+            PreparedStatement p = connection()
+                .prepareStatement("SELECT DISTINCT name FROM cluster_seen WHERE dim IS NOT NULL");
+            ResultSet r = p.executeQuery()) {
+            while (r.next()) {
+                names.add(r.getString(1));
+            }
+        }
+        return names;
     }
 
     /** Where a player (by name) stood when last seen on any server, or null when never or the spot is unknown. */

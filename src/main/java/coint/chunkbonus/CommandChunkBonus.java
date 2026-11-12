@@ -13,6 +13,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 
+import coint.util.TimeUtil;
 import serverutils.data.ServerUtilitiesTeamData;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
@@ -23,7 +24,8 @@ import serverutils.lib.util.permission.PermissionAPI;
  * {@code /chunkbonus}: chunk loading bought on the website.
  * <ul>
  * <li>{@code /chunkbonus}: a player sees his purchases and the limit of his team.</li>
- * <li>{@code add <nick> <chunks> <days> [note]}: the website (RCON) or an admin gives a purchase.</li>
+ * <li>{@code add <nick> <chunks> <duration> [note]} (duration: days as a number, or 30m, 2h, 7d): the website (RCON) or
+ * an admin gives a purchase.</li>
  * <li>{@code list <nick>}, {@code remove <nick> <n|all>}: admins.</li>
  * </ul>
  */
@@ -42,7 +44,7 @@ public class CommandChunkBonus extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return isAdmin(sender) ? "/chunkbonus [add <ник> <чанки> <дни> [пометка] | list <ник> | remove <ник> <n|all>]"
+        return isAdmin(sender) ? "/chunkbonus [add <ник> <чанки> <срок> [пометка] | list <ник> | remove <ник> <n|all>]"
             : "/chunkbonus";
     }
 
@@ -91,20 +93,26 @@ public class CommandChunkBonus extends CommandBase {
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "add" -> {
                 if (args.length < 4) {
-                    throw new WrongUsageException("/chunkbonus add <ник> <чанки> <дни> [пометка]");
+                    throw new WrongUsageException(
+                        "/chunkbonus add <ник> <чанки> <срок: 7 (дни), 30m, 2h, 7d> [пометка]");
                 }
                 int chunks = parseIntBounded(sender, args[2], 1, 10_000);
-                int days = parseIntBounded(sender, args[3], 1, 3650);
+                long duration = duration(args[3]);
                 String note = args.length > 4 ? func_147178_a(sender, args, 4).getUnformattedText() : null;
-                ChunkBonus.add(args[1], chunks, days, note);
+                ChunkBonus.add(args[1], chunks, duration, note);
                 sender.addChatMessage(
-                    new ChatComponentText("§a" + args[1] + ": +" + chunks + " чанк(ов) прогрузки на " + days + " дн."));
+                    new ChatComponentText(
+                        "§a" + args[1]
+                            + ": +"
+                            + chunks
+                            + " чанк(ов) прогрузки на "
+                            + TimeUtil.formatDuration(duration)));
                 notifyPlayer(
                     args[1],
                     "§aВашей команде добавлено §f" + chunks
                         + "§a чанк(ов) прогрузки на §f"
-                        + days
-                        + "§a дн. Спасибо за поддержку!");
+                        + TimeUtil.formatDuration(duration)
+                        + "§a. Спасибо за поддержку!");
             }
             case "list" -> {
                 if (args.length < 2) {
@@ -126,7 +134,7 @@ public class CommandChunkBonus extends CommandBase {
 
     private static void show(ICommandSender sender, String name) {
         List<ChunkBonus.Entry> mine = ChunkBonus.of(name);
-        SimpleDateFormat date = new SimpleDateFormat("dd.MM.yyyy HH:mm");
+        SimpleDateFormat date = dateFormat();
         if (mine.isEmpty()) {
             sender.addChatMessage(new ChatComponentText("§7У " + name + " нет оплаченной прогрузки чанков."));
         } else {
@@ -140,6 +148,9 @@ public class CommandChunkBonus extends CommandBase {
                             + e.chunks
                             + "§7 до §f"
                             + date.format(new Date(e.expiresAt))
+                            + "§7 (осталось "
+                            + TimeUtil.formatDuration(Math.max(0, e.expiresAt - System.currentTimeMillis()))
+                            + ")"
                             + (e.note == null ? "" : " §8(" + e.note + ")")));
             }
         }
@@ -158,6 +169,33 @@ public class CommandChunkBonus extends CommandBase {
                 new ChatComponentText(
                     "§eКоманды нет: чанки добавятся к лимиту, как только " + name + " будет в команде."));
         }
+    }
+
+    /** "7" is days, as the website sends; "30m", "2h", "7d" also work. */
+    private static long duration(String raw) {
+        String text = raw.toLowerCase(Locale.ROOT);
+        if (text.matches("[0-9]+[mhd]?")) {
+            char suffix = text.charAt(text.length() - 1);
+            boolean hasUnit = suffix == 'm' || suffix == 'h' || suffix == 'd';
+            long unit = suffix == 'm' ? 60_000L : suffix == 'h' ? 3_600_000L : 86_400_000L;
+            try {
+                long value = Long.parseLong(hasUnit ? text.substring(0, text.length() - 1) : text);
+                long ms = Math.multiplyExact(value, unit);
+                if (ms >= 60_000L && ms <= 3650L * 86_400_000L) {
+                    return ms;
+                }
+            } catch (NumberFormatException | ArithmeticException ignored) {
+                // Invalid or overflowing input gets the same bounded-duration usage message.
+            }
+        }
+        throw new WrongUsageException("Срок: от 1 минуты до 3650 дней, например 7, 30m, 2h, 7d");
+    }
+
+    /** Moscow time, as the rest of the server shows it. */
+    static SimpleDateFormat dateFormat() {
+        SimpleDateFormat f = new SimpleDateFormat("HH:mm dd/MM/yyyy");
+        f.setTimeZone(java.util.TimeZone.getTimeZone(TimeUtil.getZone()));
+        return f;
     }
 
     private static void notifyPlayer(String name, String text) {
