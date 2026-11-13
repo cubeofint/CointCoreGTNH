@@ -270,8 +270,10 @@ public final class ClusterService {
     public static String remoteFormattedName(String name) {
         String json = remoteDisplay.get(name);
         if (json != null) try {
+            // ClusterTabNames embeds legacy formatting in ChatComponentText. getUnformattedText preserves
+            // those literal codes and exists on dedicated servers; getFormattedText is client-only in 1.7.10.
             return net.minecraft.util.IChatComponent.Serializer.func_150699_a(json)
-                .getFormattedText();
+                .getUnformattedText();
         } catch (RuntimeException ignored) { /* Unknown remote display: retain the authenticated username. */ }
         return name;
     }
