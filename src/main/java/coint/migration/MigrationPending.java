@@ -2,10 +2,8 @@ package coint.migration;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -70,6 +68,8 @@ public final class MigrationPending {
         List<String> waiting = new ArrayList<>();
         /** Epoch rank per player, removed once given. */
         Map<String, String> epochs = new LinkedHashMap<>();
+        Set<String> consumedRewards = new HashSet<>();
+        boolean portalRewardClaimed;
         int boundDim;
         /** {dim, x, z, loaded} */
         List<int[]> claims = new ArrayList<>();
@@ -84,6 +84,7 @@ public final class MigrationPending {
                     e.epochs.put(uuid, MigrationImporter.str(p.get("epoch")));
                 }
                 e.members.add(uuid);
+                if (Boolean.TRUE.equals(p.get("personalDimensionRewardConsumed"))) e.consumedRewards.add(uuid);
             }
             if (team != null) {
                 e.teamId = MigrationImporter.str(team.get("id"));
@@ -91,6 +92,7 @@ public final class MigrationPending {
                 e.color = MigrationImporter.str(team.get("color"));
                 e.owner = MigrationImporter.str(team.get("owner"));
                 e.boundDim = (int) MigrationImporter.num(team.get("boundPersonalDimension"));
+                e.portalRewardClaimed = Boolean.TRUE.equals(team.get("personalPortalRewardClaimed"));
                 Object claims = team.get("claims");
                 if (claims instanceof List<?>list) {
                     for (Object c : list) {
@@ -107,7 +109,7 @@ public final class MigrationPending {
         }
 
         boolean finished() {
-            return waiting.isEmpty() && epochs.isEmpty();
+            return teamDone && waiting.isEmpty() && epochs.isEmpty();
         }
     }
 
@@ -161,6 +163,8 @@ public final class MigrationPending {
         if (universe == null) {
             return;
         }
+        if (e.consumedRewards != null) for (String id : e.consumedRewards) TeamsManager.get()
+            .markPDimRewardConsumed(UUID.fromString(id));
         // Epoch ranks: given to whoever ServerUtilities knows.
         RanksManager ranks = RanksManager.get();
         for (Iterator<Map.Entry<String, String>> it = e.epochs.entrySet()
@@ -192,6 +196,8 @@ public final class MigrationPending {
             }
         }
         if (!e.teamDone) {
+            if (e.portalRewardClaimed) TeamsManager.get()
+                .markPDimRewardTeamClaimed(team);
             if (e.boundDim > 0) {
                 TeamsManager manager = TeamsManager.get();
                 Short holder = manager.getTeamUidForDim(e.boundDim);
@@ -302,10 +308,14 @@ public final class MigrationPending {
             return;
         }
         ServerUtilitiesTeamData data = ServerUtilitiesTeamData.get(team);
+        chunks.processQueue();
         for (int[] c : claims) {
             ChunkDimPos pos = new ChunkDimPos(c[1], c[2], c[0]);
             ClaimedChunk old = chunks.getChunk(pos);
             if (old != null) {
+                if (!old.getTeam()
+                    .getId()
+                    .equals(team.getId())) throw new IllegalStateException("Чанк занят другой командой: " + pos);
                 chunks.removeChunk(pos);
             }
             ClaimedChunk chunk = new ClaimedChunk(pos, data);
@@ -318,6 +328,7 @@ public final class MigrationPending {
                 chunk.setLoaded(true);
             }
         }
+        chunks.processQueue();
     }
 
     // ---------------------------------------------------------------- the file
@@ -348,13 +359,21 @@ public final class MigrationPending {
     private static void save() {
         File file = file();
         try {
-            file.getParentFile()
-                .mkdirs();
-            try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
+            java.nio.file.Files.createDirectories(
+                file.toPath()
+                    .getParent());
+            java.nio.file.Path temporary = file.toPath()
+                .resolveSibling(file.getName() + ".tmp-" + UUID.randomUUID());
+            try (Writer writer = java.nio.file.Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
                 GSON.toJson(entries, writer);
             }
+            java.nio.file.Files.move(
+                temporary,
+                file.toPath(),
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            CointCore.LOG.error("[Migrate] Could not write {}", file, e);
+            throw new IllegalStateException("Could not persist imported team " + file, e);
         }
     }
 

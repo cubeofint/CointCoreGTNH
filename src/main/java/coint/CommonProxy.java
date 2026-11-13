@@ -48,6 +48,7 @@ public class CommonProxy {
         } catch (ConfigException e) {
             throw new RuntimeException(e);
         }
+        coint.migration.MigrationGuard.load();
 
         coint.cluster.ClusterAccess.configure(
             CointConfig.cluster.accessAuthorityNodeId,
@@ -116,6 +117,7 @@ public class CommonProxy {
      * Called when server is starting
      */
     public void serverStarting(FMLServerStartingEvent event) {
+        coint.migration.MigrationMove.reset();
         coint.cluster.ClusterAccess.configure(
             CointConfig.cluster.accessAuthorityNodeId,
             CointConfig.cluster.accessPollSeconds,

@@ -160,6 +160,10 @@ public class TeamsManager extends WorldSavedData {
         return retiredPDimIds.contains(dimId);
     }
 
+    public void retirePDim(int dimId) {
+        if (dimId > 0 && retiredPDimIds.add(dimId)) markDirty();
+    }
+
     public boolean resetPDimState(ForgeTeam team, int retiredDimId) {
         if (team == null || !team.isValid()) return false;
 

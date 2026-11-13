@@ -90,6 +90,11 @@ public class CommandChunkBonus extends CommandBase {
         if (!isAdmin(sender)) {
             throw new WrongUsageException("/chunkbonus");
         }
+        if (args.length > 1 && ("add".equalsIgnoreCase(args[0]) || "remove".equalsIgnoreCase(args[0]))) {
+            String moving = coint.migration.MigrationGuard.mutationReason(args[1]);
+            if (moving != null)
+                throw new net.minecraft.command.CommandException("Изменение бонуса временно недоступно: " + moving);
+        }
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "add" -> {
                 if (args.length < 4) {

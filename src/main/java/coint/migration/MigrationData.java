@@ -78,6 +78,10 @@ final class MigrationData {
     }
 
     static void describePlayer(UUID id, String name, Map<String, Object> info) {
+        info.put(
+            "personalDimensionRewardConsumed",
+            coint.player.TeamsManager.get()
+                .isPDimRewardConsumed(id));
         RanksManager ranks = RanksManager.get();
         EpochEntry epoch = ranks == null ? null : ranks.getPlayerEpoch(id);
         if (epoch != null) {

@@ -91,6 +91,11 @@ public final class MigrationExporter {
     }
 
     public static String export(ICommandSender sender, ForgePlayer target, java.util.function.Consumer<String> ready) {
+        return export(sender, target, ready, null);
+    }
+
+    static String export(ICommandSender sender, ForgePlayer target, java.util.function.Consumer<String> ready,
+        MoveRecord move) {
         if (!CommandMigrate.allowed(sender)) return "Нет права на миграцию";
         if (running || MigrationImporter.isRunning()) {
             return "Уже идёт другой экспорт, дождитесь его окончания";
@@ -118,6 +123,7 @@ public final class MigrationExporter {
         }
 
         Set<Integer> dims = findTeamDimensions(team);
+        if (move != null && !dims.equals(new LinkedHashSet<>(move.dimensions))) return "Список персоналок изменился";
         File worldDir = session.world;
         String worldName = worldDir.getName();
 
@@ -207,6 +213,7 @@ public final class MigrationExporter {
             teamInfo.put("boundPersonalDimension", manager.getDim(team));
             teamInfo.put("personalPortalRewardClaimed", manager.isPDimRewardTeamClaimed(team));
             MigrationData.describeTeam(team, dims, teamInfo);
+            if (move != null) teamInfo.put("claims", move.claims);
         }
         byte[] party = MigrationData.partyOf(players);
 
@@ -215,17 +222,24 @@ public final class MigrationExporter {
         String baseName = sanitize(target.getName()) + "_" + stamp + "_" + UUID.randomUUID();
         File migrations = MigrationStorage.archives();
         File staging = new File(MigrationStorage.localDirectory(), ".staging-" + baseName);
+        Map<File, Path> deferredPersonalFiles = new LinkedHashMap<>();
         long bytes = 0;
         try {
             for (Map.Entry<File, String> entry : files.entrySet()) {
                 Path dest = staging.toPath()
                     .resolve(entry.getValue());
-                Files.createDirectories(dest.getParent());
-                Files.copy(
-                    entry.getKey()
-                        .toPath(),
-                    dest,
-                    StandardCopyOption.REPLACE_EXISTING);
+                if (move != null && entry.getValue()
+                    .startsWith(worldName + "/PERSONAL_DIM_")) {
+                    // The move already unloaded and locked these worlds. Large region files are immutable now.
+                    deferredPersonalFiles.put(entry.getKey(), dest);
+                } else {
+                    Files.createDirectories(dest.getParent());
+                    Files.copy(
+                        entry.getKey()
+                            .toPath(),
+                        dest,
+                        StandardCopyOption.REPLACE_EXISTING);
+                }
                 bytes += entry.getKey()
                     .length();
             }
@@ -236,6 +250,15 @@ public final class MigrationExporter {
                 Files.write(partyFile, party);
             }
             Map<String, Object> manifest = new LinkedHashMap<>();
+            if (move != null) {
+                manifest.put("moveId", move.id);
+                List<int[]> external = new ArrayList<>();
+                for (int[] c : move.claims) if (!dims.contains(c[0])) external.add(c);
+                manifest.put("externalChunks", external);
+                MigrationChunks.snapshot(staging, move);
+                MigrationGlobalData.write(staging, move);
+                MigrationGlobalData.retain(staging, move);
+            }
             manifest.put("format", MigrationData.FORMAT);
             manifest.put("idMap", MigrationData.idMap());
             manifest.put("exportedAt", new Date().toString());
@@ -252,7 +275,8 @@ public final class MigrationExporter {
                 Arrays.asList(
                     "Import on the target server with /migrate import <file> (it may keep running).",
                     "The target world must be a copy of this one (same block/item ID map): the import checks it.",
-                    "Not included: anything outside the personal worlds, wireless EU, EnderStorage."));
+                    move == null ? "Not included: anything outside the personal worlds, wireless EU, EnderStorage."
+                        : "Move includes claimed external chunks, private EnderStorage, wireless EU and GT space projects. Public shared channels are not team-owned."));
             try (Writer writer = new OutputStreamWriter(
                 new FileOutputStream(new File(staging, "migration-manifest.json")),
                 StandardCharsets.UTF_8)) {
@@ -274,7 +298,7 @@ public final class MigrationExporter {
         List<String> missingCopy = new ArrayList<>(missing);
         sender.addChatMessage(
             new ChatComponentText(
-                "§eСкопировано файлов: §f" + fileCount
+                "§eФайлов в снимке: §f" + fileCount
                     + "§e ("
                     + (totalBytes / (1024 * 1024))
                     + " МБ, персональных миров: "
@@ -284,6 +308,16 @@ public final class MigrationExporter {
             String result;
             boolean complete = false;
             try {
+                for (Map.Entry<File, Path> file : deferredPersonalFiles.entrySet()) {
+                    session.check();
+                    Files.createDirectories(
+                        file.getValue()
+                            .getParent());
+                    Files.copy(
+                        file.getKey()
+                            .toPath(),
+                        file.getValue());
+                }
                 zipDirectory(staging.toPath(), zip, session);
                 complete = true;
                 result = "§aАрхив готов: §f" + zip.getAbsolutePath()
@@ -339,7 +373,7 @@ public final class MigrationExporter {
         }
     }
 
-    private static Set<Integer> findTeamDimensions(ForgeTeam team) {
+    static Set<Integer> findTeamDimensions(ForgeTeam team) {
         Set<Integer> dims = new LinkedHashSet<>();
         if (team == null) return dims;
         int bound = TeamsManager.get()
@@ -358,15 +392,18 @@ public final class MigrationExporter {
         return dims;
     }
 
-    private static void saveEverything(MinecraftServer server) throws MinecraftException, InterruptedException {
+    static void saveEverything(MinecraftServer server) throws MinecraftException, InterruptedException {
         server.getConfigurationManager()
             .saveAllPlayerData();
         for (WorldServer world : DimensionManager.getWorlds()) {
             if (world == null) continue;
             boolean saving = world.levelSaving;
             world.levelSaving = false;
-            world.saveAllChunks(true, null);
-            world.levelSaving = saving;
+            try {
+                world.saveAllChunks(true, null);
+            } finally {
+                world.levelSaving = saving;
+            }
         }
         ThreadedFileIOBase.threadedIOInstance.waitForFinish();
     }

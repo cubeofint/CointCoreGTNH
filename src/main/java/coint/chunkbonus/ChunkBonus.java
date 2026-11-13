@@ -77,6 +77,49 @@ public final class ChunkBonus {
         ticks = 0;
     }
 
+    public static String migrationSnapshot(java.util.Collection<String> names) {
+        Set<String> owners = new HashSet<>();
+        for (String name : names) owners.add(name.toLowerCase(Locale.ROOT));
+        List<Entry> selected = new ArrayList<>();
+        for (Entry entry : entries()) if (owners.contains(entry.player)) selected.add(entry);
+        return GSON.toJson(selected);
+    }
+
+    public static String migrationNormalized(String json, long now) {
+        List<Entry> values = GSON.fromJson(json, new TypeToken<List<Entry>>() {}.getType());
+        if (values == null) throw new IllegalArgumentException("Missing chunk bonus snapshot");
+        List<String> normalized = new ArrayList<>();
+        for (Entry entry : values) if (entry.expiresAt > now) normalized.add(GSON.toJson(entry));
+        java.util.Collections.sort(normalized);
+        return normalized.toString();
+    }
+
+    /** Strict persistence for a move: an I/O error must prevent its completion receipt. */
+    public static void migrationRestore(String json, java.util.Collection<String> names, boolean clear)
+        throws IOException {
+        Set<String> owners = new HashSet<>();
+        for (String name : names) owners.add(name.toLowerCase(Locale.ROOT));
+        List<Entry> incoming = GSON.fromJson(json, new TypeToken<List<Entry>>() {}.getType());
+        if (incoming == null) throw new IOException("Missing chunk bonus snapshot");
+        for (Entry entry : incoming)
+            if (entry == null || !owners.contains(entry.player) || entry.chunks <= 0 || entry.expiresAt < entry.addedAt)
+                throw new IOException("Invalid chunk bonus snapshot");
+        List<Entry> result = new ArrayList<>();
+        for (Entry entry : entries()) if (!owners.contains(entry.player)) result.add(entry);
+        if (!clear) result.addAll(incoming);
+        Files.createDirectories(
+            FILE.toPath()
+                .getParent());
+        java.nio.file.Path temporary = FILE.toPath()
+            .resolveSibling("chunk_bonus.migration-" + java.util.UUID.randomUUID() + ".tmp");
+        Files.write(
+            temporary,
+            GSON.toJson(result)
+                .getBytes(StandardCharsets.UTF_8));
+        Files.move(temporary, FILE.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        entries = result;
+    }
+
     /** Adds a purchase with a duration in milliseconds. */
     static Entry add(String player, int chunks, long durationMs, String note) {
         Entry e = new Entry();

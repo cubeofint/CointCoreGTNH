@@ -12,6 +12,9 @@ import net.minecraft.server.management.UserListBansEntry;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.mojang.authlib.GameProfile;
 
@@ -31,12 +34,41 @@ public class MixinServerConfigurationManager {
     @Shadow
     int maxPlayers;
 
+    @Inject(
+        method = "transferPlayerToDimension(Lnet/minecraft/entity/player/EntityPlayerMP;ILnet/minecraft/world/Teleporter;)V",
+        at = @At("HEAD"),
+        cancellable = true,
+        remap = false)
+    private void cointcore$blockMovingDimension(net.minecraft.entity.player.EntityPlayerMP player, int dimension,
+        net.minecraft.world.Teleporter teleporter, CallbackInfo ci) {
+        if (coint.migration.MigrationGuard.dimension(dimension)) {
+            player.addChatMessage(
+                new net.minecraft.util.ChatComponentText("§eИзмерение заблокировано переносом команды."));
+            ci.cancel();
+        }
+    }
+
+    @Inject(
+        method = "transferPlayerToDimension(Lnet/minecraft/entity/player/EntityPlayerMP;I)V",
+        at = @At("HEAD"),
+        cancellable = true)
+    private void cointcore$blockMovingDimensionEarly(net.minecraft.entity.player.EntityPlayerMP player, int dimension,
+        CallbackInfo ci) {
+        if (coint.migration.MigrationGuard.dimension(dimension)) {
+            player.addChatMessage(
+                new net.minecraft.util.ChatComponentText("§eИзмерение заблокировано переносом команды."));
+            ci.cancel();
+        }
+    }
+
     /**
      * @author EternalQ
      * @reason Control player connection and reserved slots
      */
     @Overwrite(aliases = { "func_148542_a" })
     public String allowUserToConnect(SocketAddress address, GameProfile profile) {
+        String migration = coint.migration.MigrationGuard.loginReason(profile.getId());
+        if (migration != null) return migration;
         var mgr = (ServerConfigurationManager) (Object) this;
         var dateFormat = new SimpleDateFormat("yyyy-MM-dd 'в' HH:mm:ss МСК");
         String s;

@@ -41,7 +41,7 @@ public class CommandMigrate extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         return "/migrate [ui] | export <player> [target] | import <file.zip> | queue <file.zip> <target>"
-            + " | nodes | requests | accept <id> [confirm]";
+            + " | nodes | requests | accept <id> [confirm] | move <player> <target> | move-status <id> | move-resume <id>";
     }
 
     @Override
@@ -59,6 +59,20 @@ public class CommandMigrate extends CommandBase {
     @Override
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
         if (!allowed(sender)) throw new CommandException("Нет права " + PERMISSION);
+        if (args.length == 3 && "move".equalsIgnoreCase(args[0])) {
+            ForgePlayer player = PlayerLookup.exact(args[1]);
+            if (player == null) throw new CommandException("Игрок не найден: " + args[1]);
+            coint.migration.MigrationMove.start(sender, player, args[2]);
+            return;
+        }
+        if (args.length == 2 && "move-status".equalsIgnoreCase(args[0])) {
+            coint.migration.MigrationMove.status(sender, args[1]);
+            return;
+        }
+        if (args.length == 2 && "move-resume".equalsIgnoreCase(args[0])) {
+            coint.migration.MigrationMove.resume(sender, args[1]);
+            return;
+        }
         if (args.length == 0 || (args.length == 1 && "ui".equalsIgnoreCase(args[0]))) {
             if (sender instanceof EntityPlayerMP player) MigrationCoordinator.open(player);
             else MigrationCoordinator.tell(sender, getCommandUsage(sender));
@@ -118,9 +132,13 @@ public class CommandMigrate extends CommandBase {
                 "queue",
                 "nodes",
                 "requests",
-                "accept");
+                "accept",
+                "move",
+                "move-status",
+                "move-resume");
         }
-        if (args.length == 3 && ("export".equalsIgnoreCase(args[0]) || "queue".equalsIgnoreCase(args[0]))) {
+        if (args.length == 3 && ("export".equalsIgnoreCase(args[0]) || "queue".equalsIgnoreCase(args[0])
+            || "move".equalsIgnoreCase(args[0]))) {
             return getListOfStringsMatchingLastWord(
                 args,
                 MigrationCoordinator.nodeSuggestions()
@@ -135,7 +153,7 @@ public class CommandMigrate extends CommandBase {
                 MigrationImporter.available()
                     .toArray(new String[0]));
         }
-        if (args.length == 2 && "export".equalsIgnoreCase(args[0])) {
+        if (args.length == 2 && ("export".equalsIgnoreCase(args[0]) || "move".equalsIgnoreCase(args[0]))) {
             List<String> names = new ArrayList<>();
             for (ForgePlayer player : Universe.get()
                 .getPlayers()) {
