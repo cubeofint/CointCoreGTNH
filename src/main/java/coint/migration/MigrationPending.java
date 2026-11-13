@@ -119,8 +119,11 @@ public final class MigrationPending {
         entries.add(entry);
         apply(entry);
         String state = entry.finished() ? "Команда, ранги и приваты настроены."
-            : "Ещё не видели этот сервер: " + entry.waiting.size()
-                + " игрок(ов), их добавят в команду при первом входе.";
+            : "Ожидают восстановления: команда=" + !entry.teamDone
+                + ", участников="
+                + entry.waiting.size()
+                + ", эпох="
+                + entry.epochs;
         if (entry.finished()) {
             entries.remove(entry);
         }
@@ -211,6 +214,62 @@ public final class MigrationPending {
             claim(team, e.claims);
             e.teamDone = true;
         }
+    }
+
+    /** Administrative recovery after the imported files have been independently reviewed. */
+    static void finishReviewedEpochs(MoveRecord move) throws IOException {
+        load();
+        List<Entry> matches = new ArrayList<>();
+        for (Entry entry : entries) if (move.team.equals(entry.teamId)) matches.add(entry);
+        if (matches.size() != 1) throw new IOException("Нужна ровно одна незавершённая запись команды");
+        Entry e = matches.get(0);
+        if (!e.teamDone || !e.waiting.isEmpty()
+            || !new HashSet<>(e.members).equals(new HashSet<>(move.players))
+            || !move.dimensions.contains(e.boundDim)
+            || !move.players.containsAll(e.epochs.keySet()))
+            throw new IOException("Восстановление разрешено только после завершения команды и участников");
+        Set<String> expected = new HashSet<>(), actual = new HashSet<>();
+        for (int[] c : move.claims) expected.add(java.util.Arrays.toString(c));
+        for (int[] c : e.claims) actual.add(java.util.Arrays.toString(c));
+        if (!expected.equals(actual)) throw new IOException("Приваты в pending не совпадают с запросом");
+        ForgeTeam team = Universe.get()
+            .getTeam(move.team);
+        if (team == null || !team.isValid()
+            || TeamsManager.get()
+                .getDim(team) != e.boundDim)
+            throw new IOException("Команда или привязка персоналки не восстановлена");
+        Set<String> members = new HashSet<>();
+        for (ForgePlayer p : team.getMembers()) members.add(
+            p.getId()
+                .toString());
+        if (!members.equals(new HashSet<>(move.players))) throw new IOException("Состав команды не совпадает");
+        ClaimedChunks.instance.processQueue();
+        for (int[] c : move.claims) {
+            ClaimedChunk claim = ClaimedChunks.instance.getChunk(new ChunkDimPos(c[1], c[2], c[0]));
+            if (claim == null || !claim.getTeam()
+                .getId()
+                .equals(move.team)) throw new IOException("Не восстановлен приват: " + MoveRecord.key(c));
+        }
+        // Do not call apply(): this recovery must not recreate teams or replace claims.
+        for (Map.Entry<String, String> rank : e.epochs.entrySet()) {
+            UUID id = UUID.fromString(rank.getKey());
+            ForgePlayer player = Universe.get()
+                .getPlayer(id);
+            if (player == null || player.isOnline()) throw new IOException("Участник неизвестен или онлайн: " + id);
+            try {
+                RanksManager.get()
+                    .setRank(id, rank.getValue());
+                serverutils.ranks.Ranks ranks = serverutils.ranks.Ranks.INSTANCE;
+                if (ranks == null || ranks.getRank(rank.getValue()) == null
+                    || !ranks.getPlayerRank(player.getProfile())
+                        .getParents()
+                        .contains(ranks.getRank(rank.getValue())))
+                    throw new IOException("Эпоха не восстановлена: " + rank.getValue());
+            } catch (Exception ex) {
+                throw new IOException("Не удалось восстановить эпоху " + rank.getValue(), ex);
+            }
+        }
+        // Keep the entry until the import receipt is durable, allowing a retry after a save failure.
     }
 
     /** The team as it was exported: found by id, or made with the first member this server knows as owner. */

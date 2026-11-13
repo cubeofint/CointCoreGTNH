@@ -295,7 +295,7 @@ public class RanksManager {
             ranks.clearCache();
 
             var p = ranks.universe.getPlayer(playerId);
-            if (p != null) ChatUtil.refreshRFN(p.getPlayer());
+            if (p != null && p.isOnline()) ChatUtil.refreshRFN(p.getPlayer());
             LOG.info("Set rank {} for player {}", rank, playerId);
         } else {
             LOG.error(

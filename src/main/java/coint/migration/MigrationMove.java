@@ -616,6 +616,96 @@ public final class MigrationMove {
         }
     }
 
+    /** Explicit console attestation after independent inspection; never repeats the file import. */
+    public static void finishReviewedImport(ICommandSender sender, String id) {
+        if (sender != MinecraftServer.getServer()) {
+            tell(sender, "§cТолько из консоли целевого сервера после проверки файлов импорта.");
+            return;
+        }
+        try {
+            if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning())
+                throw new IOException("Кластер и миграция должны быть включены");
+            if (!UUID.fromString(id)
+                .toString()
+                .equals(id)) throw new IOException("Invalid ID");
+            if (active != null || MigrationImporter.isRunning() || MigrationExporter.isRunning())
+                throw new IOException("Другая операция ещё выполняется");
+            MoveRecord move = JSON.fromJson(
+                new String(Files.readAllBytes(root().resolve(id + "/request.json")), StandardCharsets.UTF_8),
+                MoveRecord.class);
+            move.validate();
+            if (!id.equals(move.id)) throw new IOException("Move ID mismatch");
+            checkReviewedImport(move);
+            String hash = archiveHash(move);
+            Archive archive = JSON.fromJson(read(move, "archive.json"), Archive.class);
+            Path zip = MigrationStorage.archives()
+                .toPath()
+                .resolve(archive.name);
+            active = id;
+            long session = generation;
+            tell(sender, "§eПроверяю SHA-256 архива. Файлы мира повторно импортироваться не будут.");
+            IO.execute(() -> {
+                String failure = null;
+                try {
+                    if (!hash.equals(MigrationStorage.sha256(zip)))
+                        throw new IOException("SHA-256 архива не совпадает");
+                } catch (IOException | RuntimeException e) {
+                    failure = e.toString();
+                }
+                String error = failure;
+                SupplyServerTasks.run(() -> {
+                    if (session != generation) return;
+                    try {
+                        if (error != null) throw new IOException(error);
+                        checkReviewedImport(move);
+                        if (!hash.equals(archiveHash(move))) throw new IOException("Квитанция архива изменилась");
+                        MigrationPending.finishReviewedEpochs(move);
+                        MigrationExporter.saveEverything(MinecraftServer.getServer());
+                        if (!has(move, "reviewed-import")) put(
+                            move,
+                            "reviewed-import",
+                            "Console confirmed independent file review; epochs repaired and target saved. SHA-256="
+                                + hash);
+                        put(move, "imported", hash);
+                        // Keep error and all freezes until the administrator explicitly resumes the source.
+                        tell(sender, "§aИмпорт сохранён и подтверждён. На исходной ноде: migrate move-resume " + id);
+                    } catch (Exception e) {
+                        CointCore.LOG.error("[TeamMove] Reviewed import recovery failed for {}", id, e);
+                        tell(sender, "§cПодтверждение импорта не выполнено: " + e.getMessage());
+                    } finally {
+                        active = null;
+                    }
+                });
+            });
+        } catch (IOException | RuntimeException e) {
+            tell(sender, "§cВосстановление невозможно: " + e.getMessage());
+        }
+    }
+
+    private static void checkReviewedImport(MoveRecord move) throws IOException {
+        if (!ClusterService.nodeId()
+            .equals(move.target)) throw new IOException("Нужна целевая нода");
+        for (String step : new String[] { "source-start", "target-start", "approved", "importing", "error" })
+            if (!has(move, step)) throw new IOException("Отсутствует этап " + step);
+        for (String step : new String[] { "imported", "retired", "done" })
+            if (has(move, step)) throw new IOException("Этап уже выполнен: " + step);
+        offline(move);
+        Path freeze = MigrationStorage.serverDirectory()
+            .toPath()
+            .resolve("cointcore/migration-freezes/" + move.id + ".json");
+        MoveRecord local = JSON
+            .fromJson(new String(Files.readAllBytes(freeze), StandardCharsets.UTF_8), MoveRecord.class);
+        if (!JSON.toJson(move)
+            .equals(JSON.toJson(local))) throw new IOException("Локальная заморозка не совпадает");
+        for (String player : move.players)
+            if (!move.id.equals(new String(Files.readAllBytes(playerLock(player)), StandardCharsets.UTF_8)))
+                throw new IOException("Блокировка участника не совпадает");
+        for (int dim : move.dimensions) if (!MigrationGuard.dimension(dim) || DimensionManager.getWorld(dim) != null)
+            throw new IOException("Персоналка должна оставаться замороженной и выгруженной: " + dim);
+        for (int[] c : move.claims) if (!move.dimensions.contains(c[0]))
+            throw new IOException("Этот режим восстановления не поддерживает внешние чанки");
+    }
+
     private static String archiveHash(MoveRecord move) throws IOException {
         Archive archive = JSON.fromJson(read(move, "archive.json"), Archive.class);
         if (archive == null || !MigrationStorage.validArchiveName(archive.name)

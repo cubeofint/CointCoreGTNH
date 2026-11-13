@@ -41,7 +41,8 @@ public class CommandMigrate extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         return "/migrate [ui] | export <player> [target] | import <file.zip> | queue <file.zip> <target>"
-            + " | nodes | requests | accept <id> [confirm] | move <player> <target> | move-status <id> | move-resume <id>";
+            + " | nodes | requests | accept <id> [confirm] | move <player> <target> | move-status <id> | move-resume <id>"
+            + " | move-finish-import <id> confirm-reviewed";
     }
 
     @Override
@@ -59,6 +60,10 @@ public class CommandMigrate extends CommandBase {
     @Override
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
         if (!allowed(sender)) throw new CommandException("Нет права " + PERMISSION);
+        if (args.length == 3 && "move-finish-import".equalsIgnoreCase(args[0]) && "confirm-reviewed".equals(args[2])) {
+            coint.migration.MigrationMove.finishReviewedImport(sender, args[1]);
+            return;
+        }
         if (args.length == 3 && "move".equalsIgnoreCase(args[0])) {
             ForgePlayer player = PlayerLookup.exact(args[1]);
             if (player == null) throw new CommandException("Игрок не найден: " + args[1]);
