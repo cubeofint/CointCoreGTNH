@@ -21,7 +21,7 @@ import serverutils.lib.data.ForgePlayer;
  * Formula for both methods:
  *
  * <pre>
- *   limit = MAX(base_permission per member) + MAX(cointcore.bonus_* per member)
+ *   limit = MAX(base + rank bonuses per member) + SUM(active purchased bonuses)
  * </pre>
  *
  * <p>
@@ -59,20 +59,18 @@ public class MixinServerUtilitiesTeamData {
             return;
         }
 
-        int maxBase = 0;
-        int bonus = 0;
+        long maximum = 0;
         for (ForgePlayer player : self.team.getMembers()) {
-            maxBase = Math.max(
-                maxBase,
-                player.getRankConfig(ServerUtilitiesPermissions.CLAIMS_MAX_CHUNKS)
-                    .getInt());
-            bonus += player.getRankConfig(CointRankConfigs.BONUS_CLAIM_CHUNKS)
+            long memberLimit = player.getRankConfig(ServerUtilitiesPermissions.CLAIMS_MAX_CHUNKS)
                 .getInt();
-            bonus += player.getRankConfig(CointRankConfigs.EBOBONUS_CLAIM_CHUNKS)
+            memberLimit += player.getRankConfig(CointRankConfigs.BONUS_CLAIM_CHUNKS)
                 .getInt();
+            memberLimit += player.getRankConfig(CointRankConfigs.EBOBONUS_CLAIM_CHUNKS)
+                .getInt();
+            maximum = Math.max(maximum, memberLimit);
         }
 
-        cachedMaxClaimChunks = maxBase + bonus;
+        cachedMaxClaimChunks = (int) Math.min(Integer.MAX_VALUE, maximum + ChunkBonus.bonusOf(self.team));
         cir.setReturnValue(cachedMaxClaimChunks);
     }
 
@@ -98,22 +96,19 @@ public class MixinServerUtilitiesTeamData {
             return;
         }
 
-        int maxBase = 0;
-        int bonus = 0;
+        long maximum = 0;
         for (ForgePlayer player : self.team.getMembers()) {
-            maxBase = Math.max(
-                maxBase,
-                player.getRankConfig(ServerUtilitiesPermissions.CHUNKLOADER_MAX_CHUNKS)
-                    .getInt());
-            bonus += player.getRankConfig(CointRankConfigs.BONUS_FORCELOAD_CHUNKS)
+            long memberLimit = player.getRankConfig(ServerUtilitiesPermissions.CHUNKLOADER_MAX_CHUNKS)
                 .getInt();
-            bonus += player.getRankConfig(CointRankConfigs.EBOBONUS_FORCELOAD_CHUNKS)
+            memberLimit += player.getRankConfig(CointRankConfigs.BONUS_FORCELOAD_CHUNKS)
                 .getInt();
+            memberLimit += player.getRankConfig(CointRankConfigs.EBOBONUS_FORCELOAD_CHUNKS)
+                .getInt();
+            maximum = Math.max(maximum, memberLimit);
         }
         // Chunk loading bought on the website by the members.
-        bonus += ChunkBonus.bonusOf(self.team);
 
-        cachedMaxChunkloaderChunks = maxBase + bonus;
+        cachedMaxChunkloaderChunks = (int) Math.min(Integer.MAX_VALUE, maximum + ChunkBonus.bonusOf(self.team));
         cir.setReturnValue(cachedMaxChunkloaderChunks);
     }
 }

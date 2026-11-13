@@ -29,7 +29,7 @@ public final class CardTables {
     private static final double MAX_DISTANCE_SQ = 8 * 8;
 
     static final int ACTION_OPEN = 0, ACTION_LEAVE = 1, ACTION_START = 2, ACTION_PLAY = 3, ACTION_DRAW = 4,
-        ACTION_PASS = 5, ACTION_ADD_BOT = 6, ACTION_REMOVE_BOT = 7, ACTION_CALL = 8;
+        ACTION_PASS = 5, ACTION_ADD_BOT = 6, ACTION_REMOVE_BOT = 7, ACTION_CALL = 8, ACTION_MODE = 9, ACTION_WATCH = 10;
 
     private static final Map<String, CardGame> games = new HashMap<>();
     private static int tick;
@@ -67,7 +67,7 @@ public final class CardTables {
         if (game == null) {
             return;
         }
-        for (UUID uuid : new ArrayList<>(game.players)) {
+        for (UUID uuid : game.viewers()) {
             EntityPlayerMP player = player(uuid);
             if (player != null) {
                 send(player, PacketCardState.closed("cointcore.cards.error.tableGone"));
@@ -98,6 +98,11 @@ public final class CardTables {
                 case ACTION_ADD_BOT -> game.addBot(id);
                 case ACTION_REMOVE_BOT -> game.removeBot(id);
                 case ACTION_CALL -> game.call(id);
+                case ACTION_MODE -> game.mode(id);
+                case ACTION_WATCH -> {
+                    game.watch(id);
+                    yield null;
+                }
                 default -> null;
             };
             if (action == ACTION_OPEN || error != null) {
@@ -110,7 +115,7 @@ public final class CardTables {
 
     private static CardGame gameOf(UUID player) {
         for (CardGame game : games.values()) {
-            if (game.players.contains(player)) {
+            if (game.players.contains(player) || game.spectators.contains(player)) {
                 return game;
             }
         }
@@ -125,7 +130,7 @@ public final class CardTables {
                 .remove(game);
             return;
         }
-        for (UUID uuid : game.players) {
+        for (UUID uuid : game.viewers()) {
             EntityPlayerMP player = player(uuid);
             if (player != null) {
                 send(player, PacketCardState.of(game, uuid, false, null));
@@ -190,6 +195,7 @@ public final class CardTables {
             CardGame game = it.next();
             boolean changed = game.timeout(now) | game.botMove(now) | game.checkCall(now);
             List<UUID> gone = new ArrayList<>();
+            for (UUID uuid : game.spectators) if (player(uuid) == null) gone.add(uuid);
             for (UUID uuid : game.players) {
                 if (game.bots.contains(uuid)) {
                     continue;
@@ -226,5 +232,42 @@ public final class CardTables {
     /** All games end with the server. */
     public static void clear() {
         games.clear();
+    }
+
+    public static void list(EntityPlayerMP viewer) {
+        viewer.addChatMessage(new net.minecraft.util.ChatComponentText("§eИгры для наблюдения (на этом сервере):"));
+        for (Map.Entry<String, CardGame> entry : games.entrySet()) {
+            CardGame game = entry.getValue();
+            net.minecraft.util.ChatComponentText line = new net.minecraft.util.ChatComponentText(
+                "§a[Наблюдать] " + entry.getKey()
+                    + " — "
+                    + String.join(
+                        ", ",
+                        game.players.stream()
+                            .map(game.names::get)
+                            .collect(java.util.stream.Collectors.toList())));
+            line.getChatStyle()
+                .setChatClickEvent(
+                    new net.minecraft.event.ClickEvent(
+                        net.minecraft.event.ClickEvent.Action.RUN_COMMAND,
+                        "/cards watch " + entry.getKey()));
+            viewer.addChatMessage(line);
+        }
+    }
+
+    public static void watch(EntityPlayerMP viewer, String key) {
+        CardGame game = games.get(key);
+        if (game == null) {
+            list(viewer);
+            return;
+        }
+        CardGame old = gameOf(viewer.getUniqueID());
+        if (old != null && old != game) {
+            old.leave(viewer.getUniqueID());
+            changed(old);
+        }
+        game.watch(viewer.getUniqueID());
+        changed(game);
+        send(viewer, PacketCardState.of(game, viewer.getUniqueID(), true, null));
     }
 }

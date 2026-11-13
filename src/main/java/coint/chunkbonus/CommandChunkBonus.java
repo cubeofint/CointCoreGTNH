@@ -110,12 +110,12 @@ public class CommandChunkBonus extends CommandBase {
                         "§a" + args[1]
                             + ": +"
                             + chunks
-                            + " чанк(ов) прогрузки на "
+                            + " чанк(ов) привата и прогрузки на "
                             + TimeUtil.formatDuration(duration)));
                 notifyPlayer(
                     args[1],
                     "§aВашей команде добавлено §f" + chunks
-                        + "§a чанк(ов) прогрузки на §f"
+                        + "§a чанк(ов) привата и прогрузки на §f"
                         + TimeUtil.formatDuration(duration)
                         + "§a. Спасибо за поддержку!");
             }
@@ -166,7 +166,10 @@ public class CommandChunkBonus extends CommandBase {
                 .getMaxChunkloaderChunks();
             sender.addChatMessage(
                 new ChatComponentText(
-                    "§7Лимит прогрузки команды: §f" + max
+                    "§7Лимит приватов команды: §f" + ServerUtilitiesTeamData.get(player.team)
+                        .getMaxClaimChunks()
+                        + "§7, прогрузки: §f"
+                        + max
                         + "§7, из них оплачено участниками: §f"
                         + ChunkBonus.bonusOf(player.team)));
         } else if (!mine.isEmpty()) {

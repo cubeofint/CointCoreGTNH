@@ -13,7 +13,7 @@ public class PacketCardAction implements IMessage {
     public static final int OPEN = CardTables.ACTION_OPEN, LEAVE = CardTables.ACTION_LEAVE,
         START = CardTables.ACTION_START, PLAY = CardTables.ACTION_PLAY, DRAW = CardTables.ACTION_DRAW,
         PASS = CardTables.ACTION_PASS, ADD_BOT = CardTables.ACTION_ADD_BOT, REMOVE_BOT = CardTables.ACTION_REMOVE_BOT,
-        CALL = CardTables.ACTION_CALL;
+        CALL = CardTables.ACTION_CALL, MODE = CardTables.ACTION_MODE, WATCH = CardTables.ACTION_WATCH;
 
     private int action, index, suit;
 

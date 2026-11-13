@@ -43,6 +43,7 @@ public class CleanupTask extends Task {
 
     @Override
     public void execute(Universe universe) {
+        if (CointConfig.cluster.enabled && coint.cluster.ClusterHub.isHub()) return;
         int removed = 0;
         for (World world : universe.server.worldServers) {
             for (Entity entity : new ArrayList<>(world.loadedEntityList)) {
@@ -59,6 +60,7 @@ public class CleanupTask extends Task {
     @Override
     public List<NotifyTask> getNotifications() {
         List<NotifyTask> notifications = new ArrayList<>();
+        if (CointConfig.cluster.enabled && coint.cluster.ClusterHub.isHub()) return notifications;
         if (tasks.cleanup.silent) return notifications;
         notifications.add(
             new NotifyTask(

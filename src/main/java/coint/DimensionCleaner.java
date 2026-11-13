@@ -50,6 +50,7 @@ public class DimensionCleaner extends WorldSavedData {
     }
 
     public void processDims(Universe universe) {
+        if (CointConfig.cluster.enabled && coint.cluster.ClusterHub.isHub()) return;
         if (!CointConfig.cleaner.enabled || (!CointConfig.cleaner.deleteEnabled && !CointConfig.cleaner.freezeEnabled))
             return;
 

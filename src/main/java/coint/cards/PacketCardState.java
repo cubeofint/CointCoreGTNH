@@ -24,6 +24,7 @@ public class PacketCardState implements IMessage {
     /** A translation key for what went wrong, or empty. */
     public String error = "";
     public boolean host;
+    public boolean elimination;
     public int you = -1;
     public final List<String> names = new ArrayList<>();
     public final List<Integer> counts = new ArrayList<>();
@@ -74,6 +75,7 @@ public class PacketCardState implements IMessage {
         state.error = error == null ? "" : error;
         state.phase = game.phase == CardGame.Phase.PLAYING ? PHASE_PLAYING : PHASE_LOBBY;
         state.host = viewer.equals(game.host);
+        state.elimination = game.elimination;
         state.logSeq = game.logSeq;
         state.you = game.players.indexOf(viewer);
         for (UUID p : game.players) {
@@ -114,6 +116,7 @@ public class PacketCardState implements IMessage {
         phase = buf.readByte();
         error = ByteBufUtils.readUTF8String(buf);
         host = buf.readBoolean();
+        elimination = buf.readBoolean();
         you = buf.readByte();
         int players = buf.readByte();
         for (int i = 0; i < players; i++) {
@@ -148,6 +151,7 @@ public class PacketCardState implements IMessage {
         buf.writeByte(phase);
         ByteBufUtils.writeUTF8String(buf, error);
         buf.writeBoolean(host);
+        buf.writeBoolean(elimination);
         buf.writeByte(you);
         buf.writeByte(names.size());
         for (int i = 0; i < names.size(); i++) {

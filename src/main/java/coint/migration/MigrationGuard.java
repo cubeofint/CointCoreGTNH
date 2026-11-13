@@ -201,7 +201,7 @@ public final class MigrationGuard {
             String id = new String(Files.readAllBytes(lock), StandardCharsets.UTF_8);
             return "Перенос команды между серверами (" + id + "). Дождитесь завершения.";
         } catch (NoSuchFileException absent) {
-            return null;
+            return MigrationConsent.loginReason(player);
         } catch (IOException e) {
             return "Не удалось проверить состояние переноса команды. Повторите вход позже.";
         }

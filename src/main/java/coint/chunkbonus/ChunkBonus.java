@@ -180,20 +180,20 @@ public final class ChunkBonus {
         if (player == null) {
             return 0;
         }
-        int sum = 0;
+        long sum = 0;
         for (Entry e : of(player)) {
             sum += e.chunks;
         }
-        return sum;
+        return (int) Math.min(Integer.MAX_VALUE, sum);
     }
 
     /** Extra loaded chunks of a team now: what its members bought. */
     public static int bonusOf(ForgeTeam team) {
-        int sum = 0;
+        long sum = 0;
         for (ForgePlayer member : team.getMembers()) {
             sum += bonusOf(member.getName());
         }
-        return sum;
+        return (int) Math.min(Integer.MAX_VALUE, sum);
     }
 
     @SubscribeEvent

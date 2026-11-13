@@ -31,7 +31,7 @@ public class GuiCardTable extends GuiScreen {
     private static final int TURN_MS = 30_000;
 
     private static final int B_START = 0, B_DRAW = 1, B_PASS = 2, B_LEAVE = 3, B_ADD_BOT = 4, B_REMOVE_BOT = 5,
-        B_CALL = 6, B_SUIT = 10;
+        B_CALL = 6, B_MODE = 7, B_WATCH = 8, B_GAMES = 9, B_SUIT = 10;
 
     /** A card on its way across the table. */
     private static final class Fly {
@@ -260,6 +260,14 @@ public class GuiCardTable extends GuiScreen {
             start.enabled = state.host && state.names.size() >= 2;
             buttonList.add(start);
             if (state.host) {
+                buttonList.add(
+                    new GuiButton(
+                        B_MODE,
+                        cx - 105,
+                        y - 48,
+                        210,
+                        20,
+                        state.elimination ? "Режим: на вылет" : "Режим: обычный"));
                 GuiButton add = new GuiButton(B_ADD_BOT, cx - 105, y - 24, 100, 20, tr("cointcore.cards.addBot"));
                 add.enabled = state.names.size() < 4;
                 buttonList.add(add);
@@ -295,6 +303,8 @@ public class GuiCardTable extends GuiScreen {
                 100,
                 20,
                 tr("cointcore.cards.leave")));
+        if (state.you >= 0) buttonList.add(new GuiButton(B_WATCH, width - 110, 5, 105, 20, "Наблюдать"));
+        buttonList.add(new GuiButton(B_GAMES, 5, 5, 105, 20, "Список игр"));
     }
 
     @Override
@@ -310,6 +320,12 @@ public class GuiCardTable extends GuiScreen {
             return;
         }
         switch (button.id) {
+            case B_GAMES -> {
+                mc.displayGuiScreen(null);
+                mc.thePlayer.sendChatMessage("/cards");
+            }
+            case B_MODE -> send(PacketCardAction.MODE, 0, 0);
+            case B_WATCH -> send(PacketCardAction.WATCH, 0, 0);
             case B_START -> send(PacketCardAction.START, 0, 0);
             case B_DRAW -> send(PacketCardAction.DRAW, 0, 0);
             case B_PASS -> send(PacketCardAction.PASS, 0, 0);
@@ -393,6 +409,7 @@ public class GuiCardTable extends GuiScreen {
     @Override
     public void drawScreen(int mx, int my, float partial) {
         drawDefaultBackground();
+        if (state.you < 0) drawCenteredString(fontRendererObj, "Наблюдатель", width / 2, 8, 0xDDDDDD);
         long now = System.currentTimeMillis();
         runCues(now);
         drawLog();
@@ -758,6 +775,7 @@ public class GuiCardTable extends GuiScreen {
             case 5 -> StatCollector.translateToLocalFormatted("cointcore.cards.log.pass", who);
             case 6 -> StatCollector.translateToLocalFormatted("cointcore.cards.log.timeout", who);
             case 7 -> "§6" + StatCollector.translateToLocalFormatted("cointcore.cards.log.win", line.name);
+            case 11 -> "§c" + line.name + " выбывает: " + line.card + " очк.";
             case 8 -> "§e" + StatCollector.translateToLocalFormatted("cointcore.cards.log.call", line.name);
             case 9 -> "§c"
                 + StatCollector.translateToLocalFormatted("cointcore.cards.log.missed", line.name, line.card);

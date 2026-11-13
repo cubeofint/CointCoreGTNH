@@ -6,6 +6,7 @@ import cpw.mods.fml.common.event.FMLServerStartingEvent;
 public class CmdRegistry {
 
     public static void register(FMLServerStartingEvent event) {
+        event.registerServerCommand(new CommandCards());
         event.registerServerCommand(new CommandSync());
         event.registerServerCommand(new CommandRepair());
         event.registerServerCommand(
@@ -40,6 +41,7 @@ public class CmdRegistry {
         event.registerServerCommand(new CommandPlayerReset());
         event.registerServerCommand(new CommandRestart());
         event.registerServerCommand(new CommandMigrate());
+        event.registerServerCommand(new CommandMigrationConfirm());
         event.registerServerCommand(new coint.cluster.CommandServer());
         event.registerServerCommand(new coint.cluster.CommandCluster());
         event.registerServerCommand(new coint.blocklog.CommandBlockLog());

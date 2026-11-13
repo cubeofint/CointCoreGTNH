@@ -589,6 +589,18 @@ public class CointConfig {
         @Config.Comment("Enable the admin migration handoff queue between nodes using the shared archive directory")
         @Config.DefaultBoolean(false)
         public boolean migrationEnabled;
+
+        @Config.Comment("BetterQuesting quest UUID that requests team migration with online members' consent. Empty disables the trigger.")
+        @Config.DefaultString("")
+        public String migrationQuestId;
+
+        @Config.Comment("Only this node handles the migration quest completion")
+        @Config.DefaultString("alpha")
+        public String migrationQuestSourceNode;
+
+        @Config.Comment("Destination for the migration quest consent request")
+        @Config.DefaultString("endgame")
+        public String migrationQuestTargetNode;
     }
 
     public static class Trade {

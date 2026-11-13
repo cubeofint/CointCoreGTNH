@@ -61,6 +61,8 @@ final class CardGame {
     final Map<UUID, List<Integer>> hands = new HashMap<>();
     /** Seats played by the server. */
     final Set<UUID> bots = new HashSet<>();
+    final Set<UUID> spectators = new HashSet<>();
+    boolean elimination;
     UUID host;
     final List<Integer> drawPile = new ArrayList<>();
     /** The top is the last. */
@@ -104,6 +106,7 @@ final class CardGame {
             return "cointcore.cards.error.full";
         }
         players.add(player);
+        spectators.remove(player);
         names.put(player, name);
         if (host == null) {
             host = player;
@@ -113,6 +116,23 @@ final class CardGame {
     }
 
     void leave(UUID player) {
+        if (spectators.remove(player)) {
+            if (player.equals(host)) host = players.stream()
+                .filter(p -> !bots.contains(p))
+                .findFirst()
+                .orElse(
+                    spectators.stream()
+                        .findFirst()
+                        .orElse(null));
+            if (players.size() == bots.size() && spectators.isEmpty()) {
+                players.clear();
+                bots.clear();
+                names.clear();
+                host = null;
+                end();
+            }
+            return;
+        }
         int index = players.indexOf(player);
         if (index < 0) {
             return;
@@ -121,7 +141,7 @@ final class CardGame {
         players.remove(index);
         bots.remove(player);
         log(Line.LEAVE, name, 0, -1);
-        if (players.size() == bots.size()) {
+        if (players.size() == bots.size() && spectators.isEmpty()) {
             // No one real is left: the bots go too.
             players.clear();
             bots.clear();
@@ -134,7 +154,10 @@ final class CardGame {
             host = players.stream()
                 .filter(p -> !bots.contains(p))
                 .findFirst()
-                .orElse(null);
+                .orElse(
+                    spectators.stream()
+                        .findFirst()
+                        .orElse(null));
         }
         if (phase != Phase.PLAYING) {
             return;
@@ -161,7 +184,26 @@ final class CardGame {
     }
 
     boolean isEmpty() {
-        return players.isEmpty();
+        return players.isEmpty() && spectators.isEmpty();
+    }
+
+    String mode(UUID by) {
+        if (!by.equals(host)) return "cointcore.cards.error.notHost";
+        if (phase != Phase.LOBBY) return "cointcore.cards.error.running";
+        elimination = !elimination;
+        return null;
+    }
+
+    void watch(UUID player) {
+        if (players.contains(player)) leave(player);
+        spectators.add(player);
+        if (host == null) host = player;
+    }
+
+    Set<UUID> viewers() {
+        Set<UUID> result = new HashSet<>(players);
+        result.addAll(spectators);
+        return result;
     }
 
     /** Null when a bot sat down, else why not (a translation key). */
@@ -236,6 +278,13 @@ final class CardGame {
         if (players.size() < 2) {
             return "cointcore.cards.error.alone";
         }
+        beginRound();
+        return null;
+    }
+
+    private void beginRound() {
+        pendingCall = null;
+        called.clear();
         drawPile.clear();
         discard.clear();
         hands.clear();
@@ -260,7 +309,6 @@ final class CardGame {
         phase = Phase.PLAYING;
         log(Line.START, names.get(players.get(turn)), 0, -1);
         newTurn();
-        return null;
     }
 
     int top() {
@@ -483,6 +531,34 @@ final class CardGame {
     }
 
     private void win(UUID player) {
+        if (elimination && players.size() > 2) {
+            UUID loser = null;
+            int worst = -1;
+            // Ties use seating order, making the result deterministic.
+            for (UUID candidate : players) {
+                if (candidate.equals(player)) continue;
+                int score = 0;
+                for (int card : hands.getOrDefault(candidate, Collections.emptyList())) {
+                    int value = Cards.value(card);
+                    score += Cards.isWild(card) ? 50 : value > 9 ? 20 : value;
+                }
+                if (score > worst) {
+                    worst = score;
+                    loser = candidate;
+                }
+            }
+            log((byte) 11, names.get(loser), worst, -1);
+            players.remove(loser);
+            if (!bots.remove(loser)) spectators.add(loser);
+            beginRound();
+            return;
+        }
+        if (elimination && players.size() == 2) {
+            UUID loser = players.get(0)
+                .equals(player) ? players.get(1) : players.get(0);
+            players.remove(loser);
+            if (!bots.remove(loser)) spectators.add(loser);
+        }
         log(Line.WIN, names.get(player), 0, -1);
         end();
     }
