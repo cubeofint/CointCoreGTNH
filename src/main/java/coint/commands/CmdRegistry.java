@@ -6,6 +6,8 @@ import cpw.mods.fml.common.event.FMLServerStartingEvent;
 public class CmdRegistry {
 
     public static void register(FMLServerStartingEvent event) {
+        event.registerServerCommand(new CommandGuestFly());
+        event.registerServerCommand(new CommandGuestGod());
         event.registerServerCommand(new CommandCards());
         event.registerServerCommand(new CommandSync());
         event.registerServerCommand(new CommandRepair());

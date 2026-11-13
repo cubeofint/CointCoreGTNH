@@ -1,0 +1,36 @@
+package coint.commands;
+
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.player.EntityPlayerMP;
+
+import coint.cluster.ClusterComfort;
+import serverutils.command.CmdFly;
+
+/** Guest flight is temporary and never writes SU's persistent flight permission state. */
+public final class CommandGuestFly extends CmdFly {
+
+    // SU adds this interface method to ICommand at runtime and calls it instead of the vanilla permission gate.
+    public boolean serverutilities$hasPermission(EntityPlayerMP player) {
+        if (ClusterComfort.guestCommands(player)) return true;
+        cpw.mods.fml.common.eventhandler.Event.Result result = serverutils.ranks.Ranks.INSTANCE
+            .getPermissionResult(player, "command.serverutilities.fly", true);
+        return result == cpw.mods.fml.common.eventhandler.Event.Result.DEFAULT
+            ? super.canCommandSenderUseCommand(player)
+            : result == cpw.mods.fml.common.eventhandler.Event.Result.ALLOW;
+    }
+
+    @Override
+    public boolean canCommandSenderUseCommand(ICommandSender sender) {
+        return sender instanceof EntityPlayerMP player && ClusterComfort.guestCommands(player)
+            || super.canCommandSenderUseCommand(sender);
+    }
+
+    @Override
+    public void processCommand(ICommandSender sender, String[] args) {
+        if (sender instanceof EntityPlayerMP player && ClusterComfort.guestCommands(player)) {
+            if (args.length != 0) throw new WrongUsageException("В гостях используйте /fly без имени игрока");
+            ClusterComfort.toggle(player, "fly");
+        } else super.processCommand(sender, args);
+    }
+}

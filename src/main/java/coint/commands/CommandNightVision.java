@@ -16,6 +16,14 @@ public class CommandNightVision extends CommandBase {
 
     public static final String PERMISSION = "cointcore.command.nv";
 
+    public boolean serverutilities$hasPermission(EntityPlayerMP player) {
+        if (coint.cluster.ClusterComfort.guestCommands(player)) return true;
+        cpw.mods.fml.common.eventhandler.Event.Result result = serverutils.ranks.Ranks.INSTANCE
+            .getPermissionResult(player, "command.cointcore.nv", true);
+        return result == cpw.mods.fml.common.eventhandler.Event.Result.DEFAULT ? canCommandSenderUseCommand(player)
+            : result == cpw.mods.fml.common.eventhandler.Event.Result.ALLOW;
+    }
+
     public CommandNightVision() {
         PermissionAPI.registerNode(PERMISSION, DefaultPermissionLevel.OP, "CointCore night vision permission");
     }
@@ -28,7 +36,8 @@ public class CommandNightVision extends CommandBase {
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
         if (sender instanceof EntityPlayer player) {
-            return PermissionAPI.hasPermission(player, PERMISSION);
+            return coint.cluster.ClusterComfort.guestCommands(player)
+                || PermissionAPI.hasPermission(player, PERMISSION);
         }
         return true; // console/RCON
     }
@@ -42,6 +51,11 @@ public class CommandNightVision extends CommandBase {
     public void processCommand(ICommandSender sender, String[] args) {
         if (!(sender instanceof EntityPlayerMP player)) {
             throw new WrongUsageException("Команда доступна только игроку");
+        }
+        if (coint.cluster.ClusterComfort.guestCommands(player)) {
+            if (args.length != 0) throw new WrongUsageException("/nv");
+            coint.cluster.ClusterComfort.toggle(player, "nv");
+            return;
         }
         // The toggle is the stored flag, not the potion: the client drops a long effect on its own after ~27 min
         // (packet duration is a short) while the server still has it, so checking the potion toggled the wrong way.

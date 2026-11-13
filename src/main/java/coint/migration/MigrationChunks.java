@@ -42,6 +42,16 @@ public final class MigrationChunks {
     }
 
     static void checkClaims(MoveRecord move, boolean target) throws IOException {
+        if (move.joining()) {
+            if (target) MigrationJoining.checkTarget(move);
+            else {
+                serverutils.lib.data.ForgePlayer player = Universe.get()
+                    .getPlayer(java.util.UUID.fromString(move.players.get(0)));
+                if (player == null || !(player.hasTeam() ? player.team.getId() : "unassigned").equals(move.team))
+                    throw new IOException("Исходная команда игрока изменилась");
+            }
+            return;
+        }
         MigrationGuard.checkConflict(move);
         if (ClaimedChunks.instance == null) throw new IOException("ServerUtilities claims are unavailable");
         ClaimedChunks.instance.processQueue();

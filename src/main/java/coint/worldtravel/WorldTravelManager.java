@@ -268,6 +268,8 @@ public final class WorldTravelManager {
     }
 
     public static List<WorldTravelViewEntry> getViewEntries(EntityPlayerMP player) {
+        if (coint.CointConfig.cluster.enabled && coint.cluster.ClusterHub.isHub())
+            return java.util.Collections.emptyList();
         List<WorldTravelDestination> destinations = new ArrayList<>();
         for (WorldTravelDestination destination : BY_ID.values()) {
             if (destination.enabled) {
@@ -295,6 +297,10 @@ public final class WorldTravelManager {
     }
 
     public static boolean teleport(EntityPlayerMP player, String id) {
+        if (coint.CointConfig.cluster.enabled && coint.cluster.ClusterHub.isHub()) {
+            player.addChatMessage(new ChatComponentText("§eПутешествия по измерениям доступны на игровых серверах."));
+            return false;
+        }
         WorldTravelDestination destination = BY_ID.get(normalize(id));
         if (destination == null || !destination.enabled) {
             player.addChatMessage(new ChatComponentText("§cТочка путешествия не найдена."));

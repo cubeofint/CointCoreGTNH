@@ -105,6 +105,7 @@ public enum LateMixins implements IMixins {
         .setPhase(Phase.LATE)
         .addCommonMixins(
             "serverutilities.MixinCmdHome",
+            "serverutilities.MixinCleanupHub",
             "serverutilities.MixinRanksAccessRecovery",
             "serverutilities.MixinCmdVanishSameDimension",
             "serverutilities.MixinCmdSetHome",

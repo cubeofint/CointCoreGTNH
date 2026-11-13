@@ -72,6 +72,13 @@ public final class ClusterHomes {
         return homes.get(uuid.toString());
     }
 
+    public static void lookup(UUID id, String name, java.util.function.Consumer<String> result) {
+        ClusterService.query(
+            db -> db.home(id.toString(), name, null),
+            result,
+            error -> coint.CointCore.LOG.warn("[ClusterHomes] Lookup failed: {}", error));
+    }
+
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.player instanceof EntityPlayerMP player) || !ClusterService.isRunning()) {
@@ -86,15 +93,42 @@ public final class ClusterHomes {
         // The hub is nobody's home: who comes through it first gets his home where he goes next.
         String assign = CointConfig.cluster.assignHomeOnFirstJoin && !ClusterHub.isHub() ? ClusterService.nodeId()
             : null;
-        ClusterService.query(db -> db.home(uuid, name, assign), home -> {
+        ClusterService.query(db -> {
+            HomeLookup result = new HomeLookup();
+            result.home = db.home(uuid, name, null);
+            String initial = CointConfig.cluster.newPlayerNodeId.trim();
+            if (result.home == null && !initial.isEmpty()) {
+                for (ClusterDatabase.NodeRow node : db.nodes(CointConfig.cluster.nodeTimeoutSeconds)) {
+                    if (node.id.equals(initial) && !node.id.equals(CointConfig.cluster.hubNodeId)) {
+                        result.home = db.home(uuid, name, node.id);
+                        if (node.online && node.id.equals(result.home)) result.destination = node;
+                        break;
+                    }
+                }
+            }
+            if (result.home == null && initial.isEmpty()) result.home = db.home(uuid, name, assign);
+            return result;
+        }, result -> {
+            String home = result.home;
             if (home != null && !home.equals(homes.get(uuid))) {
                 homes.put(uuid, home);
                 save();
             }
             if (player.playerNetServerHandler != null && !player.isDead) {
                 apply(player, home, true);
+                if (result.destination != null && !result.destination.id.equals(ClusterService.nodeId())) {
+                    player.addChatMessage(
+                        new ChatComponentText("§eПервое подключение: отправляем вас на " + result.destination.name));
+                    ClusterTransfers.send(player, result.destination);
+                }
             }
         }, null);
+    }
+
+    private static final class HomeLookup {
+
+        String home;
+        ClusterDatabase.NodeRow destination;
     }
 
     @SubscribeEvent

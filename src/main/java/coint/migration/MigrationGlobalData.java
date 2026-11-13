@@ -58,7 +58,7 @@ final class MigrationGlobalData {
 
     static void preflight(MoveRecord move) throws IOException {
         try {
-            if (Loader.isModLoaded("gregtech")) leaders(move);
+            if (Loader.isModLoaded("gregtech") && !move.joining()) leaders(move);
         } catch (ReflectiveOperationException e) {
             throw new IOException("Не поддерживается API global data GregTech", e);
         }
@@ -83,7 +83,7 @@ final class MigrationGlobalData {
                 }
                 result.setTag("BloodMagic", networks);
             }
-            if (Loader.isModLoaded("gregtech")) {
+            if (Loader.isModLoaded("gregtech") && !move.joining()) {
                 Set<UUID> leaders = leaders(move);
                 Class<?> space = Class.forName(SPACE), energy = Class.forName(ENERGY);
                 NBTTagCompound balances = new NBTTagCompound(), teams = new NBTTagCompound();

@@ -10,6 +10,13 @@ import java.util.UUID;
 public final class MoveRecord {
 
     public String id, source, target, team, actor;
+    /** Non-null only for a single player joining an existing destination team. No base travels with him. */
+    public String joinTeam, joinOwner;
+
+    public boolean joining() {
+        return joinTeam != null;
+    }
+
     public long createdAt = System.currentTimeMillis();
     public List<String> players = new ArrayList<>();
     public List<String> names = new ArrayList<>();
@@ -43,7 +50,16 @@ public final class MoveRecord {
         for (int dim : dimensions) {
             if (dim <= 1 || !dims.add(dim)) throw new IllegalArgumentException("Invalid personal dimension");
         }
-        if (dims.isEmpty()) throw new IllegalArgumentException("Move has no personal dimensions");
+        if (joining()) {
+            if (joinTeam.isEmpty() || players.size() != 1
+                || !dimensions.isEmpty()
+                || !claims.isEmpty()
+                || joinOwner == null
+                || !UUID.fromString(joinOwner)
+                    .toString()
+                    .equals(joinOwner))
+                throw new IllegalArgumentException("Invalid player join move");
+        } else if (dims.isEmpty()) throw new IllegalArgumentException("Move has no personal dimensions");
         seen.clear();
         for (int[] c : claims) {
             if (c == null || c.length != 4 || (c[3] != 0 && c[3] != 1) || !seen.add(key(c))) {

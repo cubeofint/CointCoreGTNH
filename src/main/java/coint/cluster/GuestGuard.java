@@ -104,6 +104,10 @@ public final class GuestGuard {
         if (!(event.sender instanceof EntityPlayerMP player) || !ClusterHomes.isGuest(player)) {
             return;
         }
+        String command = event.command.getCommandName();
+        if ("migrate-confirm".equals(command) || "cards".equals(command)) return;
+        if (ClusterComfort.guestCommands(player) && event.parameters.length == 0
+            && ("fly".equals(command) || "god".equals(command) || "nv".equals(command))) return;
         if (allowed(event.command)) {
             return;
         }

@@ -47,6 +47,11 @@ public class CointCommandGuard {
         if (!(event.sender instanceof EntityPlayerMP player)) return;
 
         final String[] args = event.parameters;
+        if (coint.cluster.ClusterComfort.guestCommands(player) && args.length > 0
+            && (event.command instanceof CmdFly || event.command instanceof CmdGod)) {
+            cointcore$deny(event, player);
+            return;
+        }
         String node = null;
 
         if (event.command instanceof CmdFly && args.length > 0) {

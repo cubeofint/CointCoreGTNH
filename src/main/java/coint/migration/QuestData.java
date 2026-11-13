@@ -56,4 +56,33 @@ final class QuestData {
         PartyManager.INSTANCE.add(PartyManager.INSTANCE.nextID(), party);
         SaveLoadHandler.INSTANCE.markDirty();
     }
+
+    static void joinParty(UUID player, UUID owner) {
+        DBEntry<IParty> destination = PartyManager.INSTANCE.getParty(owner);
+        if (destination == null) return;
+        DBEntry<IParty> old = PartyManager.INSTANCE.getParty(player);
+        if (old != null && java.util.Objects.equals(old.getID(), destination.getID())) return;
+        if (old != null) {
+            old.getValue()
+                .kickUser(player);
+            if (old.getValue()
+                .getMembers()
+                .isEmpty()) PartyManager.INSTANCE.removeID(old.getID());
+        }
+        destination.getValue()
+            .setStatus(player, betterquesting.api.enums.EnumPartyStatus.MEMBER);
+        SaveLoadHandler.INSTANCE.addDirtyPlayers(player);
+        SaveLoadHandler.INSTANCE.markDirty();
+    }
+
+    static void leaveParty(UUID player) {
+        DBEntry<IParty> party = PartyManager.INSTANCE.getParty(player);
+        if (party == null) return;
+        party.getValue()
+            .kickUser(player);
+        if (party.getValue()
+            .getMembers()
+            .isEmpty()) PartyManager.INSTANCE.removeID(party.getID());
+        SaveLoadHandler.INSTANCE.markDirty();
+    }
 }

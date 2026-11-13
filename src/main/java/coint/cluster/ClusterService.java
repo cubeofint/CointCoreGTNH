@@ -267,6 +267,15 @@ public final class ClusterService {
         return null;
     }
 
+    public static String remoteFormattedName(String name) {
+        String json = remoteDisplay.get(name);
+        if (json != null) try {
+            return net.minecraft.util.IChatComponent.Serializer.func_150699_a(json)
+                .getFormattedText();
+        } catch (RuntimeException ignored) { /* Unknown remote display: retain the authenticated username. */ }
+        return name;
+    }
+
     /** The display name of the server a player of another server is on, or null. */
     public static String remotePlayerServer(String name) {
         return remoteTab.get(name);

@@ -42,7 +42,8 @@ public class CommandMigrate extends CommandBase {
     public String getCommandUsage(ICommandSender sender) {
         return "/migrate [ui] | export <player> [target] | import <file.zip> | queue <file.zip> <target>"
             + " | nodes | requests | accept <id> [confirm] | move <player> <target> | move-status <id> | move-resume <id>"
-            + " | move-finish-import <id> confirm-reviewed | request <player> <target>";
+            + " | move-finish-import <id> confirm-reviewed | request <player> <target>"
+            + " | batch plan <epoch> <target> | batch run/status/stop <id>";
     }
 
     @Override
@@ -59,6 +60,18 @@ public class CommandMigrate extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length >= 1 && "batch".equalsIgnoreCase(args[0])) {
+            if (!allowed(sender)) throw new CommandException("commands.generic.permission");
+            try {
+                if (args.length == 4 && "plan".equals(args[1]))
+                    coint.migration.MigrationBatch.plan(sender, args[2], args[3]);
+                else if (args.length == 3) coint.migration.MigrationBatch.command(sender, args[1], args[2]);
+                else throw new java.io.IOException("/migrate batch plan <epoch> <target> | run/status/stop <id>");
+            } catch (java.io.IOException | RuntimeException e) {
+                throw new CommandException(e.getMessage());
+            }
+            return;
+        }
         if (!allowed(sender)) throw new CommandException("Нет права " + PERMISSION);
         if (args.length == 3 && "request".equalsIgnoreCase(args[0])) {
             ForgePlayer player = PlayerLookup.exact(args[1]);
@@ -146,8 +159,12 @@ public class CommandMigrate extends CommandBase {
                 "accept",
                 "move",
                 "request",
+                "batch",
                 "move-status",
                 "move-resume");
+        }
+        if (args.length == 2 && "batch".equalsIgnoreCase(args[0])) {
+            return getListOfStringsMatchingLastWord(args, "plan", "run", "status", "stop");
         }
         if (args.length == 3 && ("export".equalsIgnoreCase(args[0]) || "queue".equalsIgnoreCase(args[0])
             || "move".equalsIgnoreCase(args[0])

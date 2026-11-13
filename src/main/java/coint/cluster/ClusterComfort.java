@@ -77,6 +77,27 @@ public final class ClusterComfort {
             && (onHub() || ClusterHomes.isGuest(player));
     }
 
+    public static boolean guestCommands(EntityPlayer player) {
+        return player != null && !player.worldObj.isRemote
+            && comforted(player)
+            && !PermissionAPI.hasPermission(player, ClusterHomes.BYPASS);
+    }
+
+    public static void toggle(EntityPlayerMP player, String ability) {
+        if (!guestCommands(player) || !("fly".equals(ability) || "god".equals(ability) || "nv".equals(ability))) return;
+        comfort(player);
+        NBTTagCompound data = player.getEntityData();
+        String key = MARK + ".off." + ability;
+        data.setBoolean(key, !data.getBoolean(key));
+        comfort(player);
+        player.addChatMessage(
+            new ChatComponentText(
+                "§e/" + ability
+                    + ": "
+                    + (data.getBoolean(key) ? "выключено" : "включено")
+                    + " (только на гостевом сервере)"));
+    }
+
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || ++tick % 20 != 0) {
@@ -105,13 +126,24 @@ public final class ClusterComfort {
 
     private static void comfort(EntityPlayerMP player) {
         PlayerCapabilities abilities = player.capabilities;
-        if (!abilities.allowFlying || !abilities.disableDamage) {
-            abilities.allowFlying = true;
-            abilities.disableDamage = true;
+        NBTTagCompound data = player.getEntityData();
+        if (!data.getBoolean(MARK)) {
+            data.setBoolean(MARK + ".wasFly", abilities.allowFlying);
+            data.setBoolean(MARK + ".wasGod", abilities.disableDamage);
+        }
+        boolean fly = !data.getBoolean(MARK + ".off.fly");
+        boolean god = !data.getBoolean(MARK + ".off.god");
+        if (abilities.allowFlying != fly || abilities.disableDamage != god) {
+            abilities.allowFlying = fly;
+            abilities.disableDamage = god;
+            if (!fly) abilities.isFlying = false;
             player.sendPlayerAbilities();
         }
         PotionEffect sight = player.getActivePotionEffect(Potion.nightVision);
-        if (sight == null || sight.getDuration() < 220) {
+        if (data.getBoolean(MARK + ".off.nv")) {
+            if (sight != null && sight.getDuration() <= NIGHT_VISION_TICKS)
+                player.removePotionEffect(Potion.nightVision.id);
+        } else if (sight == null || sight.getDuration() < 220) {
             player.addPotionEffect(new PotionEffect(Potion.nightVision.id, NIGHT_VISION_TICKS, 0, true));
         }
         if (player.getFoodStats()
@@ -128,9 +160,9 @@ public final class ClusterComfort {
         NBTTagCompound data = player.getEntityData();
         data.removeTag(MARK);
         if (!player.capabilities.isCreativeMode) {
-            player.capabilities.allowFlying = false;
-            player.capabilities.isFlying = false;
-            player.capabilities.disableDamage = false;
+            player.capabilities.allowFlying = data.getBoolean(MARK + ".wasFly");
+            if (!player.capabilities.allowFlying) player.capabilities.isFlying = false;
+            player.capabilities.disableDamage = data.getBoolean(MARK + ".wasGod");
             player.sendPlayerAbilities();
         }
         PotionEffect sight = player.getActivePotionEffect(Potion.nightVision);
@@ -138,6 +170,8 @@ public final class ClusterComfort {
         if (sight != null && sight.getDuration() <= NIGHT_VISION_TICKS) {
             player.removePotionEffect(Potion.nightVision.id);
         }
+        for (String key : new String[] { ".wasFly", ".wasGod", ".off.fly", ".off.god", ".off.nv" })
+            data.removeTag(MARK + key);
     }
 
     private static void hold(EntityPlayerMP player) {
@@ -176,7 +210,9 @@ public final class ClusterComfort {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onAttacked(LivingAttackEvent event) {
-        if (event.entityLiving instanceof EntityPlayerMP player && comforted(player)) {
+        if (event.entityLiving instanceof EntityPlayerMP player && comforted(player)
+            && !player.getEntityData()
+                .getBoolean(MARK + ".off.god")) {
             event.setCanceled(true);
         }
     }

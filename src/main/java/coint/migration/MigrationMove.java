@@ -61,6 +61,7 @@ public final class MigrationMove {
     private MigrationMove() {}
 
     public static void reset() {
+        MigrationBatch.reset();
         MigrationConsent.reset();
         generation++;
         polling = false;
@@ -135,19 +136,27 @@ public final class MigrationMove {
             throw new IOException("Вся команда должна быть офлайн: " + uuid);
     }
 
-    public static void start(ICommandSender sender, ForgePlayer player, String target) {
-        if (!CommandMigrate.allowed(sender)) return;
+    public static String start(ICommandSender sender, ForgePlayer player, String target) {
+        return start(sender, player, target, null, null);
+    }
+
+    static boolean busy() {
+        return active != null || MigrationExporter.isRunning() || MigrationImporter.isRunning();
+    }
+
+    static String start(ICommandSender sender, ForgePlayer player, String target, String joinTeam, String joinOwner) {
+        if (!CommandMigrate.allowed(sender)) return null;
         if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning()) {
             tell(sender, "§cНужны cluster, migrationEnabled и общая migrationSharedDirectory.");
-            return;
+            return null;
         }
         if (active != null || MigrationExporter.isRunning() || MigrationImporter.isRunning()) {
             tell(sender, "§cНа этой ноде уже выполняется миграция.");
-            return;
+            return null;
         }
-        if (!player.hasTeam()) {
+        if (!player.hasTeam() && joinTeam == null) {
             tell(sender, "§cУ игрока нет команды SU.");
-            return;
+            return null;
         }
         MoveRecord move = new MoveRecord();
         move.id = UUID.randomUUID()
@@ -155,15 +164,19 @@ public final class MigrationMove {
         move.source = ClusterService.nodeId();
         move.target = target;
         move.actor = sender.getCommandSenderName();
-        move.team = player.team.getId();
-        for (ForgePlayer member : player.team.getMembers()) {
+        move.team = player.hasTeam() ? player.team.getId() : "unassigned";
+        move.joinTeam = joinTeam;
+        move.joinOwner = joinOwner;
+        for (ForgePlayer member : move.joining() ? java.util.Collections.singletonList(player)
+            : player.team.getMembers()) {
             move.players.add(
                 member.getId()
                     .toString());
             move.names.add(member.getName());
         }
-        move.dimensions.addAll(MigrationExporter.findTeamDimensions(player.team));
-        for (ClaimedChunk claim : ClaimedChunks.instance.getTeamChunks(player.team, OptionalInt.empty(), true)) {
+        if (!move.joining()) move.dimensions.addAll(MigrationExporter.findTeamDimensions(player.team));
+        for (ClaimedChunk claim : move.joining() ? java.util.Collections.<ClaimedChunk>emptyList()
+            : ClaimedChunks.instance.getTeamChunks(player.team, OptionalInt.empty(), true)) {
             WorldServer world = DimensionManager.getWorld(claim.getPos().dim);
             boolean forced = claim.isLoaded()
                 || (world != null && net.minecraftforge.common.ForgeChunkManager.getPersistentChunksFor(world)
@@ -184,7 +197,7 @@ public final class MigrationMove {
             reserve(move);
         } catch (IOException | RuntimeException e) {
             tell(sender, "§cПеренос не начат: " + e.getMessage());
-            return;
+            return null;
         }
         active = move.id;
         long session = generation;
@@ -212,6 +225,7 @@ public final class MigrationMove {
             active = null;
             tell(sender, "§cПеренос остановлен: " + error);
         });
+        return move.id;
     }
 
     @SubscribeEvent
@@ -400,6 +414,7 @@ public final class MigrationMove {
                         confirmedImport(move);
                         if (retire(move)) put(move, "retired", archiveHash(move));
                     } else if (target && has(move, "retired")) {
+                        if (move.joining()) MigrationJoining.checkTarget(move);
                         confirmedImport(move);
                         if (!read(move, "retired").equals(archiveHash(move)))
                             throw new IOException("Повреждена квитанция отключения источника");
@@ -501,7 +516,8 @@ public final class MigrationMove {
         }
         ForgeTeam team = Universe.get()
             .getTeam(move.team);
-        if (team != null && team.isValid()) TeamsManager.get()
+        if (move.joining()) MigrationJoining.retireMember(move);
+        else if (team != null && team.isValid()) TeamsManager.get()
             .removeDimBind(team);
         for (int[] c : move.claims) if (move.dimensions.contains(c[0]))
             ClaimedChunks.instance.removeChunk(new serverutils.lib.math.ChunkDimPos(c[1], c[2], c[0]));
@@ -535,6 +551,17 @@ public final class MigrationMove {
             claims.add(Arrays.toString(c));
             if (!move.dimensions.contains(c[0])) external.add(Arrays.toString(c));
         }
+        if (move.joining()) {
+            if (team != null || !players.equals(new HashSet<>(move.players))
+                || !dims.isEmpty()
+                || !MigrationChunks.external(manifest)
+                    .isEmpty()
+                || !move.joinTeam.equals(MigrationImporter.str(manifest.get("joinTeam")))
+                || !move.joinOwner.equals(MigrationImporter.str(manifest.get("joinOwner"))))
+                throw new IOException("Архив не соответствует персональному переносу");
+            return;
+        }
+        if (team == null) throw new IOException("В архиве нет команды");
         if (team.get("claims") instanceof List<?>list)
             for (Object c : list) exportedClaims.add(Arrays.toString(MigrationImporter.ints(c)));
         for (int[] c : MigrationChunks.external(manifest)) exportedExternal.add(Arrays.toString(c));

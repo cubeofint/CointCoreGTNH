@@ -43,7 +43,7 @@ public class PacketServers implements IMessage {
 
     /** {@code open}: the client opens the servers screen with it. Server thread. */
     public static void sendTo(EntityPlayerMP player, boolean open) {
-        boolean travel = !ClusterComfort.hubHeld(player);
+        boolean travel = !ClusterHub.isHub();
         int timeout = CointConfig.cluster.nodeTimeoutSeconds;
         UUID uuid = player.getUniqueID();
         boolean started = ClusterService.query(db -> db.nodes(timeout), nodes -> {

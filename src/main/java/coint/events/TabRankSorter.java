@@ -176,13 +176,18 @@ public final class TabRankSorter {
         for (PlayerEntry entry : entries) {
             if (entry.primaryRank == null) continue;
             JsonObject playerData = new JsonObject();
-            playerData.addProperty("displayName", buildDisplayName(entry));
+            playerData.addProperty(
+                "displayName",
+                (coint.cluster.ClusterService.isRunning() ? "§7[" + coint.cluster.ClusterService.displayName() + "] §r"
+                    : "") + buildDisplayName(entry));
             players.add(entry.name, playerData);
             customNames.add(entry.name);
         }
         for (String name : remoteNames) {
             JsonObject playerData = new JsonObject();
-            playerData.addProperty("displayName", "§7[" + remote.get(name) + "] " + name);
+            playerData.addProperty(
+                "displayName",
+                "§7[" + remote.get(name) + "] §r" + coint.cluster.ClusterService.remoteFormattedName(name));
             players.add(name, playerData);
             customNames.add(name);
         }
@@ -265,6 +270,10 @@ public final class TabRankSorter {
             otherPriority,
             primaryRank,
             progressRank);
+    }
+
+    public static String formattedName(EntityPlayerMP player) {
+        return buildDisplayName(createEntry(player));
     }
 
     private static String buildDisplayName(PlayerEntry entry) {

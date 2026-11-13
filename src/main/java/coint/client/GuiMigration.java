@@ -49,7 +49,7 @@ public final class GuiMigration extends GuiScreen {
         sourceButton = add(1, x, y + 20, half, "");
         add(2, x + half + 4, y + 20, w - half - 4, "Перейти на источник");
         targetButton = add(3, x + half + 4, y + 47, w - half - 4, "");
-        exportButton = add(4, x, y + 72, w, "Экспорт команды → очередь цели");
+        exportButton = add(4, x, y + 72, w, "Перенести команду с подтверждением участников");
         archiveButton = add(5, x, y + 98, half, "");
         queueButton = add(6, x + half + 4, y + 98, w - half - 4, "ZIP → очередь");
         requestButton = add(7, x, y + 127, w, "");
@@ -121,7 +121,7 @@ public final class GuiMigration extends GuiScreen {
                 target = (target + 1) % Math.max(1, state.nodes.size());
                 break;
             case 4:
-                command("/migrate export " + name.getText() + " " + node(target));
+                command("/migrate request " + name.getText() + " " + node(target));
                 return;
             case 5:
                 archive = (archive + 1) % Math.max(1, state.archives.size());

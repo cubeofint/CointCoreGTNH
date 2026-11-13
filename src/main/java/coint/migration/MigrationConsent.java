@@ -47,6 +47,7 @@ public final class MigrationConsent {
     private static final class Request {
 
         String id, source, target, team, player, sourceBoot;
+        String joinTeam, joinOwner;
         List<String> members = new ArrayList<>();
         long expires, countdown;
         String phase = "pending";
@@ -139,8 +140,14 @@ public final class MigrationConsent {
     }
 
     public static void request(ICommandSender sender, ForgePlayer player, String target) {
+        requestJoin(sender, player, target, null, null);
+    }
+
+    static void requestJoin(ICommandSender sender, ForgePlayer player, String target, String joinTeam,
+        String joinOwner) {
         try {
-            if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning() || !player.hasTeam())
+            if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning()
+                || (!player.hasTeam() && joinTeam == null))
                 throw new IOException("Нужны работающий кластер, миграция и команда SU");
             if (!target.matches("[A-Za-z0-9_-]{1,64}") || target.equals(ClusterService.nodeId()))
                 throw new IOException("Неверная целевая нода");
@@ -150,11 +157,16 @@ public final class MigrationConsent {
             r.source = ClusterService.nodeId();
             r.sourceBoot = boot;
             r.target = target;
-            r.team = player.team.getId();
+            r.team = player.hasTeam() ? player.team.getId() : "unassigned";
+            r.joinTeam = joinTeam;
+            r.joinOwner = joinOwner;
             r.player = player.getName();
-            r.members.addAll(members(player.team));
+            if (joinTeam == null) r.members.addAll(members(player.team));
+            else r.members.add(
+                player.getId()
+                    .toString());
             r.expires = System.currentTimeMillis() + 10 * 60_000L;
-            if (MigrationExporter.findTeamDimensions(player.team)
+            if (joinTeam == null && MigrationExporter.findTeamDimensions(player.team)
                 .isEmpty()) throw new IOException("Нет персоналки команды");
             for (Request old : requests()) if (active(old)) for (String id : r.members)
                 if (old.members.contains(id)) throw new IOException("У команды уже есть запрос " + old.id);
@@ -261,7 +273,8 @@ public final class MigrationConsent {
                 if ("pending".equals(r.phase) && notices.add(r.id + uuid + ":" + r.phase)) {
                     p.addChatMessage(
                         new ChatComponentText(
-                            "§eПеренос всей команды: " + r.source
+                            (r.joinTeam == null ? "§eПеренос всей команды: "
+                                : "§eПеренос только ваших личных данных, без старой базы: ") + r.source
                                 + " → "
                                 + r.target
                                 + ". Вас отключат для сохранения данных после согласия всех онлайн-участников."));
@@ -319,7 +332,13 @@ public final class MigrationConsent {
                     }
                     ForgeTeam team = Universe.get()
                         .getTeam(r.team);
-                    if (team == null || !team.isValid() || !members(team).equals(new HashSet<>(r.members))) {
+                    ForgePlayer joining = r.joinTeam == null ? null
+                        : Universe.get()
+                            .getPlayer(UUID.fromString(r.members.get(0)));
+                    boolean changed = r.joinTeam == null
+                        ? team == null || !team.isValid() || !members(team).equals(new HashSet<>(r.members))
+                        : joining == null || !(joining.hasTeam() ? joining.team.getId() : "unassigned").equals(r.team);
+                    if (changed) {
                         r.phase = "cancelled";
                         save(r);
                         announce(r, "§cПеренос отменён: изменился состав команды.");
@@ -335,6 +354,7 @@ public final class MigrationConsent {
                     }
                     long now = System.currentTimeMillis();
                     if ("pending".equals(r.phase)) {
+                        if (MigrationMove.busy()) continue;
                         r.phase = "countdown";
                         r.countdown = now + 15_000;
                         save(r);
@@ -345,7 +365,7 @@ public final class MigrationConsent {
                         boolean localOnline = false;
                         for (String id : r.members)
                             localOnline |= MigrationImporter.online(UUID.fromString(id)) != null;
-                        if (localOnline) continue;
+                        if (localOnline || MigrationMove.busy()) continue;
                         // Durable dispatch marker prevents duplicate launches after a crash. Existing move locks take
                         // over.
                         r.phase = "dispatched";
@@ -354,7 +374,9 @@ public final class MigrationConsent {
                             MinecraftServer.getServer(),
                             Universe.get()
                                 .getPlayer(r.player),
-                            r.target);
+                            r.target,
+                            r.joinTeam,
+                            r.joinOwner);
                         announce(
                             r,
                             "§eСогласование завершено. Результат запуска миграции записан в консоли исходного сервера.");

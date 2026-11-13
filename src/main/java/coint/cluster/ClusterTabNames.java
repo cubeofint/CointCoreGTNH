@@ -9,7 +9,6 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.IChatComponent;
 
 import coint.CointCore;
-import serverutils.data.ServerUtilitiesPlayerData;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.Universe;
 import serverutils.net.MessageUpdateTabName;
@@ -37,8 +36,8 @@ final class ClusterTabNames {
             if (forgePlayer == null) {
                 return null;
             }
-            IChatComponent name = ServerUtilitiesPlayerData.get(forgePlayer)
-                .getNameForChat();
+            IChatComponent name = new net.minecraft.util.ChatComponentText(
+                coint.events.TabRankSorter.formattedName(player));
             if (name == null || name.getUnformattedText()
                 .isEmpty()) {
                 return null;

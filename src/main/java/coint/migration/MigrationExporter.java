@@ -108,7 +108,7 @@ public final class MigrationExporter {
         } catch (IOException e) {
             return e.getMessage();
         }
-        ForgeTeam team = target.hasTeam() ? target.team : null;
+        ForgeTeam team = move != null && move.joining() ? null : target.hasTeam() ? target.team : null;
 
         List<ForgePlayer> players = new ArrayList<>();
         if (team != null) {
@@ -176,7 +176,8 @@ public final class MigrationExporter {
                     files);
             }
             addFileIfExists(worldDir, worldName, "betterquesting/QuestProgress/" + id + ".json", files);
-            addFileIfExists(worldDir, worldName, "gtnhteams/" + id + ".json", files);
+            if (move == null || !move.joining())
+                addFileIfExists(worldDir, worldName, "gtnhteams/" + id + ".json", files);
             addFileIfExists(worldDir, worldName, "stats/" + id + ".json", files);
             addFileIfExists(worldDir, worldName, "serverutilities/players/" + name.toLowerCase() + ".dat", files);
 
@@ -215,7 +216,7 @@ public final class MigrationExporter {
             MigrationData.describeTeam(team, dims, teamInfo);
             if (move != null) teamInfo.put("claims", move.claims);
         }
-        byte[] party = MigrationData.partyOf(players);
+        byte[] party = move != null && move.joining() ? null : MigrationData.partyOf(players);
 
         // 3. Copy to a staging folder now, while nothing can change (we are on the server thread).
         String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date());
@@ -252,6 +253,10 @@ public final class MigrationExporter {
             Map<String, Object> manifest = new LinkedHashMap<>();
             if (move != null) {
                 manifest.put("moveId", move.id);
+                if (move.joining()) {
+                    manifest.put("joinTeam", move.joinTeam);
+                    manifest.put("joinOwner", move.joinOwner);
+                }
                 List<int[]> external = new ArrayList<>();
                 for (int[] c : move.claims) if (!dims.contains(c[0])) external.add(c);
                 manifest.put("externalChunks", external);

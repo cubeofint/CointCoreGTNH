@@ -607,7 +607,14 @@ public final class MigrationImporter {
             }
         }
         String state = MigrationPending.add(pending);
-        if (operation.move != null && pending.teamDone) {
+        if (operation.move != null && operation.move.joining()) {
+            try {
+                MigrationJoining.install(operation.move);
+            } catch (IOException e) {
+                return e.getMessage();
+            }
+        }
+        if (operation.move != null && !operation.move.joining() && pending.teamDone) {
             File teamFile = new File(sourceRoot, "serverutilities/teams/" + operation.move.team + ".dat");
             ForgeTeam restored = Universe.get()
                 .getTeam(operation.move.team);
@@ -672,7 +679,7 @@ public final class MigrationImporter {
             }
         }
         ForgeTeam team = Universe.get()
-            .getTeam(move.team);
+            .getTeam(move.joining() ? move.joinTeam : move.team);
         if (team != null && team.isValid()) {
             File file = MigrationStorage.child(backup, "serverutilities/teams/" + team.getId() + ".dat");
             Files.createDirectories(
