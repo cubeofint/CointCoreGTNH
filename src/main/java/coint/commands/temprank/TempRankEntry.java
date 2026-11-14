@@ -13,7 +13,7 @@ import coint.util.TimeUtil;
 public class TempRankEntry {
 
     /** UUID of the player who received the rank. */
-    public final UUID playerUuid;
+    public UUID playerUuid;
     /** Last-known display name, stored for legibility in logs and /trank list. */
     public final String playerName;
     /** The SU rank id (e.g. {@code "helper"}). */
@@ -23,7 +23,11 @@ public class TempRankEntry {
      * {@code -1} means permanent (the entry is kept in storage so it can be
      * revoked with {@code /trank remove}, but it will never expire on its own).
      */
-    public final long expiresAt;
+    public long expiresAt;
+    /** Remaining paid time while a higher donor rank is active; -1 means queued permanent access. */
+    public long pausedMillis;
+    /** Pending purchases use an internal identity until the authenticated player is known. */
+    public boolean pendingIdentity;
     /** Name of the command sender who issued the rank. */
     public final String issuer;
 
@@ -36,11 +40,13 @@ public class TempRankEntry {
     }
 
     public boolean isExpired() {
-        return expiresAt > 0 && System.currentTimeMillis() > expiresAt;
+        return pausedMillis == 0 && expiresAt > 0 && System.currentTimeMillis() >= expiresAt;
     }
 
     /** Human-readable remaining time, or "навсегда" for permanent entries. */
     public String remainingTime() {
+        if (pausedMillis != 0)
+            return "в очереди: " + (pausedMillis < 0 ? "навсегда" : TimeUtil.formatDuration(pausedMillis));
         if (expiresAt < 0) return "навсегда";
         long remaining = expiresAt - System.currentTimeMillis();
         if (remaining <= 0) return "истёк";
@@ -49,6 +55,7 @@ public class TempRankEntry {
 
     /** Formatted expiry date in GMT+3, or "навсегда". */
     public String expireDate() {
+        if (pausedMillis != 0) return "после активации";
         if (expiresAt < 0) return "навсегда";
         ZonedDateTime zdt = Instant.ofEpochMilli(expiresAt)
             .atZone(TimeUtil.getZone());

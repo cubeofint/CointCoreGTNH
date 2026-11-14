@@ -18,6 +18,8 @@ final class AccessSnapshot {
     Map<String, Rules> players = new LinkedHashMap<>();
     Set<String> epochRanks = new LinkedHashSet<>();
     Map<String, Map<String, Long>> parentExpiry = new LinkedHashMap<>();
+    java.util.List<coint.commands.temprank.TempRankEntry> temporaryRanks;
+    java.util.List<DonationDelivery.Grant> kitGrants;
     // Null means OP synchronization is disabled on the publisher, never "revoke everyone".
     Map<String, Operator> operators;
 
@@ -46,6 +48,14 @@ final class AccessSnapshot {
                 throw new IllegalArgumentException("Invalid temporary rank deadlines");
             }
         });
+        if (temporaryRanks != null) for (coint.commands.temprank.TempRankEntry e : temporaryRanks) {
+            if (e == null || e.playerUuid == null
+                || e.playerName == null
+                || e.rankId == null
+                || !definitions.containsKey(e.rankId)
+                || e.pausedMillis < -1
+                || e.expiresAt < -1) throw new IllegalArgumentException("Invalid temporary rank snapshot");
+        }
         if (operators != null) {
             operators.forEach((id, op) -> {
                 UUID.fromString(id);

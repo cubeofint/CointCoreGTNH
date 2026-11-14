@@ -158,6 +158,18 @@ public class CommandKit extends CommandBase {
                 return;
             }
 
+            if ("add".equals(sub) && coint.cluster.DonationDelivery.enabled()) {
+                try {
+                    String receipt = coint.cluster.DonationDelivery
+                        .add(args[2], kitName, amount, args.length > 4 ? args[4] : null);
+                    sendSuccess(
+                        sender,
+                        "Покупка набора сохранена: " + receipt + ". Получения будут доступны на домашней ноде игрока.");
+                } catch (RuntimeException e) {
+                    throw new CommandException(e.getMessage());
+                }
+                return;
+            }
             ForgePlayer target = PlayerLookup.exact(args[2]);
             if (target == null) {
                 sendError(sender, "Игрок не найден: " + args[2]);
@@ -271,7 +283,7 @@ public class CommandKit extends CommandBase {
                     return;
                 }
 
-                if (kit.getMaxClaims() < 0) {
+                if (kit.getMaxClaims() < 0 || KitManager.getKitBonusRemaining(player, name) > 0) {
                     int bonus = KitManager.getKitBonusRemaining(player, name);
                     if (bonus > 0) {
                         for (ItemStack stack : issuedItems) {
@@ -483,6 +495,7 @@ public class CommandKit extends CommandBase {
     }
 
     private boolean hasRemainingClaims(EntityPlayer player, String kitName, KitDefinition kit) {
+        if (KitManager.getKitBonusRemaining(player, kitName) > 0) return true;
         int maxClaims = kit.getMaxClaims();
         if (maxClaims <= 0) {
             return false;
@@ -496,6 +509,7 @@ public class CommandKit extends CommandBase {
      * персональный лимит получений (согласовано с ветками {@code claim}).
      */
     private boolean canClaimKitNow(EntityPlayer player, String kitName, KitDefinition kit) {
+        if (KitManager.getKitBonusRemaining(player, kitName) > 0) return true;
         int maxClaims = kit.getMaxClaims();
         if (maxClaims < 0) {
             return KitManager.getKitBonusRemaining(player, kitName) > 0;
@@ -511,7 +525,8 @@ public class CommandKit extends CommandBase {
             int bonus = KitManager.getKitBonusRemaining(player, kitName);
             return bonus > 0 ? "(" + bonus + ")" : "";
         }
-        return "(" + claims + "/" + maxClaims + ")";
+        int purchased = KitManager.getKitBonusRemaining(player, kitName);
+        return "(" + claims + "/" + maxClaims + (purchased > 0 ? "; куплено: " + purchased : "") + ")";
     }
 
     /**

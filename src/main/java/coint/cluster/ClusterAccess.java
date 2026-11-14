@@ -36,6 +36,7 @@ public final class ClusterAccess {
 
     /** Call at cluster stop/start. Old queued callbacks cannot mutate the next server session. */
     public static void reset() {
+        DonationDelivery.reset();
         generation++;
         authority = "";
         nextPoll = revision = 0;
@@ -86,6 +87,11 @@ public final class ClusterAccess {
             return;
         }
         long now = System.currentTimeMillis();
+        try {
+            DonationDelivery.tick();
+        } catch (RuntimeException e) {
+            CointCore.LOG.error("[Donation] Delivery failed; retained for review/retry", e);
+        }
         if (inFlight || now < nextPoll) {
             return;
         }

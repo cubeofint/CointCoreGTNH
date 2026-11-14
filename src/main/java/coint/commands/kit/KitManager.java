@@ -26,7 +26,7 @@ public final class KitManager {
     private static final String TAG_ITEMS = "items";
     private static final String TAG_MAX_CLAIMS = "maxClaims";
     public static final String TAG_KIT_CLAIM_COUNT = "cointcore_kit_claim_count";
-    /** Остаток выданных «покупных» получений для безлимитных наборов (maxClaims == -1). */
+    /** Purchased claims, independent of the kit's free/default claim limit. */
     public static final String TAG_KIT_BONUS_REMAINING = "cointcore_kit_bonus_remaining";
 
     /**

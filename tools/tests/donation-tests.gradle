@@ -1,0 +1,15 @@
+allprojects { afterEvaluate {
+    tasks.register('compileDonationTests', JavaCompile) {
+        source = fileTree('tools/tests') { include 'DonorQueueTest.java' }
+        destinationDirectory = project.layout.buildDirectory.dir('donation-tests')
+        classpath = sourceSets.main.runtimeClasspath
+        options.encoding = 'UTF-8'
+        sourceCompatibility = '8'; targetCompatibility = '8'
+        dependsOn tasks.named('classes')
+    }
+    tasks.register('testDonationQueue', JavaExec) {
+        dependsOn tasks.named('compileDonationTests')
+        classpath = files(project.layout.buildDirectory.dir('donation-tests')) + sourceSets.main.runtimeClasspath
+        mainClass = 'coint.commands.temprank.DonorQueueTest'
+    }
+}}

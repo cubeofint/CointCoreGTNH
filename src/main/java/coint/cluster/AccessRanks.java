@@ -50,10 +50,14 @@ public final class AccessRanks {
             snapshot.players.put(id.toString(), rules);
         });
         if (authority.equals(ClusterService.nodeId())) {
+            snapshot.temporaryRanks = new ArrayList<>(
+                TempRankManager.get()
+                    .getAllEntries());
+            snapshot.kitGrants = DonationDelivery.snapshot();
             TempRankManager.get()
                 .getAllEntries()
                 .forEach(entry -> {
-                    if (entry.expiresAt > 0) {
+                    if (entry.expiresAt > 0 && entry.pausedMillis == 0 && !entry.pendingIdentity) {
                         snapshot.parentExpiry.computeIfAbsent(entry.playerUuid.toString(), id -> new LinkedHashMap<>())
                             .put(entry.rankId, entry.expiresAt);
                     }
@@ -86,6 +90,9 @@ public final class AccessRanks {
     }
 
     static void apply(AccessSnapshot snapshot, boolean syncOp) {
+        TempRankManager.get()
+            .receiveReplica(snapshot.temporaryRanks);
+        DonationDelivery.receive(snapshot.kitGrants);
         Ranks ranks = Ranks.INSTANCE;
         String before = AccessSnapshot.JSON.toJson(capture(snapshot.authority, syncOp));
         Set<String> localEpochs = localEpochs();

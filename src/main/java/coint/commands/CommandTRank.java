@@ -114,7 +114,7 @@ public class CommandTRank extends CommandBase {
     private void cmdGive(ICommandSender sender, String[] args) throws CommandException {
         if (args.length < 4) throw new WrongUsageException("/trank give <player> <rank> <duration>");
 
-        ForgePlayer fp = resolvePlayer(args[1]);
+        com.mojang.authlib.GameProfile fp = TempRankManager.identity(args[1]);
         String rankId = args[2];
         long durationMs = TimeUtil.parseDuration(args[3]);
 
@@ -125,13 +125,7 @@ public class CommandTRank extends CommandBase {
 
         try {
             TempRankManager.get()
-                .grant(
-                    fp.getProfile()
-                        .getId(),
-                    fp.getName(),
-                    rankId,
-                    durationMs,
-                    sender.getCommandSenderName());
+                .grant(fp.getId(), fp.getName(), rankId, durationMs, sender.getCommandSenderName());
         } catch (Exception e) {
             throw new CommandException(e.getMessage());
         }
@@ -151,7 +145,7 @@ public class CommandTRank extends CommandBase {
             throw new WrongUsageException("/trank extend <player> <rank> <duration>");
         }
 
-        ForgePlayer fp = resolvePlayer(args[1]);
+        com.mojang.authlib.GameProfile fp = TempRankManager.identity(args[1]);
         String rankId = args[2];
         long durationMs = TimeUtil.parseDuration(args[3]);
         if (durationMs < 0) {
@@ -162,8 +156,7 @@ public class CommandTRank extends CommandBase {
             throw new CommandException("Ранг §e" + rankId + "§r не найден в ServerUtilities");
         }
 
-        UUID uuid = fp.getProfile()
-            .getId();
+        UUID uuid = fp.getId();
         TempRankManager mgr = TempRankManager.get();
 
         if (mgr.findActiveTimedEntry(uuid, rankId) != null) {
@@ -201,10 +194,9 @@ public class CommandTRank extends CommandBase {
     private void cmdRemove(ICommandSender sender, String[] args) throws CommandException {
         if (args.length < 3) throw new WrongUsageException("/trank remove <player> <rank>");
 
-        ForgePlayer fp = resolvePlayer(args[1]);
+        com.mojang.authlib.GameProfile fp = TempRankManager.identity(args[1]);
         String rankId = args[2];
-        UUID uuid = fp.getProfile()
-            .getId();
+        UUID uuid = fp.getId();
 
         boolean had = TempRankManager.get()
             .getEntries(uuid)
@@ -227,9 +219,8 @@ public class CommandTRank extends CommandBase {
     private void cmdList(ICommandSender sender, String[] args) throws CommandException {
         if (args.length >= 2) {
             // List for a specific player
-            ForgePlayer fp = resolvePlayer(args[1]);
-            UUID uuid = fp.getProfile()
-                .getId();
+            com.mojang.authlib.GameProfile fp = TempRankManager.identity(args[1]);
+            UUID uuid = fp.getId();
             List<TempRankEntry> list = TempRankManager.get()
                 .getEntries(uuid);
             if (list.isEmpty()) {
