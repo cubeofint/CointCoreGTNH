@@ -146,6 +146,10 @@ public final class MigrationMove {
 
     static String start(ICommandSender sender, ForgePlayer player, String target, String joinTeam, String joinOwner) {
         if (!CommandMigrate.allowed(sender)) return null;
+        if (player == null) {
+            tell(sender, "§cПеренос не начат: профиль игрока не найден");
+            return null;
+        }
         if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning()) {
             tell(sender, "§cНужны cluster, migrationEnabled и общая migrationSharedDirectory.");
             return null;
@@ -608,6 +612,8 @@ public final class MigrationMove {
     }
 
     private static void tell(ICommandSender sender, String text) {
+        if (!(sender instanceof net.minecraft.entity.player.EntityPlayerMP) && text.startsWith("§c"))
+            CointCore.LOG.warn("[TeamMove] {}", text);
         sender.addChatMessage(new net.minecraft.util.ChatComponentText(text));
     }
 

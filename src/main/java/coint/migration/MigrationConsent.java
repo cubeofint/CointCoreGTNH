@@ -46,6 +46,7 @@ public final class MigrationConsent {
     private static final class Request {
 
         String id, source, target, team, player, sourceBoot;
+        String moveId;
         String joinTeam, joinOwner;
         String leader;
         boolean leaderAuthorized;
@@ -378,16 +379,19 @@ public final class MigrationConsent {
                         // over.
                         r.phase = "dispatched";
                         save(r);
-                        MigrationMove.start(
+                        r.moveId = MigrationMove.start(
                             MinecraftServer.getServer(),
                             Universe.get()
                                 .getPlayer(r.player),
                             r.target,
                             r.joinTeam,
                             r.joinOwner);
+                        if (r.moveId == null) r.phase = "failed";
+                        save(r);
                         announce(
                             r,
-                            "§eОтключение команды завершено. Результат запуска миграции записан в консоли исходного сервера.");
+                            r.moveId == null ? "§cПеренос не запущен. Причина отказа записана в журнале [TeamMove]."
+                                : "§eПеренос передан на проверку. ID: " + r.moveId + ". Статус: /migrate move-status " + r.moveId);
                     }
                 } catch (IOException | RuntimeException e) {
                     CointCore.LOG.error("[MigrationConsent] Request failed", e);
