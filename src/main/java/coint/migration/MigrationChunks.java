@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -246,6 +247,75 @@ public final class MigrationChunks {
             }
         }
         return drained;
+    }
+
+    /** Called only on the frozen source, after the destination confirmed the import. */
+    static void resetExternalSource(MoveRecord move, File backup) throws IOException {
+        Map<File, List<int[]>> regions = new LinkedHashMap<>();
+        Map<File, File> copies = new LinkedHashMap<>();
+        for (int[] c : move.claims) {
+            if (move.dimensions.contains(c[0])) continue;
+            checkPlayers(c);
+            WorldServer world = DimensionManager.getWorld(c[0]);
+            if (!MigrationGuard.sourceChunk(c[0], c[1], c[2]))
+                throw new IOException("Source chunk is not frozen: " + MoveRecord.key(c));
+            if (world != null && world.theChunkProviderServer.loadedChunkHashMap
+                .getValueByKey(ChunkCoordIntPair.chunkXZ2Int(c[1], c[2])) != null)
+                throw new IOException("Source chunk is still loaded: " + MoveRecord.key(c));
+            ClaimedChunk claim = ClaimedChunks.instance.getChunk(new ChunkDimPos(c[1], c[2], c[0]));
+            if (claim != null && !claim.getTeam()
+                .getId()
+                .equals(move.team)) throw new IOException("Source chunk changed owner: " + MoveRecord.key(c));
+            net.minecraft.world.WorldProvider provider = world == null ? DimensionManager.createProviderFor(c[0])
+                : world.provider;
+            if (provider == null) throw new IOException("Missing source provider: " + c[0]);
+            File folder = MigrationStorage.session().world;
+            if (provider.getSaveFolder() != null) folder = MigrationStorage.child(folder, provider.getSaveFolder());
+            String regionName = "r." + (c[1] >> 5) + "." + (c[2] >> 5) + ".mca";
+            File region = MigrationStorage.child(folder, "region/" + regionName);
+            regions.computeIfAbsent(region, ignored -> new ArrayList<>())
+                .add(c);
+            copies.put(region, MigrationStorage.child(backup, "external-regions/" + c[0] + "/" + regionName));
+        }
+        try {
+            ThreadedFileIOBase.threadedIOInstance.waitForFinish();
+        } catch (InterruptedException e) {
+            Thread.currentThread()
+                .interrupt();
+            throw new IOException(e);
+        }
+        RegionFileCache.clearRegionFileReferences();
+        // Preserve all affected regions before the first deletion. The transfer ZIP also retains each original chunk.
+        for (Map.Entry<File, File> entry : copies.entrySet()) {
+            Files.createDirectories(
+                entry.getValue()
+                    .toPath()
+                    .getParent());
+            if (!entry.getValue()
+                .isFile()) {
+                java.nio.file.Path temporary = entry.getValue()
+                    .toPath()
+                    .resolveSibling(
+                        entry.getValue()
+                            .getName() + ".tmp");
+                Files.copy(
+                    entry.getKey()
+                        .toPath(),
+                    temporary,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel
+                    .open(temporary, java.nio.file.StandardOpenOption.WRITE)) {
+                    channel.force(true);
+                }
+                Files.move(
+                    temporary,
+                    entry.getValue()
+                        .toPath(),
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            }
+        }
+        for (Map.Entry<File, List<int[]>> entry : regions.entrySet())
+            MigrationRegionReset.erase(entry.getKey(), entry.getValue());
     }
 
     static List<int[]> external(Map<String, Object> manifest) throws IOException {

@@ -7,6 +7,7 @@ public enum Mixins implements IMixins {
 
     VANILLA(new MixinBuilder("Vanilla/Forge").addCommonMixins(
         "minecraft.MixinCommandMessage",
+        "minecraft.MixinDimensionManagerMissingWorldTrace",
         "minecraft.MixinChunkProviderMigrationFreeze",
         "minecraft.AccessorQueuedMigrationChunk",
         "minecraft.MixinChunkIOMigrationFreeze",

@@ -315,6 +315,10 @@ public final class MigrationMove {
             if (target) {
                 MigrationGuard.release(move.id);
                 MigrationChunks.activate(move);
+            } else if (has(move, "source-chunks-reset")) {
+                if (!read(move, "source-chunks-reset").equals(archiveHash(move)))
+                    throw new IOException("Invalid source chunk reset receipt");
+                MigrationGuard.releaseExternalSource(move);
             }
             ClusterMoveHomes.refresh(move);
             MigrationExporter.saveEverything(MinecraftServer.getServer());
@@ -497,6 +501,7 @@ public final class MigrationMove {
             }
         }
         if (!unloaded) return false;
+        if (!MigrationChunks.drainSource(move)) return false;
         MigrationExporter.saveEverything(MinecraftServer.getServer());
         File root = MigrationStorage.session().world;
         File backup = MigrationStorage.child(MigrationStorage.localDirectory(), "retired/" + move.id);
@@ -505,6 +510,8 @@ public final class MigrationMove {
         if (!new File(backup, MigrationGlobalData.FILE).isFile()) MigrationGlobalData.write(backup, move);
         MigrationGlobalData.apply(MigrationGlobalData.read(backup), move, true);
         RegionFileCache.clearRegionFileReferences();
+        MigrationChunks.resetExternalSource(move, backup);
+        put(move, "source-chunks-reset", archiveHash(move));
         for (int dim : move.dimensions) {
             if (MigrationStations.get(move, dim) != null) {
                 MigrationStations.forget(dim);
@@ -539,7 +546,7 @@ public final class MigrationMove {
         if (move.joining()) MigrationJoining.retireMember(move);
         else if (team != null && team.isValid()) TeamsManager.get()
             .removeDimBind(team);
-        for (int[] c : move.claims) if (move.dimensions.contains(c[0]))
+        for (int[] c : move.claims)
             ClaimedChunks.instance.removeChunk(new serverutils.lib.math.ChunkDimPos(c[1], c[2], c[0]));
         MigrationExporter.saveEverything(MinecraftServer.getServer());
         return true;

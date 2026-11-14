@@ -94,6 +94,13 @@ public final class MigrationGuard {
         rebuild();
     }
 
+    /** Keep whole retired dimensions blocked, but allow erased external chunks to generate again. */
+    static void releaseExternalSource(MoveRecord move) throws IOException {
+        MoveRecord retained = JSON.fromJson(JSON.toJson(move), MoveRecord.class);
+        retained.claims.removeIf(c -> !retained.dimensions.contains(c[0]));
+        freeze(retained);
+    }
+
     private static File directory() {
         return new File("cointcore/migration-freezes");
     }
@@ -158,6 +165,11 @@ public final class MigrationGuard {
             && !world.isRemote
             && world.provider != null
             && snapshot.contains(snapshot.sourceDimensions, snapshot.sourceChunks, world.provider.dimensionId, x, z);
+    }
+
+    static boolean sourceChunk(int dimension, int x, int z) {
+        Index snapshot = index;
+        return !snapshot.empty && snapshot.contains(snapshot.sourceDimensions, snapshot.sourceChunks, dimension, x, z);
     }
 
     private static final class Index {
