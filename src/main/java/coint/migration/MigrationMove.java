@@ -514,10 +514,12 @@ public final class MigrationMove {
         put(move, "source-chunks-reset", archiveHash(move));
         for (int dim : move.dimensions) {
             if (MigrationStations.get(move, dim) != null) {
-                MigrationStations.forget(dim);
-                archiveFile(root, backup, MigrationStations.folder(dim));
-                archiveFile(root, backup, MigrationStations.metadata(dim));
-                archiveFile(root, backup, MigrationStations.metadata(dim) + "_old");
+                MigrationStations.Station station = MigrationStations.get(move, dim);
+                if (station.shipId > 0) MigrationMotherships.forget(move, station, backup);
+                else MigrationStations.forget(dim);
+                archiveFile(root, backup, MigrationStations.folder(station));
+                archiveFile(root, backup, MigrationStations.metadata(station));
+                archiveFile(root, backup, MigrationStations.metadata(station) + "_old");
                 continue;
             }
             archiveFile(root, backup, "PERSONAL_DIM_" + dim);

@@ -41,6 +41,9 @@ public final class MigrationStations {
 
         public int id, home, dynamic, fixed;
         public String owner;
+        /** Nonzero for AmunRa ships; id remains the Minecraft dimension ID. */
+        public int shipId;
+        public String ownerUuid, parent;
     }
 
     static Station get(MoveRecord move, int dim) {
@@ -48,16 +51,17 @@ public final class MigrationStations {
         return null;
     }
 
-    static String folder(int id) {
-        return "DIM_SPACESTATION" + id;
+    static String folder(Station s) {
+        return (s.shipId > 0 ? "DIM_MOTHERSHIP" : "DIM_SPACESTATION") + s.id;
     }
 
-    static String metadata(int id) {
-        return "data/spacestation_" + id + ".dat";
+    static String metadata(Station s) {
+        return "data/" + (s.shipId > 0 ? "cointcore_mothership_" : "spacestation_") + s.id + ".dat";
     }
 
     static String folder(MoveRecord move, int id) {
-        return get(move, id) == null ? "PERSONAL_DIM_" + id : folder(id);
+        Station s = get(move, id);
+        return s == null ? "PERSONAL_DIM_" + id : folder(s);
     }
 
     static Station read(File file, int id) throws IOException {
@@ -69,6 +73,7 @@ public final class MigrationStations {
     }
 
     static Station describe(NBTTagCompound nbt, int id) throws IOException {
+        if (nbt.hasKey("dim", 3) && nbt.hasKey("id", 3)) return MigrationMotherships.describe(nbt, id);
         for (String key : new String[] { "homePlanet", "dimensionIdDynamic", "dimensionIdStatic" })
             if (!nbt.hasKey(key, 3)) throw new IOException("Нет параметра " + key + " станции " + id);
         Station s = new Station();
@@ -82,6 +87,8 @@ public final class MigrationStations {
     }
 
     static void same(Station a, Station b) throws IOException {
+        if (a.shipId != b.shipId || !java.util.Objects.equals(a.ownerUuid, b.ownerUuid)
+            || !java.util.Objects.equals(a.parent, b.parent)) throw new IOException("Изменился Mothership " + a.id);
         if (a.id != b.id || a.home != b.home
             || a.dynamic != b.dynamic
             || a.fixed != b.fixed
@@ -91,6 +98,7 @@ public final class MigrationStations {
 
     static List<Station> discover(ForgeTeam team) throws IOException {
         List<Station> result = new ArrayList<>();
+        result.addAll(MigrationMotherships.discover(team));
         if (WorldUtil.registeredSpaceStations == null) return result;
         Set<String> names = new HashSet<>();
         for (ForgePlayer p : team.getMembers()) names.add(
@@ -113,6 +121,10 @@ public final class MigrationStations {
     }
 
     static void checkProvider(Station s) throws IOException {
+        if (s.shipId > 0) {
+            MigrationMotherships.checkProvider(s);
+            return;
+        }
         boolean match = false;
         for (Satellite satellite : GalaxyRegistry.getRegisteredSatellites()
             .values())
@@ -122,26 +134,30 @@ public final class MigrationStations {
     }
 
     static boolean installed(MoveRecord move, Station s, File root) throws IOException {
-        File marker = MigrationStorage.child(root, folder(s.id) + "/.cointcore-move");
+        File marker = MigrationStorage.child(root, folder(s) + "/.cointcore-move");
         return marker.isFile()
             && move.id.equals(new String(Files.readAllBytes(marker.toPath()), StandardCharsets.UTF_8));
     }
 
     static void check(MoveRecord move, Station s, boolean target) throws IOException {
+        if (s.shipId > 0) {
+            MigrationMotherships.check(move, s, target);
+            return;
+        }
         checkProvider(s);
         File root = MigrationStorage.session().world;
         if (target) {
             if (installed(move, s, root)) {
-                same(s, read(MigrationStorage.child(root, metadata(s.id)), s.id));
+                same(s, read(MigrationStorage.child(root, metadata(s)), s.id));
                 if (!DimensionManager.isDimensionRegistered(s.id)
                     || (DimensionManager.getProviderType(s.id) != s.dynamic
                         && DimensionManager.getProviderType(s.id) != s.fixed))
                     throw new IOException("Провайдер установленной станции изменился: " + s.id);
                 return;
             }
-            if (DimensionManager.isDimensionRegistered(s.id) || MigrationStorage.child(root, folder(s.id))
+            if (DimensionManager.isDimensionRegistered(s.id) || MigrationStorage.child(root, folder(s))
                 .exists()
-                || MigrationStorage.child(root, metadata(s.id))
+                || MigrationStorage.child(root, metadata(s))
                     .exists())
                 throw new IOException("ID/файлы станции " + s.id + " уже заняты на цели");
         } else {
@@ -153,13 +169,17 @@ public final class MigrationStations {
             NBTTagCompound data = new NBTTagCompound();
             saved.writeToNBT(data);
             same(s, describe(data, s.id));
-            if (!MigrationStorage.child(root, folder(s.id))
+            if (!MigrationStorage.child(root, folder(s))
                 .isDirectory()) throw new IOException("Нет папки станции " + s.id);
         }
     }
 
     static void register(MoveRecord move, Station s, File root) throws IOException {
-        same(s, read(MigrationStorage.child(root, metadata(s.id)), s.id));
+        if (s.shipId > 0) {
+            MigrationMotherships.register(move, s, root);
+            return;
+        }
+        same(s, read(MigrationStorage.child(root, metadata(s)), s.id));
         checkProvider(s);
         if (DimensionManager.isDimensionRegistered(s.id))
             throw new IOException("ID станции занят перед регистрацией: " + s.id);
@@ -168,7 +188,7 @@ public final class MigrationStations {
         WorldUtil.registeredSpaceStations.put(s.id, provider);
         WorldUtil.dimNames.put(s.id, "Space Station " + s.id);
         Files.write(
-            MigrationStorage.child(root, folder(s.id) + "/.cointcore-move")
+            MigrationStorage.child(root, folder(s) + "/.cointcore-move")
                 .toPath(),
             move.id.getBytes(StandardCharsets.UTF_8));
         broadcast();

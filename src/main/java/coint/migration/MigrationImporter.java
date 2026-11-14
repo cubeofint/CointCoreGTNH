@@ -365,7 +365,8 @@ public final class MigrationImporter {
                     if (!incoming.isDirectory()) throw new IOException("Нет папки станции " + id);
                     MigrationStations.same(
                         station,
-                        MigrationStations.read(MigrationStorage.child(source, MigrationStations.metadata(id)), id));
+                        MigrationStations
+                            .read(MigrationStorage.child(source, MigrationStations.metadata(station)), id));
                     continue;
                 }
                 File metadata = MigrationStorage.child(incoming, DIM_METADATA);
@@ -513,7 +514,7 @@ public final class MigrationImporter {
                 move(new File(sourceRoot, folder), new File(worldDir, folder), new File(replaced, folder));
                 int id = (int) num(d.get("dimension"));
                 if (MigrationStations.get(operation.move, id) != null) {
-                    String metadata = MigrationStations.metadata(id);
+                    String metadata = MigrationStations.metadata(MigrationStations.get(operation.move, id));
                     move(
                         MigrationStorage.child(sourceRoot, metadata),
                         MigrationStorage.child(worldDir, metadata),

@@ -145,7 +145,7 @@ public final class MigrationExporter {
             for (int dimId : dims) {
                 MigrationStations.Station station = MigrationStations.get(move, dimId);
                 DimensionConfig config = DimensionConfig.getForDimension(dimId, false);
-                String folder = station != null ? MigrationStations.folder(dimId)
+                String folder = station != null ? MigrationStations.folder(station)
                     : config == null ? "PERSONAL_DIM_" + dimId : config.getSaveDir(dimId);
                 if (dimId <= 1 || !folder.equals(MigrationStations.folder(move, dimId)))
                     throw new IOException("Unsupported personal dimension folder: " + folder);
@@ -155,11 +155,12 @@ public final class MigrationExporter {
                 info.put("folder", folder);
                 if (station != null) {
                     MigrationStations.check(move, station, false);
+                    MigrationMotherships.snapshot(move, station, worldDir);
                     MigrationStations.same(
                         station,
                         MigrationStations
-                            .read(MigrationStorage.child(worldDir, MigrationStations.metadata(dimId)), dimId));
-                    addFile(worldDir, worldName, MigrationStations.metadata(dimId), files, missing);
+                            .read(MigrationStorage.child(worldDir, MigrationStations.metadata(station)), dimId));
+                    addFile(worldDir, worldName, MigrationStations.metadata(station), files, missing);
                 }
                 if (dimDir.isDirectory()) {
                     addTree(dimDir, worldName + "/" + folder, files);
@@ -243,7 +244,9 @@ public final class MigrationExporter {
                 if (move != null && (entry.getValue()
                     .startsWith(worldName + "/PERSONAL_DIM_")
                     || entry.getValue()
-                        .startsWith(worldName + "/DIM_SPACESTATION"))) {
+                        .startsWith(worldName + "/DIM_SPACESTATION")
+                    || entry.getValue()
+                        .startsWith(worldName + "/DIM_MOTHERSHIP"))) {
                     // The move already unloaded and locked these worlds. Large region files are immutable now.
                     deferredPersonalFiles.put(entry.getKey(), dest);
                 } else {

@@ -52,6 +52,7 @@ public final class MoveRecord {
             if (dim <= 1 || !dims.add(dim)) throw new IllegalArgumentException("Invalid personal dimension");
         }
         Set<Integer> stationIds = new HashSet<>();
+        Set<Integer> shipIds = new HashSet<>();
         for (MigrationStations.Station station : stations) {
             if (station == null || !dims.contains(station.id)
                 || !stationIds.add(station.id)
@@ -59,6 +60,11 @@ public final class MoveRecord {
                 || names.stream()
                     .noneMatch(n -> n.equalsIgnoreCase(station.owner)))
                 throw new IllegalArgumentException("Invalid station ownership");
+            if (station.shipId < 0
+                || (station.shipId > 0 && (!shipIds.add(station.shipId) || !players.contains(station.ownerUuid)
+                    || station.parent == null
+                    || station.parent.isEmpty())))
+                throw new IllegalArgumentException("Invalid mothership ownership");
         }
         if (joining()) {
             if (joinTeam.isEmpty() || players.size() != 1
