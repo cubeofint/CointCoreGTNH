@@ -75,6 +75,15 @@ public final class GuestGuard {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onInteract(PlayerInteractEvent event) {
+        if (event.action == PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK
+            && event.world.getBlock(event.x, event.y, event.z) instanceof coint.cards.BlockCardTable
+            && ClusterService.isRunning()
+            && ClusterHub.isHub()) {
+            event.setCanceled(true);
+            if (event.entityPlayer instanceof EntityPlayerMP player)
+                coint.cards.CardTables.use(player, event.x, event.y, event.z);
+            return;
+        }
         if (ClusterHomes.isGuest(event.entityPlayer)) {
             event.setCanceled(true);
             if (event.action != PlayerInteractEvent.Action.LEFT_CLICK_BLOCK) {

@@ -14,7 +14,6 @@ import java.util.UUID;
 
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.event.ClickEvent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 
@@ -31,7 +30,7 @@ import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.ForgeTeam;
 import serverutils.lib.data.Universe;
 
-/** Only gathers consent and disconnects players; the existing move owns all data transfer. */
+/** Leader-authorized warning and disconnect sequence; the existing move owns all data transfer. */
 @EventBusSubscriber
 public final class MigrationConsent {
 
@@ -48,6 +47,8 @@ public final class MigrationConsent {
 
         String id, source, target, team, player, sourceBoot;
         String joinTeam, joinOwner;
+        String leader;
+        boolean leaderAuthorized;
         List<String> members = new ArrayList<>();
         long expires, countdown;
         String phase = "pending";
@@ -105,7 +106,8 @@ public final class MigrationConsent {
     }
 
     private static boolean active(Request r) {
-        return System.currentTimeMillis() < r.expires
+        return r.joinTeam == null && r.leaderAuthorized
+            && System.currentTimeMillis() < r.expires
             && ("pending".equals(r.phase) || "countdown".equals(r.phase) || "drain".equals(r.phase));
     }
 
@@ -146,6 +148,12 @@ public final class MigrationConsent {
     static void requestJoin(ICommandSender sender, ForgePlayer player, String target, String joinTeam,
         String joinOwner) {
         try {
+            if (joinTeam != null) throw new IOException("Перенос отдельного игрока отключён; переносите всю команду");
+            if (sender instanceof EntityPlayerMP actor && !coint.commands.CommandMigrate.allowed(sender)
+                && (!player.hasTeam() || !player.team.isOwner(
+                    Universe.get()
+                        .getPlayer(actor))))
+                throw new IOException("Перенос запускает только лидер своей команды или администратор");
             if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning()
                 || (!player.hasTeam() && joinTeam == null))
                 throw new IOException("Нужны работающий кластер, миграция и команда SU");
@@ -161,6 +169,10 @@ public final class MigrationConsent {
             r.joinTeam = joinTeam;
             r.joinOwner = joinOwner;
             r.player = player.getName();
+            r.leader = player.hasTeam() && player.team.getOwner() != null ? player.team.getOwner()
+                .getId()
+                .toString() : null;
+            r.leaderAuthorized = true;
             if (joinTeam == null) r.members.addAll(members(player.team));
             else r.members.add(
                 player.getId()
@@ -191,7 +203,7 @@ public final class MigrationConsent {
             save(r);
             sender.addChatMessage(
                 new ChatComponentText(
-                    "§eЗапрос переноса " + r.id + ": все онлайн-участники должны подтвердить. Срок 10 минут."));
+                    "§eПеренос команды " + r.id + " поставлен в очередь. Участников предупредим перед отключением."));
         } catch (IOException | RuntimeException e) {
             sender.addChatMessage(new ChatComponentText("§cЗапрос не создан: " + e.getMessage()));
         }
@@ -208,12 +220,13 @@ public final class MigrationConsent {
             .toString();
         if (!active(r) || !r.members.contains(uuid) || "drain".equals(r.phase))
             throw new IOException("Запрос недоступен");
+        if (!uuid.equals(r.leader)) throw new IOException("Отменить перенос может только лидер команды");
         mark(r, uuid, "required");
         mark(r, uuid, yes ? "yes" : "no");
         player.addChatMessage(
             new ChatComponentText(
-                yes ? "§aСогласие записано. При готовности всех участников будет предупреждение об отключении."
-                    : "§eОтказ записан. Перенос не будет запущен."));
+                yes ? "§aПеренос уже разрешён лидером. Перед отключением будет предупреждение."
+                    : "§eЛидер отменил перенос."));
     }
 
     public static String loginReason(UUID player) {
@@ -230,6 +243,7 @@ public final class MigrationConsent {
     }
 
     private static boolean agreed(Request r, Set<String> online) throws IOException {
+        if (r.leaderAuthorized) return r.leader != null && !Files.exists(dir(r).resolve(r.leader + ".no"));
         boolean all = true;
         for (String id : r.members) {
             if (online.contains(id)) mark(r, id, "required");
@@ -273,25 +287,14 @@ public final class MigrationConsent {
                 if ("pending".equals(r.phase) && notices.add(r.id + uuid + ":" + r.phase)) {
                     p.addChatMessage(
                         new ChatComponentText(
-                            (r.joinTeam == null ? "§eПеренос всей команды: "
-                                : "§eПеренос только ваших личных данных, без старой базы: ") + r.source
+                            "§eЛидер/администратор запустил перенос всей команды: " + r.source
                                 + " → "
                                 + r.target
-                                + ". Вас отключат для сохранения данных после согласия всех онлайн-участников."));
-                    ChatComponentText yes = new ChatComponentText("§a[Согласен] ");
-                    yes.getChatStyle()
-                        .setChatClickEvent(
-                            new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/migrate-confirm " + r.id + " yes"));
-                    ChatComponentText no = new ChatComponentText("§c[Отказаться]");
-                    no.getChatStyle()
-                        .setChatClickEvent(
-                            new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/migrate-confirm " + r.id + " no"));
-                    yes.appendSibling(no);
-                    p.addChatMessage(yes);
+                                + ". Отключение будет после предупреждения."));
                 }
                 if ("countdown".equals(r.phase) && notices.add(r.id + uuid + ":" + r.countdown)) p.addChatMessage(
                     new ChatComponentText(
-                        "§eВсе подтвердили перенос. Отключение для сохранения данных через 15 секунд. До отключения можно отказаться: /migrate-confirm "
+                        "§eПеренос всей команды. Отключение для сохранения данных через 15 секунд. Лидер может отменить: /migrate-confirm "
                             + r.id
                             + " no"));
                 if ("drain".equals(r.phase) && agreed(r, java.util.Collections.emptySet()))
@@ -311,7 +314,7 @@ public final class MigrationConsent {
                     Request r = read(dir(stale).resolve("request.json"));
                     if (!active(r)) continue;
                     boolean refused = false;
-                    for (String id : r.members) refused |= Files.exists(dir(r).resolve(id + ".no"));
+                    refused = r.leader != null && Files.exists(dir(r).resolve(r.leader + ".no"));
                     if (refused) {
                         r.phase = "cancelled";
                         save(r);
@@ -338,7 +341,12 @@ public final class MigrationConsent {
                     boolean changed = r.joinTeam == null
                         ? team == null || !team.isValid() || !members(team).equals(new HashSet<>(r.members))
                         : joining == null || !(joining.hasTeam() ? joining.team.getId() : "unassigned").equals(r.team);
-                    if (changed) {
+                    if (changed || team == null
+                        || team.getOwner() == null
+                        || !team.getOwner()
+                            .getId()
+                            .toString()
+                            .equals(r.leader)) {
                         r.phase = "cancelled";
                         save(r);
                         announce(r, "§cПеренос отменён: изменился состав команды.");
@@ -379,7 +387,7 @@ public final class MigrationConsent {
                             r.joinOwner);
                         announce(
                             r,
-                            "§eСогласование завершено. Результат запуска миграции записан в консоли исходного сервера.");
+                            "§eОтключение команды завершено. Результат запуска миграции записан в консоли исходного сервера.");
                     }
                 } catch (IOException | RuntimeException e) {
                     CointCore.LOG.error("[MigrationConsent] Request failed", e);

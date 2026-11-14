@@ -12,7 +12,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 
 import com.google.gson.Gson;
-import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
 import coint.CointCore;
@@ -26,7 +25,6 @@ import serverutils.lib.data.ForgeTeam;
 import serverutils.lib.data.Universe;
 
 /** A legitimate SU join on the destination requests a personal move from the authoritative home. */
-@EventBusSubscriber
 public final class MigrationJoining {
 
     private static final Gson JSON = new Gson();

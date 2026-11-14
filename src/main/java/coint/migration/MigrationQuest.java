@@ -41,7 +41,7 @@ public final class MigrationQuest {
             if (!Universe.loaded()) return;
             ForgePlayer player = Universe.get()
                 .getPlayer(playerId);
-            if (player != null) MigrationConsent
+            if (player != null && player.hasTeam() && player.team.isOwner(player)) MigrationConsent
                 .request(MinecraftServer.getServer(), player, CointConfig.cluster.migrationQuestTargetNode.trim());
         });
     }

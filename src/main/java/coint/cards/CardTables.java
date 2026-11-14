@@ -41,13 +41,20 @@ public final class CardTables {
     }
 
     /** A player used a table: he sits down (if there is a seat) and its window opens. */
-    static void use(EntityPlayerMP player, int x, int y, int z) {
+    public static void use(EntityPlayerMP player, int x, int y, int z) {
         int dim = player.worldObj.provider.dimensionId;
         CardGame game = games.computeIfAbsent(key(dim, x, y, z), k -> new CardGame(dim, x, y, z));
         CardGame other = gameOf(player.getUniqueID());
         if (other != null && other != game) {
             other.leave(player.getUniqueID());
             changed(other);
+        }
+        if (game.spectators.contains(player.getUniqueID())
+            || game.phase != CardGame.Phase.LOBBY && !game.players.contains(player.getUniqueID())) {
+            game.watch(player.getUniqueID());
+            changed(game);
+            send(player, PacketCardState.of(game, player.getUniqueID(), true, null));
+            return;
         }
         String error = game.join(player.getUniqueID(), player.getCommandSenderName());
         if (error != null && !game.players.contains(player.getUniqueID())) {

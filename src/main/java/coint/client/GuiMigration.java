@@ -40,7 +40,7 @@ public final class GuiMigration extends GuiScreen {
         int x = (width - w) / 2;
         int half = (w - 4) / 2;
         int y = top();
-        String previous = name == null ? "" : name.getText();
+        String previous = name == null ? mc.thePlayer.getCommandSenderName() : name.getText();
         name = new GuiTextField(fontRendererObj, x + 34, y + 48, Math.max(30, half - 38), 18);
         name.setMaxStringLength(16);
         name.setText(previous);
@@ -49,7 +49,7 @@ public final class GuiMigration extends GuiScreen {
         sourceButton = add(1, x, y + 20, half, "");
         add(2, x + half + 4, y + 20, w - half - 4, "Перейти на источник");
         targetButton = add(3, x + half + 4, y + 47, w - half - 4, "");
-        exportButton = add(4, x, y + 72, w, "Перенести команду с подтверждением участников");
+        exportButton = add(4, x, y + 72, w, "Перенести всю команду (предупреждение и отключение)");
         archiveButton = add(5, x, y + 98, half, "");
         queueButton = add(6, x + half + 4, y + 98, w - half - 4, "ZIP → очередь");
         requestButton = add(7, x, y + 127, w, "");
@@ -57,6 +57,13 @@ public final class GuiMigration extends GuiScreen {
         add(9, x, y + 195, half, "Обновить");
         add(10, x + half + 4, y + 195, w - half - 4, "Закрыть");
         refresh();
+        for (Object entry : buttonList) {
+            GuiButton button = (GuiButton) entry;
+            if (button.id >= 5 && button.id <= 8) {
+                button.visible = false;
+                button.enabled = false;
+            }
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -214,8 +221,7 @@ public final class GuiMigration extends GuiScreen {
         fontRendererObj.drawString("Ник:", left, top + 53, 0xFFFFFF);
         name.drawTextBox();
         String[] row = selectedRequest();
-        String detail = row == null ? "Импорт запускается только явным подтверждением"
-            : row[2] + " → " + state.current + " | " + row[0];
+        String detail = "Переносятся команда и база. ZIP выбирать не нужно.";
         drawCenteredString(
             fontRendererObj,
             fontRendererObj.trimStringToWidth(detail, panelWidth()),

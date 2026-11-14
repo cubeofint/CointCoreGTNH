@@ -11,6 +11,9 @@ public final class CommandGuestGod extends CmdGod {
 
     public boolean serverutilities$hasPermission(EntityPlayerMP player) {
         if (ClusterComfort.guestCommands(player)) return true;
+        if (net.minecraft.server.MinecraftServer.getServer()
+            .getConfigurationManager()
+            .func_152596_g(player.getGameProfile())) return true;
         cpw.mods.fml.common.eventhandler.Event.Result result = serverutils.ranks.Ranks.INSTANCE
             .getPermissionResult(player, "command.serverutilities.god", true);
         return result == cpw.mods.fml.common.eventhandler.Event.Result.DEFAULT
@@ -20,8 +23,8 @@ public final class CommandGuestGod extends CmdGod {
 
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
-        return sender instanceof EntityPlayerMP player && ClusterComfort.guestCommands(player)
-            || super.canCommandSenderUseCommand(sender);
+        return sender instanceof EntityPlayerMP player ? serverutilities$hasPermission(player)
+            : super.canCommandSenderUseCommand(sender);
     }
 
     @Override

@@ -76,7 +76,7 @@ public final class MigrationCoordinator {
     }
 
     public static void open(EntityPlayerMP player) {
-        if (!CommandMigrate.allowed(player)) return;
+        if (!CommandMigrate.canOpen(player)) return;
         MigrationNetwork.State state = new MigrationNetwork.State();
         state.current = ClusterService.isRunning() ? ClusterService.nodeId() : "local";
         state.nodes.add(state.current);
@@ -107,13 +107,13 @@ public final class MigrationCoordinator {
             }
             return state;
         }, result -> {
-            if (CommandMigrate.allowed(player) && player.playerNetServerHandler != null) {
+            if (CommandMigrate.canOpen(player) && player.playerNetServerHandler != null) {
                 knownNodes = new ArrayList<>(result.nodes);
                 MigrationNetwork.open(player, result);
             }
         }, error -> {
             tell(player, "§cОчередь недоступна: " + error);
-            if (CommandMigrate.allowed(player)) MigrationNetwork.open(player, state);
+            if (CommandMigrate.canOpen(player)) MigrationNetwork.open(player, state);
         });
     }
 

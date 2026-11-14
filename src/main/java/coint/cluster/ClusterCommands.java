@@ -53,7 +53,7 @@ import serverutils.lib.util.permission.PermissionAPI;
 public final class ClusterCommands {
 
     /** What may be run here for an admin of another server. */
-    private static final Set<String> REMOTE = new HashSet<>(Arrays.asList("fly", "god", "heal", "nickfor"));
+    private static final Set<String> REMOTE = new HashSet<>(Arrays.asList("nickfor"));
     private static final long TPL_MS = 30_000;
     private static final String ASK = "ask:", GO = "go:", FAIL = "fail:";
 

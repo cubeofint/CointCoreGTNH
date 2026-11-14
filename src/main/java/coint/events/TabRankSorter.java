@@ -176,10 +176,7 @@ public final class TabRankSorter {
         for (PlayerEntry entry : entries) {
             if (entry.primaryRank == null) continue;
             JsonObject playerData = new JsonObject();
-            playerData.addProperty(
-                "displayName",
-                (coint.cluster.ClusterService.isRunning() ? "§7[" + coint.cluster.ClusterService.displayName() + "] §r"
-                    : "") + buildDisplayName(entry));
+            playerData.addProperty("displayName", buildDisplayName(entry));
             players.add(entry.name, playerData);
             customNames.add(entry.name);
         }

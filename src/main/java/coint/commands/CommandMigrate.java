@@ -48,7 +48,19 @@ public class CommandMigrate extends CommandBase {
 
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {
-        return allowed(sender);
+        return canOpen(sender);
+    }
+
+    public boolean serverutilities$hasPermission(EntityPlayerMP player) {
+        return canOpen(player);
+    }
+
+    public static boolean canOpen(ICommandSender sender) {
+        if (allowed(sender)) return true;
+        if (!(sender instanceof EntityPlayerMP player) || !Universe.loaded()) return false;
+        ForgePlayer fp = Universe.get()
+            .getPlayer(player);
+        return fp != null && fp.hasTeam() && fp.team.isOwner(fp);
     }
 
     public static boolean allowed(ICommandSender sender) {
@@ -60,6 +72,28 @@ public class CommandMigrate extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) throws CommandException {
+        if (!allowed(sender)) {
+            if (!canOpen(sender)) throw new CommandException("Перенос доступен только лидеру команды");
+            EntityPlayerMP leader = (EntityPlayerMP) sender;
+            if (args.length == 0 || args.length == 1 && "ui".equalsIgnoreCase(args[0])) {
+                MigrationCoordinator.open(leader);
+                return;
+            }
+            if (args.length == 3 && "request".equalsIgnoreCase(args[0])
+                && leader.getCommandSenderName()
+                    .equalsIgnoreCase(args[1])
+                && coint.cluster.ClusterService.nodeId()
+                    .equals(coint.CointConfig.cluster.migrationQuestSourceNode.trim())
+                && args[2].equals(coint.CointConfig.cluster.migrationQuestTargetNode.trim())) {
+                coint.migration.MigrationConsent.request(
+                    leader,
+                    Universe.get()
+                        .getPlayer(leader),
+                    args[2]);
+                return;
+            }
+            throw new CommandException("Лидер переносит только свою команду с исходного сервера: /migrate ui");
+        }
         if (args.length >= 1 && "batch".equalsIgnoreCase(args[0])) {
             if (!allowed(sender)) throw new CommandException("commands.generic.permission");
             try {
