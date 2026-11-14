@@ -188,13 +188,22 @@ public final class MigrationMove {
             move.claims.add(new int[] { claim.getPos().dim, claim.getPos().posX, claim.getPos().posZ, forced ? 1 : 0 });
         }
         try {
+            if (!move.joining()) {
+                move.stations.addAll(MigrationStations.discover(player.team));
+                for (MigrationStations.Station station : move.stations) {
+                    if (move.dimensions.contains(station.id))
+                        throw new IOException("Конфликт персоналки и станции " + station.id);
+                    move.dimensions.add(station.id);
+                }
+            }
             move.validate();
             File sourceWorld = MigrationStorage.session().world;
             for (String uuid : move.players) if (!MigrationStorage.child(sourceWorld, "playerdata/" + uuid + ".dat")
                 .isFile()) throw new IOException("Нет сохранённых данных игрока " + uuid);
-            for (int dim : move.dimensions)
-                if (!MigrationStorage.child(sourceWorld, "PERSONAL_DIM_" + dim + "/personalspace_metadata.cfg")
-                    .isFile()) throw new IOException("Нет метаданных персоналки " + dim);
+            for (int dim : move.dimensions) if (MigrationStations.get(move, dim) == null
+                && !MigrationStorage.child(sourceWorld, "PERSONAL_DIM_" + dim + "/personalspace_metadata.cfg")
+                    .isFile())
+                throw new IOException("Нет метаданных персоналки " + dim);
             offline(move);
             MigrationChunks.checkClaims(move, false);
             MigrationGlobalData.preflight(move);
@@ -497,6 +506,13 @@ public final class MigrationMove {
         MigrationGlobalData.apply(MigrationGlobalData.read(backup), move, true);
         RegionFileCache.clearRegionFileReferences();
         for (int dim : move.dimensions) {
+            if (MigrationStations.get(move, dim) != null) {
+                MigrationStations.forget(dim);
+                archiveFile(root, backup, MigrationStations.folder(dim));
+                archiveFile(root, backup, MigrationStations.metadata(dim));
+                archiveFile(root, backup, MigrationStations.metadata(dim) + "_old");
+                continue;
+            }
             archiveFile(root, backup, "PERSONAL_DIM_" + dim);
             if (DimensionManager.isDimensionRegistered(dim)) DimensionManager.unregisterDimension(dim);
             TeamsManager.get()

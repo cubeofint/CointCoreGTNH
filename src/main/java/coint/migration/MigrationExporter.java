@@ -123,6 +123,7 @@ public final class MigrationExporter {
         }
 
         Set<Integer> dims = findTeamDimensions(team);
+        if (move != null) for (MigrationStations.Station station : move.stations) dims.add(station.id);
         if (move != null && !dims.equals(new LinkedHashSet<>(move.dimensions))) return "Список персоналок изменился";
         File worldDir = session.world;
         String worldName = worldDir.getName();
@@ -142,14 +143,24 @@ public final class MigrationExporter {
         List<Map<String, Object>> dimInfo = new ArrayList<>();
         try {
             for (int dimId : dims) {
+                MigrationStations.Station station = MigrationStations.get(move, dimId);
                 DimensionConfig config = DimensionConfig.getForDimension(dimId, false);
-                String folder = config == null ? "PERSONAL_DIM_" + dimId : config.getSaveDir(dimId);
-                if (dimId <= 1 || !folder.equals("PERSONAL_DIM_" + dimId))
+                String folder = station != null ? MigrationStations.folder(dimId)
+                    : config == null ? "PERSONAL_DIM_" + dimId : config.getSaveDir(dimId);
+                if (dimId <= 1 || !folder.equals(MigrationStations.folder(move, dimId)))
                     throw new IOException("Unsupported personal dimension folder: " + folder);
                 File dimDir = MigrationStorage.child(worldDir, folder);
                 Map<String, Object> info = new LinkedHashMap<>();
                 info.put("dimension", dimId);
                 info.put("folder", folder);
+                if (station != null) {
+                    MigrationStations.check(move, station, false);
+                    MigrationStations.same(
+                        station,
+                        MigrationStations
+                            .read(MigrationStorage.child(worldDir, MigrationStations.metadata(dimId)), dimId));
+                    addFile(worldDir, worldName, MigrationStations.metadata(dimId), files, missing);
+                }
                 if (dimDir.isDirectory()) {
                     addTree(dimDir, worldName + "/" + folder, files);
                 } else {
@@ -229,8 +240,10 @@ public final class MigrationExporter {
             for (Map.Entry<File, String> entry : files.entrySet()) {
                 Path dest = staging.toPath()
                     .resolve(entry.getValue());
-                if (move != null && entry.getValue()
-                    .startsWith(worldName + "/PERSONAL_DIM_")) {
+                if (move != null && (entry.getValue()
+                    .startsWith(worldName + "/PERSONAL_DIM_")
+                    || entry.getValue()
+                        .startsWith(worldName + "/DIM_SPACESTATION"))) {
                     // The move already unloaded and locked these worlds. Large region files are immutable now.
                     deferredPersonalFiles.put(entry.getKey(), dest);
                 } else {

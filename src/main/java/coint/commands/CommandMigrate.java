@@ -43,7 +43,7 @@ public class CommandMigrate extends CommandBase {
         return "/migrate [ui] | export <player> [target] | import <file.zip> | queue <file.zip> <target>"
             + " | nodes | requests | accept <id> [confirm] | move <player> <target> | move-status <id> | move-resume <id>"
             + " | move-finish-import <id> confirm-reviewed | request <player> <target>"
-            + " | batch plan <epoch> <target> | batch run/status/stop <id>";
+            + " | check <player> <target> | batch plan <epoch> <target> | batch run/status/stop <id>";
     }
 
     @Override
@@ -76,6 +76,7 @@ public class CommandMigrate extends CommandBase {
             if (!canOpen(sender)) throw new CommandException("Перенос доступен только лидеру команды");
             EntityPlayerMP leader = (EntityPlayerMP) sender;
             if (args.length == 0 || args.length == 1 && "ui".equalsIgnoreCase(args[0])) {
+                if (coint.migration.MigrationConsent.reopen(leader)) return;
                 MigrationCoordinator.open(leader);
                 return;
             }
@@ -107,6 +108,18 @@ public class CommandMigrate extends CommandBase {
             return;
         }
         if (!allowed(sender)) throw new CommandException("Нет права " + PERMISSION);
+        if (args.length == 3 && "check".equalsIgnoreCase(args[0])) {
+            ForgePlayer player = PlayerLookup.exact(args[1]);
+            if (player == null) throw new CommandException("Игрок не найден: " + args[1]);
+            try {
+                coint.migration.MigrationPreflight
+                    .start(player, args[2], r -> coint.migration.MigrationPreflight.show(sender, r));
+                sender.addChatMessage(new ChatComponentText("§eПроверяю обе ноды. Игроков отключать не нужно."));
+            } catch (java.io.IOException e) {
+                throw new CommandException(e.getMessage());
+            }
+            return;
+        }
         if (args.length == 3 && "request".equalsIgnoreCase(args[0])) {
             ForgePlayer player = PlayerLookup.exact(args[1]);
             if (player == null) throw new CommandException("Игрок не найден: " + args[1]);
@@ -132,8 +145,9 @@ public class CommandMigrate extends CommandBase {
             return;
         }
         if (args.length == 0 || (args.length == 1 && "ui".equalsIgnoreCase(args[0]))) {
-            if (sender instanceof EntityPlayerMP player) MigrationCoordinator.open(player);
-            else MigrationCoordinator.tell(sender, getCommandUsage(sender));
+            if (sender instanceof EntityPlayerMP player) {
+                if (!coint.migration.MigrationConsent.reopen(player)) MigrationCoordinator.open(player);
+            } else MigrationCoordinator.tell(sender, getCommandUsage(sender));
             return;
         }
         if (args.length == 1 && "nodes".equalsIgnoreCase(args[0])) {

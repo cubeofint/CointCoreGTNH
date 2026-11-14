@@ -109,7 +109,9 @@ public final class MigrationConsent {
     private static boolean active(Request r) {
         return r.joinTeam == null && r.leaderAuthorized
             && System.currentTimeMillis() < r.expires
-            && ("pending".equals(r.phase) || "countdown".equals(r.phase) || "drain".equals(r.phase));
+            && ("pending".equals(r.phase) || "checking".equals(r.phase)
+                || "countdown".equals(r.phase)
+                || "drain".equals(r.phase));
     }
 
     private static List<Request> requests() throws IOException {
@@ -144,6 +146,22 @@ public final class MigrationConsent {
 
     public static void request(ICommandSender sender, ForgePlayer player, String target) {
         requestJoin(sender, player, target, null, null);
+    }
+
+    public static boolean reopen(EntityPlayerMP player) {
+        try {
+            for (Request r : requests()) if (active(r) && "pending".equals(r.phase)
+                && player.getUniqueID()
+                    .toString()
+                    .equals(r.leader)
+                && !Files.exists(dir(r).resolve(r.leader + ".no"))) {
+                    MigrationNetwork.confirm(player, r.id, r.target);
+                    return true;
+                }
+        } catch (IOException e) {
+            CointCore.LOG.warn("[MigrationConsent] Could not reopen proposal", e);
+        }
+        return false;
     }
 
     static void requestJoin(ICommandSender sender, ForgePlayer player, String target, String joinTeam,
@@ -181,8 +199,11 @@ public final class MigrationConsent {
             r.expires = System.currentTimeMillis() + 10 * 60_000L;
             if (joinTeam == null && MigrationExporter.findTeamDimensions(player.team)
                 .isEmpty()) throw new IOException("Нет персоналки команды");
-            for (Request old : requests()) if (active(old)) for (String id : r.members)
-                if (old.members.contains(id)) throw new IOException("У команды уже есть запрос " + old.id);
+            for (Request old : requests()) if (active(old)) for (String id : r.members) if (old.members.contains(id)) {
+                EntityPlayerMP leader = MigrationImporter.online(UUID.fromString(old.leader));
+                if (leader != null && "pending".equals(old.phase)) MigrationNetwork.confirm(leader, old.id, old.target);
+                throw new IOException("У команды уже есть запрос " + old.id + "; окно повторно отправлено лидеру");
+            }
             for (String id : r.members) {
                 String locked = MigrationGuard.loginReason(UUID.fromString(id));
                 if (locked != null) throw new IOException(locked);
@@ -204,7 +225,7 @@ public final class MigrationConsent {
             save(r);
             sender.addChatMessage(
                 new ChatComponentText(
-                    "§eПеренос команды " + r.id + " поставлен в очередь. Участников предупредим перед отключением."));
+                    "§eЗапрос " + r.id + " создан. Ожидается подтверждение лидера; затем проверка и предупреждение."));
         } catch (IOException | RuntimeException e) {
             sender.addChatMessage(new ChatComponentText("§cЗапрос не создан: " + e.getMessage()));
         }
@@ -226,15 +247,16 @@ public final class MigrationConsent {
         mark(r, uuid, yes ? "yes" : "no");
         player.addChatMessage(
             new ChatComponentText(
-                yes ? "§aПеренос уже разрешён лидером. Перед отключением будет предупреждение."
-                    : "§eЛидер отменил перенос."));
+                yes ? "§aСогласие записано. Перед отключением будет проверка и предупреждение."
+                    : "§eПеренос отменён. Повторно открыть: /migrate ui"));
     }
 
     public static String loginReason(UUID player) {
         if (!CointConfig.cluster.migrationEnabled || player == null) return null;
         try {
             for (Request r : requests()) if (active(r) && r.members.contains(player.toString())) {
-                if (!"pending".equals(r.phase)) return "Команда готовится к переносу. Дождитесь завершения.";
+                if ("countdown".equals(r.phase) || "drain".equals(r.phase))
+                    return "Команда готовится к переносу. Дождитесь завершения.";
                 mark(r, player.toString(), "required");
             }
         } catch (IOException | RuntimeException e) {
@@ -244,7 +266,8 @@ public final class MigrationConsent {
     }
 
     private static boolean agreed(Request r, Set<String> online) throws IOException {
-        if (r.leaderAuthorized) return r.leader != null && !Files.exists(dir(r).resolve(r.leader + ".no"));
+        if (r.leaderAuthorized) return r.leader != null && Files.exists(dir(r).resolve(r.leader + ".yes"))
+            && !Files.exists(dir(r).resolve(r.leader + ".no"));
         boolean all = true;
         for (String id : r.members) {
             if (online.contains(id)) mark(r, id, "required");
@@ -286,12 +309,13 @@ public final class MigrationConsent {
                 }
                 mark(r, uuid, "required");
                 if ("pending".equals(r.phase) && notices.add(r.id + uuid + ":" + r.phase)) {
+                    if (uuid.equals(r.leader)) MigrationNetwork.confirm(p, r.id, r.target);
                     p.addChatMessage(
                         new ChatComponentText(
-                            "§eЛидер/администратор запустил перенос всей команды: " + r.source
+                            "§eПредложен перенос всей команды: " + r.source
                                 + " → "
                                 + r.target
-                                + ". Отключение будет после предупреждения."));
+                                + ". Ожидаем подтверждение лидера. Повторно открыть: /migrate ui"));
                 }
                 if ("countdown".equals(r.phase) && notices.add(r.id + uuid + ":" + r.countdown)) p.addChatMessage(
                     new ChatComponentText(
@@ -364,9 +388,40 @@ public final class MigrationConsent {
                     long now = System.currentTimeMillis();
                     if ("pending".equals(r.phase)) {
                         if (MigrationMove.busy()) continue;
-                        r.phase = "countdown";
-                        r.countdown = now + 15_000;
+                        r.phase = "checking";
                         save(r);
+                        announce(r, "§eПроверяем обе ноды перед переносом. Игроков пока не отключаем.");
+                        MigrationPreflight.start(
+                            Universe.get()
+                                .getPlayer(r.player),
+                            r.target,
+                            report -> {
+                                try {
+                                    Request current = read(dir(r).resolve("request.json"));
+                                    if (!active(current) || !"checking".equals(current.phase)
+                                        || !boot.equals(current.sourceBoot)
+                                        || !agreed(current, java.util.Collections.emptySet())) return;
+                                    if (!report.ready()) {
+                                        current.phase = "failed";
+                                        save(current);
+                                        announce(
+                                            current,
+                                            "§cПроверка выявила " + report.problems.size()
+                                                + " проблем. Перенос не начат. Отчёт: "
+                                                + report.id);
+                                        EntityPlayerMP leader = MigrationImporter
+                                            .online(UUID.fromString(current.leader));
+                                        MigrationPreflight
+                                            .show(leader == null ? MinecraftServer.getServer() : leader, report);
+                                    } else {
+                                        current.phase = "countdown";
+                                        current.countdown = System.currentTimeMillis() + 15_000;
+                                        save(current);
+                                    }
+                                } catch (IOException e) {
+                                    CointCore.LOG.error("[MigrationConsent] Preflight result failed", e);
+                                }
+                            });
                     } else if ("countdown".equals(r.phase) && now >= r.countdown) {
                         r.phase = "drain";
                         save(r);
@@ -391,10 +446,24 @@ public final class MigrationConsent {
                         announce(
                             r,
                             r.moveId == null ? "§cПеренос не запущен. Причина отказа записана в журнале [TeamMove]."
-                                : "§eПеренос передан на проверку. ID: " + r.moveId + ". Статус: /migrate move-status " + r.moveId);
+                                : "§eПеренос передан на проверку. ID: " + r.moveId
+                                    + ". Статус: /migrate move-status "
+                                    + r.moveId);
                     }
                 } catch (IOException | RuntimeException e) {
                     CointCore.LOG.error("[MigrationConsent] Request failed", e);
+                    try {
+                        Request failed = read(dir(stale).resolve("request.json"));
+                        if ("checking".equals(failed.phase)) {
+                            failed.phase = "failed";
+                            save(failed);
+                            announce(
+                                failed,
+                                "§cПроверка не выполнена: " + e.getMessage() + ". Повторно открыть: /migrate ui");
+                        }
+                    } catch (IOException recovery) {
+                        CointCore.LOG.error("[MigrationConsent] Could not close failed inspection", recovery);
+                    }
                 }
             }, error -> {
                 if (session == generation) {

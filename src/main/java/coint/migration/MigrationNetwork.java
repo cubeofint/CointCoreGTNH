@@ -26,6 +26,7 @@ public final class MigrationNetwork {
     public static synchronized void init() {
         if (initialized) return;
         CHANNEL.registerMessage(Handler.class, State.class, 0, Side.CLIENT);
+        CHANNEL.registerMessage(ConfirmHandler.class, Confirm.class, 1, Side.CLIENT);
         initialized = true;
     }
 
@@ -35,6 +36,45 @@ public final class MigrationNetwork {
             return;
         }
         CHANNEL.sendTo(state, player);
+    }
+
+    public static void confirm(EntityPlayerMP player, String id, String target) {
+        if (initialized) CHANNEL.sendTo(new Confirm(id, target), player);
+    }
+
+    public static class Confirm implements IMessage {
+
+        public String id, target;
+
+        public Confirm() {}
+
+        public Confirm(String id, String target) {
+            this.id = id;
+            this.target = target;
+        }
+
+        @Override
+        public void toBytes(ByteBuf buf) {
+            ByteBufUtils.writeUTF8String(buf, id);
+            ByteBufUtils.writeUTF8String(buf, target);
+        }
+
+        @Override
+        public void fromBytes(ByteBuf buf) {
+            id = ByteBufUtils.readUTF8String(buf);
+            target = ByteBufUtils.readUTF8String(buf);
+            java.util.UUID.fromString(id);
+            if (!target.matches("[A-Za-z0-9_-]{1,64}")) throw new IllegalArgumentException("Invalid destination");
+        }
+    }
+
+    public static class ConfirmHandler implements IMessageHandler<Confirm, IMessage> {
+
+        @Override
+        public IMessage onMessage(Confirm state, MessageContext context) {
+            coint.client.GuiMigrationConfirm.receive(state);
+            return null;
+        }
     }
 
     public static class State implements IMessage {

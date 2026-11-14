@@ -35,6 +35,7 @@ public final class MigrationStorage {
 
     /** Main calls before ClusterService.stop(). Old workers may finish I/O, but cannot mutate another session. */
     public static void stop() {
+        MigrationPreflight.reset();
         MigrationMove.reset();
         active = false;
         generation++;

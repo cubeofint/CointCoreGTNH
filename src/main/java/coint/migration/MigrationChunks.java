@@ -87,6 +87,10 @@ public final class MigrationChunks {
             }
         }
         for (int[] c : move.claims) {
+            if (!target) for (int[] spawn : coint.worldtravel.WorldTravelManager.migrationSpawnPositions())
+                if (c[0] == spawn[0] && c[1] == spawn[1] && c[2] == spawn[2]) throw new IOException(
+                    "На команду записан общественный спавн: " + MoveRecord.key(c)
+                        + ". Передайте его серверной команде.");
             if (!move.dimensions.contains(c[0]) && !DimensionManager.isDimensionRegistered(c[0]))
                 throw new IOException("Нет дополнительного измерения " + c[0]);
             if (target && MigrationGuard.sourceChunk(DimensionManager.getWorld(c[0]), c[1], c[2]))
@@ -121,10 +125,13 @@ public final class MigrationChunks {
             }
         }
         for (int dim : move.dimensions) {
+            MigrationStations.Station station = MigrationStations.get(move, dim);
+            if (station != null) MigrationStations.check(move, station, target);
             if (target && MigrationGuard.sourceDimension(dim))
                 throw new IOException("На цели персоналка архивирована прежним переносом: " + dim);
-            Short owner = coint.player.TeamsManager.get()
-                .getTeamUidForDim(dim);
+            Short owner = station != null ? null
+                : coint.player.TeamsManager.get()
+                    .getTeamUidForDim(dim);
             ForgeTeam holder = owner == null ? null
                 : Universe.get()
                     .getTeam(owner);

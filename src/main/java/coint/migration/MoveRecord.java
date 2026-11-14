@@ -21,6 +21,7 @@ public final class MoveRecord {
     public List<String> players = new ArrayList<>();
     public List<String> names = new ArrayList<>();
     public List<Integer> dimensions = new ArrayList<>();
+    public List<MigrationStations.Station> stations = new ArrayList<>();
     /** {dimension, chunkX, chunkZ, originallyForced}. Includes personal and external claims. */
     public List<int[]> claims = new ArrayList<>();
 
@@ -49,6 +50,15 @@ public final class MoveRecord {
         Set<Integer> dims = new HashSet<>();
         for (int dim : dimensions) {
             if (dim <= 1 || !dims.add(dim)) throw new IllegalArgumentException("Invalid personal dimension");
+        }
+        Set<Integer> stationIds = new HashSet<>();
+        for (MigrationStations.Station station : stations) {
+            if (station == null || !dims.contains(station.id)
+                || !stationIds.add(station.id)
+                || station.owner == null
+                || names.stream()
+                    .noneMatch(n -> n.equalsIgnoreCase(station.owner)))
+                throw new IllegalArgumentException("Invalid station ownership");
         }
         if (joining()) {
             if (joinTeam.isEmpty() || players.size() != 1

@@ -127,6 +127,13 @@ public final class WorldTravelManager {
         }
     }
 
+    public static synchronized java.util.List<int[]> migrationSpawnPositions() {
+        java.util.List<int[]> positions = new java.util.ArrayList<>();
+        for (WorldTravelDestination d : BY_ID.values()) if (d.enabled)
+            positions.add(new int[] { d.dimension, (int) Math.floor(d.x / 16.0), (int) Math.floor(d.z / 16.0) });
+        return positions;
+    }
+
     public static String getTitle() {
         return config.title;
     }

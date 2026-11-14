@@ -349,9 +349,10 @@ public final class MigrationImporter {
         for (Map<String, Object> dim : list(manifest.get("personalDimensions"))) {
             double number = num(dim.get("dimension"));
             int id = (int) number;
+            MigrationStations.Station station = MigrationStations.get(operation.move, id);
             String folder = str(dim.get("folder"));
             if (number != id || id <= 1
-                || !folder.equals("PERSONAL_DIM_" + id)
+                || !folder.equals(MigrationStations.folder(operation.move, id))
                 || !dimensions.add(id)
                 || !folders.add(folder)) {
                 throw new IOException("Invalid personal dimension/folder: " + id + " / " + folder);
@@ -360,6 +361,13 @@ public final class MigrationImporter {
             MigrationStorage.child(destination, folder);
             MigrationStorage.child(backupRoot, folder);
             if (dim.get("missing") == null) {
+                if (station != null) {
+                    if (!incoming.isDirectory()) throw new IOException("Нет папки станции " + id);
+                    MigrationStations.same(
+                        station,
+                        MigrationStations.read(MigrationStorage.child(source, MigrationStations.metadata(id)), id));
+                    continue;
+                }
                 File metadata = MigrationStorage.child(incoming, DIM_METADATA);
                 if (!incoming.isDirectory() || !metadata.isFile())
                     throw new IOException("Missing personal dimension metadata: " + folder);
@@ -447,11 +455,13 @@ public final class MigrationImporter {
         String teamId = team == null ? "" : str(team.get("id"));
         for (Map<String, Object> d : dims) {
             int dim = (int) num(d.get("dimension"));
+            MigrationStations.Station station = MigrationStations.get(operation.move, dim);
             if (d.get("missing") != null) {
                 continue;
             }
             dimIds.add(dim);
-            if (DimensionManager.isDimensionRegistered(dim) && DimensionConfig.getForDimension(dim, false) == null) {
+            if (station == null && DimensionManager.isDimensionRegistered(dim)
+                && DimensionConfig.getForDimension(dim, false) == null) {
                 return "измерение " + dim + " занято другим модом";
             }
             if (DimensionManager.getWorld(dim) != null) {
@@ -461,8 +471,9 @@ public final class MigrationImporter {
                 DimensionManager.unloadWorld(dim);
                 return RETRY;
             }
-            Short owner = TeamsManager.get()
-                .getTeamUidForDim(dim);
+            Short owner = station != null ? null
+                : TeamsManager.get()
+                    .getTeamUidForDim(dim);
             ForgeTeam holder = owner == null ? null
                 : Universe.get()
                     .getTeam(owner);
@@ -500,6 +511,14 @@ public final class MigrationImporter {
                 }
                 String folder = str(d.get("folder"));
                 move(new File(sourceRoot, folder), new File(worldDir, folder), new File(replaced, folder));
+                int id = (int) num(d.get("dimension"));
+                if (MigrationStations.get(operation.move, id) != null) {
+                    String metadata = MigrationStations.metadata(id);
+                    move(
+                        MigrationStorage.child(sourceRoot, metadata),
+                        MigrationStorage.child(worldDir, metadata),
+                        MigrationStorage.child(replaced, metadata));
+                }
             }
             for (Map<String, Object> p : players) {
                 String uuid = str(p.get("uuid"));
@@ -528,6 +547,15 @@ public final class MigrationImporter {
                 continue;
             }
             File folder = new File(worldDir, str(d.get("folder")));
+            MigrationStations.Station station = MigrationStations.get(operation.move, (int) num(d.get("dimension")));
+            if (station != null) {
+                try {
+                    MigrationStations.register(operation.move, station, worldDir);
+                } catch (IOException | RuntimeException e) {
+                    return "Ошибка регистрации станции " + station.id + ": " + e.getMessage();
+                }
+                continue;
+            }
             DimensionConfig config = new DimensionConfig();
             int dim = config.syncWithFile(new File(folder, DIM_METADATA), false, 0);
             if (dim != (int) num(d.get("dimension"))) {

@@ -14,6 +14,30 @@ public final class ClusterMoveHomes {
 
     private ClusterMoveHomes() {}
 
+    /** Read-only routing check while the migrating team is still online. */
+    public static void inspect(MoveRecord move, Consumer<java.util.List<String>> result) {
+        if (!ClusterService.query(db -> {
+            java.util.List<String> issues = new java.util.ArrayList<>();
+            boolean online = false;
+            for (ClusterDatabase.NodeRow node : db.nodes(CointConfig.cluster.nodeTimeoutSeconds))
+                if (node.id.equals(move.target) && node.online) online = true;
+            if (!online) issues.add("Целевая нода недоступна: " + move.target);
+            for (int i = 0; i < move.players.size(); i++) try (PreparedStatement p = db.connection()
+                .prepareStatement("SELECT node_id FROM cluster_homes WHERE uuid=?")) {
+                    p.setString(1, move.players.get(i));
+                    try (ResultSet r = p.executeQuery()) {
+                        if (r.next() && !move.source.equals(r.getString(1)))
+                            issues.add("Домашний сервер " + move.names.get(i) + " уже " + r.getString(1));
+                    }
+                }
+            return issues;
+        },
+            result,
+            error -> result
+                .accept(java.util.Collections.singletonList("Не удалось проверить маршрутизацию: " + error))))
+            result.accept(java.util.Collections.singletonList("Кластер выключен"));
+    }
+
     public static void check(MoveRecord move, Runnable ready, Consumer<String> failed) {
         if (!ClusterService.query(db -> {
             boolean online = false;
