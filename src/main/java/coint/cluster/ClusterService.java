@@ -89,13 +89,26 @@ public final class ClusterService {
     /** The players of the other servers in the tab list: name, and the name of their server. */
     private static Map<String, String> remoteTab = Collections.emptyMap();
     private static Set<String> remoteOnlineNames = Collections.emptySet();
+    private static int remoteCapacity;
     private static long remoteOnlineUpdated;
 
     /** Server-thread view; no SQL on the ping or tab path. Vanished players stay hidden. */
     public static int totalVisibleOnline() {
-        Set<String> names = new java.util.HashSet<>();
+        return visibleProfiles().length;
+    }
+
+    public static com.mojang.authlib.GameProfile[] visibleProfiles() {
+        Map<String, com.mojang.authlib.GameProfile> names = new java.util.TreeMap<>();
         if (running && System.currentTimeMillis() - remoteOnlineUpdated
-            < Math.max(1, CointConfig.cluster.nodeTimeoutSeconds) * 1000L) names.addAll(remoteOnlineNames);
+            < Math.max(1, CointConfig.cluster.nodeTimeoutSeconds) * 1000L) {
+            for (String name : remoteOnlineNames) names.put(
+                name.toLowerCase(java.util.Locale.ROOT),
+                new com.mojang.authlib.GameProfile(
+                    java.util.UUID.nameUUIDFromBytes(
+                        name.toLowerCase(java.util.Locale.ROOT)
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                    name));
+        }
         MinecraftServer server = MinecraftServer.getServer();
         if (server != null && server.getConfigurationManager() != null) {
             for (Object object : server.getConfigurationManager().playerEntityList) {
@@ -103,10 +116,19 @@ public final class ClusterService {
                 String name = player.getCommandSenderName()
                     .toLowerCase(java.util.Locale.ROOT);
                 names.remove(name);
-                if (!ServerUtils.isVanished(player)) names.add(name);
+                if (!ServerUtils.isVanished(player)) names.put(name, player.getGameProfile());
             }
         }
-        return names.size();
+        return names.values()
+            .toArray(new com.mojang.authlib.GameProfile[0]);
+    }
+
+    public static int totalCapacity() {
+        MinecraftServer server = MinecraftServer.getServer();
+        int local = server == null ? 0 : server.getMaxPlayers();
+        boolean fresh = running && System.currentTimeMillis() - remoteOnlineUpdated
+            < Math.max(1, CointConfig.cluster.nodeTimeoutSeconds) * 1000L;
+        return (int) Math.min(Integer.MAX_VALUE, (long) local + (fresh ? remoteCapacity : 0));
     }
 
     /** Their tab names (nickname, rank) as chat component JSON, where their server gave one. */
@@ -202,6 +224,7 @@ public final class ClusterService {
         if (!running) {
             return;
         }
+        ClusterSessions.shutdown();
         running = false;
         ClusterDatabase db = database;
         String id = nodeId;
@@ -387,21 +410,23 @@ public final class ClusterService {
         ClusterDatabase db = database;
         String id = nodeId, name = displayName, address = config.address;
         int timeout = config.nodeTimeoutSeconds;
+        int capacity = server.getMaxPlayers();
         boolean tab = config.tabEnabled;
         submit(() -> {
             try {
                 db.heartbeat(id, name, address, tps, players, !startMarked);
                 startMarked = true;
                 List<ClusterDatabase.RemotePlayer> remote = db.remotePlayers(id, timeout);
+                int otherCapacity = db.refreshCapacity(id, capacity, timeout);
                 if (!connectedLogged) {
                     connectedLogged = true;
                     CointCore.LOG.info("[Cluster] Connected to the cluster database");
                 }
                 results.add(() -> {
                     Set<String> names = new java.util.HashSet<>();
-                    for (ClusterDatabase.RemotePlayer player : remote)
-                        names.add(player.name.toLowerCase(java.util.Locale.ROOT));
+                    for (ClusterDatabase.RemotePlayer player : remote) names.add(player.name);
                     remoteOnlineNames = names;
+                    remoteCapacity = otherCapacity;
                     remoteOnlineUpdated = System.currentTimeMillis();
                     applyRemoteTab(tab ? remote : Collections.emptyList());
                 });
@@ -410,6 +435,7 @@ public final class ClusterService {
                 // Unknown who is where: better nobody than ghosts.
                 results.add(() -> {
                     remoteOnlineNames = Collections.emptySet();
+                    remoteCapacity = 0;
                     applyRemoteTab(Collections.emptyList());
                 });
             } finally {

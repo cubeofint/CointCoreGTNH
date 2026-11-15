@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 13;
+    private static final int SCHEMA_VERSION = 14;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -53,8 +53,13 @@ final class ClusterDatabase {
             throw new SQLException("Not a MySQL url: " + url);
         }
         opened.setAutoCommit(true);
+        try {
+            migrate(opened);
+        } catch (SQLException | RuntimeException e) {
+            opened.close();
+            throw e;
+        }
         connection = opened;
-        migrate(opened);
         return opened;
     }
 
@@ -188,6 +193,15 @@ final class ClusterDatabase {
                 AccessStore.createTables(s);
                 MigrationCoordinator.createTables(s);
             }
+            if (version < 14) {
+                try {
+                    s.executeUpdate("ALTER TABLE cluster_nodes ADD COLUMN max_players INT NOT NULL DEFAULT 0");
+                } catch (SQLException e) {
+                    // Another node may have migrated the shared schema concurrently.
+                    if (e.getErrorCode() != 1060) throw e;
+                }
+                SessionStore.createTables(s);
+            }
         }
         try (PreparedStatement p = c.prepareStatement(
             "INSERT INTO cluster_meta (meta_key, meta_value) VALUES ('schema_version', ?) "
@@ -254,6 +268,25 @@ final class ClusterDatabase {
             throw e;
         } finally {
             c.setAutoCommit(true);
+        }
+    }
+
+    int refreshCapacity(String nodeId, int capacity, int timeout) throws SQLException {
+        try (PreparedStatement p = connection()
+            .prepareStatement("UPDATE cluster_nodes SET max_players = ? WHERE node_id = ?")) {
+            p.setInt(1, capacity);
+            p.setString(2, nodeId);
+            p.executeUpdate();
+        }
+        try (PreparedStatement p = connection().prepareStatement(
+            "SELECT COALESCE(SUM(max_players), 0) FROM cluster_nodes WHERE node_id <> ? AND NOT stopped "
+                + "AND last_seen > NOW(3) - INTERVAL ? SECOND")) {
+            p.setString(1, nodeId);
+            p.setInt(2, timeout);
+            try (ResultSet r = p.executeQuery()) {
+                r.next();
+                return (int) Math.min(Integer.MAX_VALUE, r.getLong(1));
+            }
         }
     }
 

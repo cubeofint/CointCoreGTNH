@@ -25,9 +25,11 @@ public final class ClusterPingOnline {
         MinecraftServer server = MinecraftServer.getServer();
         if (server == null || server.getConfigurationManager() == null) return;
         ServerStatusResponse status = server.func_147134_at();
-        int count = ClusterService.totalVisibleOnline();
-        ServerStatusResponse.PlayerCountData old = status.func_151318_b();
-        if (old != null && old.func_151333_b() == count) return;
-        status.func_151319_a(new ServerStatusResponse.PlayerCountData(server.getMaxPlayers(), count));
+        com.mojang.authlib.GameProfile[] players = ClusterService.visibleProfiles();
+        ServerStatusResponse.PlayerCountData data = new ServerStatusResponse.PlayerCountData(
+            ClusterService.totalCapacity(),
+            players.length);
+        data.func_151330_a(players);
+        status.func_151319_a(data);
     }
 }

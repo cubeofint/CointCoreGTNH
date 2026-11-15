@@ -30,6 +30,8 @@ public enum Mixins implements IMixins {
         "minecraft.MixinEntityPlayerForestryDupTrace",
         "minecraft.MixinNetHandlerPlayServerForestryBackpackClickBlock",
         "minecraft.MixinServerConfigurationManager",
+        "minecraft.MixinNetHandlerLoginServerClusterSession",
+        "minecraft.MixinNetworkManagerClusterSession",
         "minecraft.AccessorUserListEntry",
         "minecraft.MixinBanEntryClusterView",
         "minecraft.MixinUserListClusterSync",
