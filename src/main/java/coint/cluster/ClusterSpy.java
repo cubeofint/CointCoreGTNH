@@ -22,7 +22,11 @@ public final class ClusterSpy {
     }
 
     public static String label(String name, String node) {
-        return name + (node == null || node.isEmpty() ? "" : " §8[" + node + "]§r");
+        return prefix(node) + name;
+    }
+
+    public static String prefix(String node) {
+        return node == null || node.isEmpty() ? "" : "§8[" + node + "]§r ";
     }
 
     public static void local(String name, String display, int dimension, String text) {
@@ -35,15 +39,18 @@ public final class ClusterSpy {
         ClusterService.publishTo(ClusterService.KIND_DM, name, display, TARGET, JSON.toJson(copy));
     }
 
-    public static void dm(String sender, String target, String senderDisplay, String targetDisplay, String text) {
+    public static void dm(String sender, String target, String senderDisplay, String targetDisplay, String targetNode,
+        String text) {
         Copy copy = new Copy();
         copy.type = DM;
         copy.sender = sender;
         copy.target = target;
         copy.senderDisplay = senderDisplay;
         copy.targetDisplay = targetDisplay;
+        copy.senderNode = ClusterService.isRunning() ? ClusterService.displayName() : null;
+        copy.targetNode = targetNode == null ? copy.senderNode : targetNode;
         copy.text = text;
-        PersonalSpyRegistry.deliver(sender, target, senderDisplay, targetDisplay, new ChatComponentText(text));
+        deliverDm(copy, false);
         ClusterService.publishTo(ClusterService.KIND_DM, sender, senderDisplay, TARGET, JSON.toJson(copy));
     }
 
@@ -60,20 +67,27 @@ public final class ClusterSpy {
             return;
         }
         if (LOCAL.equals(copy.type)) {
-            LocalSpyRegistry.deliverRemote(label(copy.senderDisplay, row.nodeName), copy.dimension, copy.text);
+            LocalSpyRegistry.deliverRemote(copy.senderDisplay, row.nodeName, copy.dimension, copy.text);
         } else if (DM.equals(copy.type) && copy.target != null && copy.targetDisplay != null) {
-            PersonalSpyRegistry.deliver(
-                copy.sender,
-                copy.target,
-                copy.senderDisplay,
-                copy.targetDisplay,
-                new ChatComponentText(copy.text));
+            deliverDm(copy, true);
         }
+    }
+
+    private static void deliverDm(Copy copy, boolean remote) {
+        boolean crossNode = copy.senderNode != null && !copy.senderNode.equals(copy.targetNode);
+        String heading = remote || crossNode ? prefix(copy.senderNode) : "";
+        PersonalSpyRegistry.deliver(
+            copy.sender,
+            copy.target,
+            copy.senderDisplay,
+            crossNode ? label(copy.targetDisplay, copy.targetNode) : copy.targetDisplay,
+            heading,
+            new ChatComponentText(copy.text));
     }
 
     private static final class Copy {
 
-        String type, sender, target, senderDisplay, targetDisplay, text;
+        String type, sender, target, senderDisplay, targetDisplay, senderNode, targetNode, text;
         int dimension;
     }
 }

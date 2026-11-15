@@ -48,11 +48,12 @@ public final class DirectMessages {
 
         // Sender: [ЛС] Вы → Target (Server): text
         ChatComponentText toSender = new ChatComponentText(
-            CommandReply.PREFIX + EnumChatFormatting.GRAY
-                + coint.cluster.ClusterSpy.label("Вы")
+            coint.cluster.ClusterSpy.prefix(server) + CommandReply.PREFIX
+                + EnumChatFormatting.GRAY
+                + "Вы"
                 + CommandReply.ARROW
                 + EnumChatFormatting.BLUE
-                + coint.cluster.ClusterSpy.label(target, server)
+                + target
                 + EnumChatFormatting.GRAY
                 + ": "
                 + EnumChatFormatting.WHITE);
@@ -64,7 +65,7 @@ public final class DirectMessages {
         String to = coint.cluster.ClusterSpy.label(target, server);
         DmLogger.log("TELL", from, to, plain);
         DiscordModerationWebhook.logDm(from, to, plain);
-        coint.cluster.ClusterSpy.dm(senderName, target, from, to, plain);
+        coint.cluster.ClusterSpy.dm(senderName, target, senderDisplay, target, server, plain);
         return true;
     }
 
@@ -87,8 +88,9 @@ public final class DirectMessages {
             return;
         }
         ChatComponentText message = new ChatComponentText(
-            CommandReply.PREFIX + EnumChatFormatting.AQUA
-                + coint.cluster.ClusterSpy.label(senderDisplay, server)
+            coint.cluster.ClusterSpy.prefix(server) + CommandReply.PREFIX
+                + EnumChatFormatting.AQUA
+                + senderDisplay
                 + CommandReply.ARROW
                 + EnumChatFormatting.WHITE
                 + text);

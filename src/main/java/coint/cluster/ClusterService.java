@@ -578,11 +578,12 @@ public final class ClusterService {
             if (KIND_DISCORD.equals(row.kind)) {
                 name = "§9[Discord]§r " + row.sender;
             } else {
-                name = "§8[" + row.nodeName + "]§r " + row.senderFormatted;
+                name = row.senderFormatted;
                 // Only players' chat goes to Discord: Discord's own messages came from there.
                 DiscordModerationWebhook.logRemoteGlobal(row.nodeName, row.sender, row.text);
             }
-            ChatComponentText component = ChatUtil.getChatMessage(name, row.text, "G");
+            ChatComponentText component = ChatUtil
+                .getChatMessage(name, row.text, "G", KIND_DISCORD.equals(row.kind) ? null : row.nodeName);
             server.getConfigurationManager()
                 .sendChatMsg(component);
             CointCore.LOG.info("[GLOBAL/{}] {}: {}", row.nodeName, row.sender, row.text);

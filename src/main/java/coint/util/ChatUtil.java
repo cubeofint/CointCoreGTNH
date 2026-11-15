@@ -28,6 +28,10 @@ public class ChatUtil {
     }
 
     public static ChatComponentText getChatMessage(String senderFormatted, String text, String origin) {
+        return getChatMessage(senderFormatted, text, origin, null);
+    }
+
+    public static ChatComponentText getChatMessage(String senderFormatted, String text, String origin, String node) {
         LocalTime now = LocalTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
         String time = now.format(formatter);
@@ -38,7 +42,12 @@ public class ChatUtil {
             format = "§7[{time}][{origin}]§r {name}: {msg}";
         }
 
-        var msg = format.replace("{msg}", text)
+        if (node != null && !node.isEmpty()) {
+            format = "§7[{time}] §8[{node}] §7[{origin}]§r {name}: {msg}";
+        }
+
+        var msg = format.replace("{node}", node == null ? "" : node)
+            .replace("{msg}", text)
             .replace("{name}", senderFormatted)
             .replace("{time}", time)
             .replace("{origin}", origin)

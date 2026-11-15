@@ -72,7 +72,7 @@ public final class PersonalSpyRegistry {
      * @param text          the original message component (will be deep-copied per recipient)
      */
     public static void deliver(String sender, String target, String senderDisplay, String targetDisplay,
-        IChatComponent text) {
+        String nodePrefix, IChatComponent text) {
         if (SPIES.isEmpty()) return;
 
         for (ForgePlayer spy : SPIES) {
@@ -84,7 +84,8 @@ public final class PersonalSpyRegistry {
                     .hasPermission(spy.getPlayer(), coint.commands.CommandSpy.PERMISSION))
                 continue;
             ChatComponentText msg = new ChatComponentText(
-                SPY_PREFIX + EnumChatFormatting.AQUA
+                nodePrefix + SPY_PREFIX
+                    + EnumChatFormatting.AQUA
                     + senderDisplay
                     + EnumChatFormatting.GRAY
                     + " → "

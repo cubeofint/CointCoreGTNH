@@ -93,7 +93,6 @@ public final class LocalSpyRegistry {
      */
     public static void notifySpies(EntityPlayerMP sender, String senderDisplay, String text) {
         coint.cluster.ClusterSpy.local(sender.getCommandSenderName(), senderDisplay, sender.dimension, text);
-        senderDisplay = coint.cluster.ClusterSpy.label(senderDisplay);
         if (SPIES.isEmpty()) return;
 
         double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
@@ -121,14 +120,14 @@ public final class LocalSpyRegistry {
         }
     }
 
-    public static void deliverRemote(String senderDisplay, int dimension, String text) {
+    public static void deliverRemote(String senderDisplay, String node, int dimension, String text) {
         for (ForgePlayer spy : SPIES) {
             if (!spy.isOnline() || !serverutils.lib.util.permission.PermissionAPI
                 .hasPermission(spy.getPlayer(), coint.commands.CommandSpy.PERMISSION)) continue;
             spy.getPlayer()
                 .addChatMessage(
-                    new ChatComponentText(
-                        SPY_PREFIX + "§b" + senderDisplay + " §8(dim:" + dimension + ")§7: §f" + text));
+                    coint.util.ChatUtil
+                        .getChatMessage("§b" + senderDisplay + " §8(dim:" + dimension + ")§r", text, "L", node));
         }
     }
 }

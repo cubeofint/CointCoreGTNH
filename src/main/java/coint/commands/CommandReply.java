@@ -124,8 +124,6 @@ public class CommandReply extends CommandBase {
             .getUnformattedText();
         String targetDisplay = target.func_145748_c_()
             .getUnformattedText();
-        senderDisplay = coint.cluster.ClusterSpy.label(senderDisplay);
-        targetDisplay = coint.cluster.ClusterSpy.label(targetDisplay);
 
         // Recipient: [ЛС] SenderName → text
         ChatComponentText toRecipient = new ChatComponentText(
@@ -136,7 +134,7 @@ public class CommandReply extends CommandBase {
         // Sender confirmation: [ЛС] Вы → TargetName: text
         ChatComponentText toSender = new ChatComponentText(
             PREFIX + EnumChatFormatting.GRAY
-                + coint.cluster.ClusterSpy.label("Вы")
+                + "Вы"
                 + ARROW
                 + EnumChatFormatting.AQUA
                 + targetDisplay
@@ -150,13 +148,21 @@ public class CommandReply extends CommandBase {
         MessageTracker.setReply(sender.getCommandSenderName(), targetName);
 
         // Append to the dedicated DM log file and notify in-game spies.
-        DmLogger.log("REPLY", senderDisplay, targetDisplay, text.getUnformattedText());
-        DiscordModerationWebhook.logDm(senderDisplay, targetDisplay, text.getUnformattedText());
+        DmLogger.log(
+            "REPLY",
+            coint.cluster.ClusterSpy.label(senderDisplay),
+            coint.cluster.ClusterSpy.label(targetDisplay),
+            text.getUnformattedText());
+        DiscordModerationWebhook.logDm(
+            coint.cluster.ClusterSpy.label(senderDisplay),
+            coint.cluster.ClusterSpy.label(targetDisplay),
+            text.getUnformattedText());
         coint.cluster.ClusterSpy.dm(
             sender.getCommandSenderName(),
             target.getCommandSenderName(),
             senderDisplay,
             targetDisplay,
+            null,
             text.getUnformattedText());
     }
 }
