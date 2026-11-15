@@ -34,6 +34,37 @@ public class MixinServerConfigurationManager {
     @Shadow
     int maxPlayers;
 
+    // Run after loading the saved position, before vanilla tries to hotload that world.
+    @Inject(
+        method = "initializeConnectionToPlayer(Lnet/minecraft/network/NetworkManager;Lnet/minecraft/entity/player/EntityPlayerMP;Lnet/minecraft/network/NetHandlerPlayServer;)V",
+        remap = false,
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/server/management/ServerConfigurationManager;readPlayerDataFromFile(Lnet/minecraft/entity/player/EntityPlayerMP;)Lnet/minecraft/nbt/NBTTagCompound;",
+            shift = At.Shift.AFTER,
+            remap = true),
+        require = 1)
+    private void cointcore$spawnAfterPersonalWorldRetirement(net.minecraft.network.NetworkManager network,
+        net.minecraft.entity.player.EntityPlayerMP player, net.minecraft.network.NetHandlerPlayServer handler,
+        CallbackInfo ci) {
+        int previous = player.dimension;
+        if (previous == 0 || net.minecraftforge.common.DimensionManager.isDimensionRegistered(previous)
+            || !coint.player.TeamsManager.get()
+                .isRetiredPDim(previous))
+            return;
+        net.minecraft.world.WorldServer world = net.minecraftforge.common.DimensionManager.getWorld(0);
+        if (world == null) return;
+        net.minecraft.util.ChunkCoordinates spawn = world.getSpawnPoint();
+        player.dimension = 0;
+        player.setPositionAndRotation(spawn.posX + 0.5D, spawn.posY, spawn.posZ + 0.5D, 0.0F, 0.0F);
+        player.motionX = player.motionY = player.motionZ = 0.0D;
+        player.fallDistance = 0.0F;
+        coint.CointCore.LOG.info(
+            "[Migration] {} returned to spawn on login: personal dimension {} retired",
+            player.getCommandSenderName(),
+            previous);
+    }
+
     @Inject(
         method = "transferPlayerToDimension(Lnet/minecraft/entity/player/EntityPlayerMP;ILnet/minecraft/world/Teleporter;)V",
         at = @At("HEAD"),

@@ -324,6 +324,8 @@ public final class DiscordServerStatus {
                 JsonObject field = element.getAsJsonObject();
                 String name = field.has("name") ? field.get("name")
                     .getAsString() : "";
+                if (CointConfig.cluster.enabled && !"Server".equalsIgnoreCase(snapshot.serverName)
+                    && "Server — выключен".equalsIgnoreCase(name.trim())) continue;
                 if (matchesServerField(name, snapshot.serverName)) {
                     if (!replaced) {
                         fields.add(buildServerField(snapshot));
@@ -412,9 +414,17 @@ public final class DiscordServerStatus {
 
     private static boolean matchesServerField(String fieldName, String serverName) {
         if (fieldName == null || serverName == null) return false;
-        if (fieldName.equalsIgnoreCase(serverName)) return true;
-        String prefix = serverName + " — ";
-        return fieldName.regionMatches(true, 0, prefix, 0, prefix.length());
+        int separator = fieldName.indexOf(" — ");
+        String label = separator < 0 ? fieldName : fieldName.substring(0, separator);
+        return canonicalServerLabel(label).equalsIgnoreCase(canonicalServerLabel(serverName));
+    }
+
+    private static String canonicalServerLabel(String label) {
+        String clean = label.trim();
+        if (clean.equalsIgnoreCase("GTNH-HUB") || clean.equalsIgnoreCase("Hub")) return "Hub";
+        if (clean.equalsIgnoreCase("GTNH-ALPHA") || clean.equalsIgnoreCase("Alpha")) return "Alpha";
+        if (clean.equalsIgnoreCase("GTNH-ENDGAME") || clean.equalsIgnoreCase("Endgame")) return "Endgame";
+        return clean;
     }
 
     private static boolean isBotMessage(JsonObject message) {
