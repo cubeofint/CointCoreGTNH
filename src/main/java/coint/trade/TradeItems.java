@@ -13,6 +13,8 @@ import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 
+import coint.integration.BackpackTransfer;
+
 /**
  * Items written for another server of the network. Numeric item ids differ between servers, so every item in them,
  * also items inside items (backpacks, toolboxes), carries its registry name ("in") and gets this server's id back
@@ -27,7 +29,9 @@ public final class TradeItems {
     public static byte[] write(List<ItemStack> stacks) {
         NBTTagList list = new NBTTagList();
         for (ItemStack stack : stacks) {
-            NBTTagCompound tag = stack.writeToNBT(new NBTTagCompound());
+            // ItemStack.writeToNBT attaches stackTagCompound by reference. Never rewrite the live offered item.
+            NBTTagCompound tag = (NBTTagCompound) stack.writeToNBT(new NBTTagCompound())
+                .copy();
             // The stack's own count is a byte.
             tag.setInteger("C", stack.stackSize);
             portable(tag);
@@ -36,7 +40,9 @@ public final class TradeItems {
         NBTTagCompound root = new NBTTagCompound();
         root.setTag("l", list);
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            root.setTag("backpacks", BackpackTransfer.tradeSnapshot(root));
             CompressedStreamTools.writeCompressed(root, out);
+            if (out.size() > 4 * 1024 * 1024) throw new IOException("Trade contents exceed 4 MiB");
             return out.toByteArray();
         } catch (IOException e) {
             throw new IllegalStateException(e);
@@ -52,6 +58,8 @@ public final class TradeItems {
         NBTTagCompound root;
         try {
             root = CompressedStreamTools.readCompressed(new ByteArrayInputStream(data));
+            NBTTagCompound bags = BackpackTransfer.localBags(root.getCompoundTag("backpacks"));
+            if (root.hasKey("backpacks")) BackpackTransfer.references(root.getTagList("l", TAG_COMPOUND), bags);
         } catch (IOException | RuntimeException e) {
             return null;
         }
@@ -76,12 +84,33 @@ public final class TradeItems {
         return read(data) != null;
     }
 
+    /** Called only on the receiving server thread, before handing over any items. */
+    public static void installBackpacks(byte[] data) throws IOException {
+        if (data == null || data.length == 0) return;
+        NBTTagCompound root = CompressedStreamTools.readCompressed(new ByteArrayInputStream(data));
+        BackpackTransfer.install(BackpackTransfer.localBags(root.getCompoundTag("backpacks")), true);
+    }
+
+    static String restrictedBackpack(byte[] data, int priority) throws IOException {
+        if (data == null || data.length == 0) return null;
+        NBTTagCompound root = CompressedStreamTools.readCompressed(new ByteArrayInputStream(data));
+        NBTTagCompound bags = BackpackTransfer.localBags(root.getCompoundTag("backpacks"));
+        String[] reason = { null };
+        BackpackTransfer.visit(bags, tag -> {
+            if (reason[0] != null || !isStack(tag)) return;
+            ItemStack stack = ItemStack.loadItemStackFromNBT(tag);
+            String epoch = TradeLimits.blockReason(stack, priority);
+            if (epoch != null) reason[0] = stack.getDisplayName() + " (" + epoch + ")";
+        });
+        return reason[0];
+    }
+
     /** An item written by ItemStack: a short id and a count. */
     private static boolean isStack(NBTTagCompound tag) {
         return tag.hasKey("id", TAG_SHORT) && tag.hasKey("Count");
     }
 
-    private static void portable(NBTTagCompound tag) {
+    public static void portable(NBTTagCompound tag) {
         if (isStack(tag)) {
             Item item = Item.getItemById(tag.getShort("id"));
             String name = item == null ? null : Item.itemRegistry.getNameForObject(item);
@@ -95,7 +124,7 @@ public final class TradeItems {
     }
 
     /** False when an item (or one inside it) is unknown here. */
-    private static boolean localize(NBTTagCompound tag) {
+    public static boolean localize(NBTTagCompound tag) {
         if (tag.hasKey("in", 8)) {
             Item item = (Item) Item.itemRegistry.getObject(tag.getString("in"));
             if (item == null) {

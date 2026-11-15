@@ -508,6 +508,7 @@ public final class MigrationMove {
         if (!MigrationGlobalData.unchanged(move)) throw new IOException(
             "Глобальные данные команды изменились после снимка. Источник не очищен; нужна сверка данных, повторная выдача/покупка во время переноса не потеряна.");
         if (!new File(backup, MigrationGlobalData.FILE).isFile()) MigrationGlobalData.write(backup, move);
+        MigrationBackpacks.retire(move, backup);
         MigrationGlobalData.apply(MigrationGlobalData.read(backup), move, true);
         RegionFileCache.clearRegionFileReferences();
         MigrationChunks.resetExternalSource(move, backup);

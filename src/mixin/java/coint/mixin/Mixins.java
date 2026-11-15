@@ -33,6 +33,7 @@ public enum Mixins implements IMixins {
         "minecraft.MixinServerConfigurationManager",
         "minecraft.MixinNetHandlerLoginServerClusterSession",
         "minecraft.MixinNetworkManagerClusterSession",
+        "minecraft.MixinFMLHandshakeCompletion",
         "minecraft.MixinNetHandlerStatusServerLocalCounts",
         "minecraft.AccessorUserListEntry",
         "minecraft.MixinBanEntryClusterView",

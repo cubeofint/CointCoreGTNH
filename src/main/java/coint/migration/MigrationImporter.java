@@ -486,6 +486,11 @@ public final class MigrationImporter {
         }
 
         // 2. Files. Whatever is replaced goes to migrations/replaced/<stamp>/.
+        try {
+            MigrationBackpacks.check(staging, manifest);
+        } catch (IOException e) {
+            return e.getMessage();
+        }
         if (operation.move != null) {
             try {
                 MigrationChunks.checkClaims(operation.move, true);
@@ -501,6 +506,7 @@ public final class MigrationImporter {
         if (!operation.current() || !CommandMigrate.allowed(sender)) return "сессия или право миграции изменились";
         int[] entry = team == null ? null : ints(team.get("entry"));
         try {
+            MigrationBackpacks.install(staging, manifest, replaced);
             if (operation.move != null) {
                 MigrationGlobalData.write(replaced, operation.move);
                 backupServerUtilities(operation.move, replaced);

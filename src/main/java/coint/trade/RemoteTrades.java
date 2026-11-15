@@ -378,7 +378,14 @@ public final class RemoteTrades {
 
     /** Writes this side's offers as they are now; what is on the table changed, so nobody is ready any more. */
     private static void writeOffer(Remote r) {
-        byte[] bytes = TradeItems.write(TradeManager.offered(r.side));
+        byte[] bytes;
+        try {
+            bytes = TradeItems.write(TradeManager.offered(r.side));
+        } catch (RuntimeException e) {
+            CointCore.LOG.error("[Trade] Cannot snapshot backpacks for trade #{}", r.id, e);
+            abort(r, "§cОбмен отменён: не удалось сохранить содержимое рюкзака.");
+            return;
+        }
         int my = r.me;
         r.pendingWrites++;
         boolean started = ClusterTrades.change(r.id, (row, deliveries) -> {
@@ -551,7 +558,21 @@ public final class RemoteTrades {
         }
         long deal = row.deal;
         List<ItemStack> taken = TradeManager.offered(me);
-        byte[] bytes = TradeItems.write(taken);
+        byte[] bytes;
+        try {
+            bytes = TradeItems.write(taken);
+            String restricted = TradeItems.restrictedBackpack(bytes, row.epoch[other]);
+            if (restricted == null) restricted = TradeItems.restrictedBackpack(row.offer[other], mine);
+            if (restricted != null) {
+                String message = "§cВ рюкзаке предмет, недоступный получателю по эпохе: " + restricted;
+                stop(r, message, message);
+                return;
+            }
+        } catch (java.io.IOException | RuntimeException e) {
+            CointCore.LOG.error("[Trade] Cannot commit backpacks for trade #{}", r.id, e);
+            abort(r, "§cОбмен отменён: не удалось сохранить содержимое рюкзака.");
+            return;
+        }
         TradeManager.take(me);
         player.inventoryContainer.detectAndSendChanges();
         r.committing = true;
@@ -857,6 +878,14 @@ public final class RemoteTrades {
     private static void hand(TradeDelivery d) {
         EntityPlayerMP player = TradeManager.online(UUID.fromString(d.uuid));
         List<ItemStack> stacks = TradeItems.read(d.payload);
+        if (player != null && stacks != null) {
+            try {
+                TradeItems.installBackpacks(d.payload);
+            } catch (java.io.IOException | RuntimeException e) {
+                CointCore.LOG.error("[Trade] Backpack delivery #{} retained for retry", d.id, e);
+                stacks = null;
+            }
+        }
         if (player == null || stacks == null) {
             // Left meanwhile: it waits for him again.
             ClusterTrades

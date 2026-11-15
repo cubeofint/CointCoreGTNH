@@ -288,6 +288,8 @@ public final class MigrationExporter {
             manifest.put("worldFolder", worldName);
             manifest.put("team", teamInfo);
             manifest.put("players", playerInfo);
+            MigrationBackpacks.players(staging, worldName, playerInfo);
+            manifest.put("backpacks", 1);
             manifest.put("personalDimensions", dimInfo);
             manifest.put("files", files.size());
             manifest.put("missing", missing);
@@ -339,6 +341,8 @@ public final class MigrationExporter {
                             .toPath(),
                         file.getValue());
                 }
+                MigrationBackpacks.snapshot(staging, worldName);
+                MigrationBackpacks.retain(staging, worldName, move);
                 zipDirectory(staging.toPath(), zip, session);
                 complete = true;
                 result = "§aАрхив готов: §f" + zip.getAbsolutePath()
