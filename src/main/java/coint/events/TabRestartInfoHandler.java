@@ -33,7 +33,8 @@ public final class TabRestartInfoHandler {
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || !CointConfig.restart.showInTab) {
+        if (event.phase != TickEvent.Phase.END
+            || (!CointConfig.restart.showInTab && !coint.cluster.ClusterService.isRunning())) {
             return;
         }
         if (++ticks < 20) {
@@ -54,20 +55,24 @@ public final class TabRestartInfoHandler {
     }
 
     private static void send(EntityPlayerMP player) {
-        if (!CointConfig.restart.showInTab || player == null || player.playerNetServerHandler == null) {
+        if ((!CointConfig.restart.showInTab && !coint.cluster.ClusterService.isRunning()) || player == null
+            || player.playerNetServerHandler == null) {
             return;
         }
 
-        String restart = RestartManager.INSTANCE.getTabStatus();
+        String restart = CointConfig.restart.showInTab ? RestartManager.INSTANCE.getTabStatus() : "";
         String footer = ServerUtilitiesConfig.tab.footerText;
         if (restart != null && !restart.isEmpty()) {
             footer = footer == null || footer.isEmpty() ? restart : footer + "\n\n" + restart;
         }
 
         JsonObject data = new JsonObject();
-        data.addProperty(
-            "header",
-            ServerUtilitiesConfig.tab.headerText == null ? "" : ServerUtilitiesConfig.tab.headerText);
+        String header = ServerUtilitiesConfig.tab.headerText == null ? "" : ServerUtilitiesConfig.tab.headerText;
+        if (coint.cluster.ClusterService.isRunning()) {
+            header += (header.isEmpty() ? "" : "\n") + "§7Общий онлайн: §a"
+                + coint.cluster.ClusterService.totalVisibleOnline();
+        }
+        data.addProperty("header", header);
         data.addProperty("footer", footer == null ? "" : footer);
 
         byte[] bytes = data.toString()

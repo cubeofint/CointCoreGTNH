@@ -88,6 +88,27 @@ public final class ClusterService {
     private static long nextHeartbeatAt, nextPollAt;
     /** The players of the other servers in the tab list: name, and the name of their server. */
     private static Map<String, String> remoteTab = Collections.emptyMap();
+    private static Set<String> remoteOnlineNames = Collections.emptySet();
+    private static long remoteOnlineUpdated;
+
+    /** Server-thread view; no SQL on the ping or tab path. Vanished players stay hidden. */
+    public static int totalVisibleOnline() {
+        Set<String> names = new java.util.HashSet<>();
+        if (running && System.currentTimeMillis() - remoteOnlineUpdated
+            < Math.max(1, CointConfig.cluster.nodeTimeoutSeconds) * 1000L) names.addAll(remoteOnlineNames);
+        MinecraftServer server = MinecraftServer.getServer();
+        if (server != null && server.getConfigurationManager() != null) {
+            for (Object object : server.getConfigurationManager().playerEntityList) {
+                EntityPlayerMP player = (EntityPlayerMP) object;
+                String name = player.getCommandSenderName()
+                    .toLowerCase(java.util.Locale.ROOT);
+                names.remove(name);
+                if (!ServerUtils.isVanished(player)) names.add(name);
+            }
+        }
+        return names.size();
+    }
+
     /** Their tab names (nickname, rank) as chat component JSON, where their server gave one. */
     private static Map<String, String> remoteDisplay = Collections.emptyMap();
 
@@ -371,17 +392,26 @@ public final class ClusterService {
             try {
                 db.heartbeat(id, name, address, tps, players, !startMarked);
                 startMarked = true;
-                List<ClusterDatabase.RemotePlayer> remote = tab ? db.remotePlayers(id, timeout)
-                    : Collections.emptyList();
+                List<ClusterDatabase.RemotePlayer> remote = db.remotePlayers(id, timeout);
                 if (!connectedLogged) {
                     connectedLogged = true;
                     CointCore.LOG.info("[Cluster] Connected to the cluster database");
                 }
-                results.add(() -> applyRemoteTab(remote));
+                results.add(() -> {
+                    Set<String> names = new java.util.HashSet<>();
+                    for (ClusterDatabase.RemotePlayer player : remote)
+                        names.add(player.name.toLowerCase(java.util.Locale.ROOT));
+                    remoteOnlineNames = names;
+                    remoteOnlineUpdated = System.currentTimeMillis();
+                    applyRemoteTab(tab ? remote : Collections.emptyList());
+                });
             } catch (SQLException e) {
                 logError("heartbeat", e);
                 // Unknown who is where: better nobody than ghosts.
-                results.add(() -> applyRemoteTab(Collections.emptyList()));
+                results.add(() -> {
+                    remoteOnlineNames = Collections.emptySet();
+                    applyRemoteTab(Collections.emptyList());
+                });
             } finally {
                 heartbeatInFlight.set(false);
             }
@@ -571,6 +601,8 @@ public final class ClusterService {
     private static void clearRemoteTab() {
         applyRemoteTab(Collections.emptyList());
         remoteTab = Collections.emptyMap();
+        remoteOnlineNames = Collections.emptySet();
+        remoteOnlineUpdated = 0;
         remoteDisplay = Collections.emptyMap();
     }
 
