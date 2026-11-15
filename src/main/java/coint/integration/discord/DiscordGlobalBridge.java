@@ -192,7 +192,7 @@ public final class DiscordGlobalBridge {
                 String text = message.has("content") && !message.get("content")
                     .isJsonNull() ? message.get("content")
                         .getAsString() : "";
-                text = normalize(text);
+                text = normalize(DiscordChatMedia.stripGifs(text));
                 if (text.isEmpty()) continue;
 
                 String authorName = displayName(message, author);
