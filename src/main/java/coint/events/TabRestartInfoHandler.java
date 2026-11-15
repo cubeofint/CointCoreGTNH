@@ -1,6 +1,7 @@
 package coint.events;
 
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.PacketBuffer;
@@ -22,6 +23,7 @@ import serverutils.ServerUtilitiesConfig;
 public final class TabRestartInfoHandler {
 
     private static final String CHANNEL = "SU|TabHF";
+    private static final Pattern FORMATTING_CODES = Pattern.compile("(?i)§[0-9A-FK-OR]");
     private static int ticks;
 
     @SubscribeEvent
@@ -85,7 +87,8 @@ public final class TabRestartInfoHandler {
         StringBuilder result = new StringBuilder();
         boolean replaced = false;
         for (String line : header.split("\n", -1)) {
-            String plain = net.minecraft.util.EnumChatFormatting.getTextWithoutFormattingCodes(line)
+            String plain = FORMATTING_CODES.matcher(line)
+                .replaceAll("")
                 .trim();
             if (plain.matches("(?iu)(?:Игроки онлайн|Общий онлайн)\\s*:\\s*\\d*")) {
                 if (replaced) continue;
