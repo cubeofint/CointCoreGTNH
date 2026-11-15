@@ -75,6 +75,24 @@ public final class GuestGuard {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onInteract(PlayerInteractEvent event) {
+        if (event.action == PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK && ClusterService.isRunning()
+            && ClusterHub.isHub()
+            && event.entityPlayer.getHeldItem() == null
+            && !event.entityPlayer.isSneaking()
+            && event.world.getBlock(event.x, event.y, event.z)
+                .getClass()
+                .getName()
+                .equals("jds.bibliocraft.blocks.BlockSeat")) {
+            // BiblioCraft 1.11.7's empty-hand activation only sits down. Do not allow its carpet,
+            // seat-back or drill branches through guest/claim protection, or run held-item use.
+            event.setCanceled(true);
+            if (!event.world.isRemote && event.entityPlayer instanceof EntityPlayerMP player
+                && player.ridingEntity == null) {
+                event.world.getBlock(event.x, event.y, event.z)
+                    .onBlockActivated(event.world, event.x, event.y, event.z, player, event.face, 0.5F, 0.5F, 0.5F);
+            }
+            return;
+        }
         if (event.action == PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK
             && event.world.getBlock(event.x, event.y, event.z) instanceof coint.cards.BlockCardTable
             && ClusterService.isRunning()
