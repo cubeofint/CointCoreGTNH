@@ -775,7 +775,7 @@ public class GuiCardTable extends GuiScreen {
             case 5 -> StatCollector.translateToLocalFormatted("cointcore.cards.log.pass", who);
             case 6 -> StatCollector.translateToLocalFormatted("cointcore.cards.log.timeout", who);
             case 7 -> "§6" + StatCollector.translateToLocalFormatted("cointcore.cards.log.win", line.name);
-            case 11 -> "§c" + line.name + " выбывает: " + line.card + " очк.";
+            case 11 -> "§c" + line.name + " выбывает: осталось карт — " + line.card;
             case 8 -> "§e" + StatCollector.translateToLocalFormatted("cointcore.cards.log.call", line.name);
             case 9 -> "§c"
                 + StatCollector.translateToLocalFormatted("cointcore.cards.log.missed", line.name, line.card);

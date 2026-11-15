@@ -537,16 +537,14 @@ final class CardGame {
             // Ties use seating order, making the result deterministic.
             for (UUID candidate : players) {
                 if (candidate.equals(player)) continue;
-                int score = 0;
-                for (int card : hands.getOrDefault(candidate, Collections.emptyList())) {
-                    int value = Cards.value(card);
-                    score += Cards.isWild(card) ? 50 : value > 9 ? 20 : value;
-                }
-                if (score > worst) {
-                    worst = score;
+                int count = hands.getOrDefault(candidate, Collections.emptyList())
+                    .size();
+                if (count > worst) {
+                    worst = count;
                     loser = candidate;
                 }
             }
+            log(Line.WIN, names.get(player), 0, -1);
             log((byte) 11, names.get(loser), worst, -1);
             players.remove(loser);
             if (!bots.remove(loser)) spectators.add(loser);
@@ -556,6 +554,12 @@ final class CardGame {
         if (elimination && players.size() == 2) {
             UUID loser = players.get(0)
                 .equals(player) ? players.get(1) : players.get(0);
+            log(
+                (byte) 11,
+                names.get(loser),
+                hands.getOrDefault(loser, Collections.emptyList())
+                    .size(),
+                -1);
             players.remove(loser);
             if (!bots.remove(loser)) spectators.add(loser);
         }
