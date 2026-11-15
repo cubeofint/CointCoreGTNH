@@ -94,7 +94,7 @@ public final class ClusterEntryQueue {
             m = JSON.fromJson(row.text, Message.class);
             uuid = UUID.fromString(m.uuid);
             UUID.fromString(m.token);
-            if (m.name == null || !m.name.matches("[A-Za-z0-9_]{1,16}")) return;
+            if (m.name == null || !m.name.matches("[A-Za-z0-9_.]{1,16}")) return;
         } catch (RuntimeException e) {
             return;
         }
