@@ -108,7 +108,16 @@ public final class RemoteTrades {
                 .func_152612_a(target);
         if (player == null) {
             if (ClusterTrades.KIND_OK.equals(kind)) {
-                abortById(parseId(text), "§cОбмен отменён: " + target + " уже не в сети.");
+                long id = parseId(text);
+                String localNode = ClusterTrades.nodeId();
+                if (id > 0) {
+                    // Chat messages are broadcast. Only the asker's node may cancel for his absence.
+                    ClusterTrades.change(
+                        id,
+                        missingAskerMutation(localNode, target, sender, nodeId),
+                        (row, applied) -> {},
+                        null);
+                }
             }
             return;
         }
@@ -118,6 +127,17 @@ public final class RemoteTrades {
             case ClusterTrades.KIND_NO -> onRefused(player, sender, text);
             default -> {}
         }
+    }
+
+    static TradeMutation missingAskerMutation(String localNode, String target, String sender, String senderNode) {
+        return (row, deliveries) -> {
+            if (!row.open() || !localNode.equals(row.node[0])
+                || !target.equalsIgnoreCase(row.name[0])
+                || !sender.equalsIgnoreCase(row.name[1])
+                || !senderNode.equals(row.node[1])) return false;
+            row.abort("§cОбмен отменён: " + target + " уже не в сети.", deliveries);
+            return true;
+        };
     }
 
     private static void onRequest(EntityPlayerMP player, String asker, String uuid, String nodeId, String nodeName) {

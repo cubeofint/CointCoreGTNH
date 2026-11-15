@@ -69,8 +69,7 @@ public final class TabRestartInfoHandler {
         JsonObject data = new JsonObject();
         String header = ServerUtilitiesConfig.tab.headerText == null ? "" : ServerUtilitiesConfig.tab.headerText;
         if (coint.cluster.ClusterService.isRunning()) {
-            header += (header.isEmpty() ? "" : "\n") + "§7Общий онлайн: §a"
-                + coint.cluster.ClusterService.totalVisibleOnline();
+            header = withOnlineCount(header, coint.cluster.ClusterService.totalVisibleOnline());
         }
         data.addProperty("header", header);
         data.addProperty("footer", footer == null ? "" : footer);
@@ -79,5 +78,27 @@ public final class TabRestartInfoHandler {
             .getBytes(StandardCharsets.UTF_8);
         PacketBuffer buffer = new PacketBuffer(Unpooled.copiedBuffer(bytes));
         player.playerNetServerHandler.sendPacket(new S3FPacketCustomPayload(CHANNEL, buffer));
+    }
+
+    static String withOnlineCount(String header, int online) {
+        String count = "§7Общий онлайн: §a" + online;
+        StringBuilder result = new StringBuilder();
+        boolean replaced = false;
+        for (String line : header.split("\n", -1)) {
+            String plain = net.minecraft.util.EnumChatFormatting.getTextWithoutFormattingCodes(line)
+                .trim();
+            if (plain.matches("(?iu)(?:Игроки онлайн|Общий онлайн)\\s*:\\s*\\d*")) {
+                if (replaced) continue;
+                line = count;
+                replaced = true;
+            }
+            if (result.length() > 0) result.append('\n');
+            result.append(line);
+        }
+        if (!replaced) {
+            if (result.length() > 0) result.append('\n');
+            result.append(count);
+        }
+        return result.toString();
     }
 }

@@ -25,7 +25,10 @@ public final class DiscordModerationWebhook {
     public static void logGlobal(EntityPlayerMP sender, String text) {
         if (!CointConfig.discord.enabled || !CointConfig.discord.sendGlobalChat) return;
 
-        String message = sender.getCommandSenderName() + ": " + stripFormatting(text);
+        String prefix = coint.cluster.ClusterService.isRunning()
+            ? "[" + stripFormatting(coint.cluster.ClusterService.displayName()) + "] "
+            : "";
+        String message = prefix + sender.getCommandSenderName() + ": " + stripFormatting(text);
         sendTo(mainChannelId(), message);
     }
 
