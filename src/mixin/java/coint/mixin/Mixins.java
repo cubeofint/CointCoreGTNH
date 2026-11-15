@@ -24,6 +24,7 @@ public enum Mixins implements IMixins {
         "minecraft.MixinEntityLivingActivation",
         "minecraft.MixinTileEntityChestChunkGuard",
         "minecraft.MixinBlockChestChunkGuard",
+        "minecraft.MixinPlayerInstanceEmptyUpdates",
         "ic2.MixinIc2WaterKineticChunkGuard",
         "magicbees.MixinTileEntityMagicApiaryChunkGuard",
         "minecraft.MixinEntityPlayer",
