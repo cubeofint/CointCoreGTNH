@@ -350,9 +350,12 @@ public final class TradeManager {
         give(b.player, fromA);
         a.player.inventoryContainer.detectAndSendChanges();
         b.player.inventoryContainer.detectAndSendChanges();
-        String node = coint.cluster.ClusterService.isRunning() ? " [" + coint.cluster.ClusterService.nodeId() + "]"
-            : "";
-        TradeLog.log(a.name + node, b.name + node, fromA, fromB);
+        String node = coint.cluster.ClusterService.isRunning() ? coint.cluster.ClusterService.nodeId() : null;
+        TradeLog.log(
+            TradeLog.participant(a.name, node, TradeLimits.priority(a.player)),
+            TradeLog.participant(b.name, node, TradeLimits.priority(b.player)),
+            fromA,
+            fromB);
         session.over = true;
         sessions.remove(a.uuid);
         sessions.remove(b.uuid);

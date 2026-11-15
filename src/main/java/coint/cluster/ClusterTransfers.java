@@ -34,6 +34,10 @@ public final class ClusterTransfers {
     private ClusterTransfers() {}
 
     static void send(EntityPlayerMP player, ClusterDatabase.NodeRow node) {
+        ClusterEntryQueue.request(player, node);
+    }
+
+    static void sendGranted(EntityPlayerMP player, ClusterDatabase.NodeRow node) {
         // Marked first: the hub tells a player sent there from one who came from the launcher (and sends him home).
         if (!marking.add(player.getUniqueID())) {
             return;

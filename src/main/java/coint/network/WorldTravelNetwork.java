@@ -68,7 +68,7 @@ public final class WorldTravelNetwork {
     }
 
     public static void openFor(EntityPlayerMP player) {
-        if (coint.cluster.ClusterComfort.hubHeld(player)) {
+        if (coint.cluster.ClusterHub.isHub()) {
             // No world travel on the hub: the travel key shows the servers instead.
             coint.cluster.PacketServers.sendTo(player, true);
             return;

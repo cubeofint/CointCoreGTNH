@@ -663,8 +663,8 @@ public final class RemoteTrades {
     private static void log(TradeRow row) {
         List<ItemStack> fromA = TradeItems.read(row.offer[0]), fromB = TradeItems.read(row.offer[1]);
         TradeLog.log(
-            row.name[0] + " [" + row.node[0] + "]",
-            row.name[1] + " [" + row.node[1] + "]",
+            TradeLog.participant(row.name[0], row.node[0], row.epoch[0]),
+            TradeLog.participant(row.name[1], row.node[1], row.epoch[1]),
             fromA == null ? Collections.emptyList() : fromA,
             fromB == null ? Collections.emptyList() : fromB);
     }

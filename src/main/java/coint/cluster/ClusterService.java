@@ -221,6 +221,7 @@ public final class ClusterService {
 
     /** Tells the others this server is going down, waiting a moment for it, and stops. */
     public static synchronized void stop() {
+        ClusterEntryQueue.reset();
         if (!running) {
             return;
         }
@@ -366,7 +367,8 @@ public final class ClusterService {
             nextHeartbeatAt = now + config.heartbeatSeconds * 1000L;
             sendHeartbeat(config);
         }
-        if (config.chatEnabled && now >= nextPollAt && pollInFlight.compareAndSet(false, true)) {
+        // Admission requests use the same transport and must work even with cross-server chat disabled.
+        if (now >= nextPollAt && pollInFlight.compareAndSet(false, true)) {
             nextPollAt = now + config.chatPollMillis;
             pollChat();
         }
@@ -543,6 +545,11 @@ public final class ClusterService {
             return;
         }
         for (ClusterDatabase.ChatRow row : rows) {
+            if (ClusterEntryQueue.KIND.equals(row.kind)) {
+                ClusterEntryQueue.onMessage(row);
+                continue;
+            }
+            if (!CointConfig.cluster.chatEnabled) continue;
             if (KIND_DM.equals(row.kind)) {
                 DirectMessages.deliverRemote(row.sender, row.senderFormatted, row.nodeName, row.target, row.text);
                 continue;

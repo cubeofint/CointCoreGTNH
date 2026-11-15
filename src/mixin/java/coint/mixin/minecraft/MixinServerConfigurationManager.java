@@ -133,7 +133,7 @@ public class MixinServerConfigurationManager {
         int reserved = Math.max(0, CointConfig.general.reservedSlots);
         boolean hasReservedSlot = PermissionAPI.hasPermission(profile, CointSUPermissions.RESERVED_SLOT, null);
 
-        if (online < this.maxPlayers) {
+        if (coint.cluster.ClusterEntryQueue.hasRoom(profile, online, this.maxPlayers, reserved, hasReservedSlot)) {
             return null;
         }
 
@@ -141,6 +141,6 @@ public class MixinServerConfigurationManager {
             return reserved > 0 ? "На сервере остались только резервные слоты!" : "Сервер переполнен!";
         }
 
-        return online >= this.maxPlayers + reserved ? "Сервер переполнен!" : null;
+        return "Все доступные места заняты или зарезервированы. Войдите через хаб и выберите сервер для очереди.";
     }
 }

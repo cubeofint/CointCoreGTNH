@@ -502,7 +502,7 @@ final class ClusterDatabase {
         List<NodeRow> result = new ArrayList<>();
         try (PreparedStatement p = connection().prepareStatement(
             "SELECT node_id, display_name, address, online_players, tps, "
-                + "(NOT stopped AND last_seen > NOW(3) - INTERVAL ? SECOND) FROM cluster_nodes ORDER BY node_id")) {
+                + "(NOT stopped AND last_seen > NOW(3) - INTERVAL ? SECOND), max_players FROM cluster_nodes ORDER BY node_id")) {
             p.setInt(1, timeoutSeconds);
             try (ResultSet r = p.executeQuery()) {
                 while (r.next()) {
@@ -513,7 +513,8 @@ final class ClusterDatabase {
                             r.getString(3),
                             r.getInt(4),
                             r.getDouble(5),
-                            r.getBoolean(6)));
+                            r.getBoolean(6),
+                            r.getInt(7)));
                 }
             }
         }
@@ -744,14 +745,20 @@ final class ClusterDatabase {
 
         final String id, name, address;
         final int players;
+        final int capacity;
         final double tps;
         final boolean online;
 
         NodeRow(String id, String name, String address, int players, double tps, boolean online) {
+            this(id, name, address, players, tps, online, 0);
+        }
+
+        NodeRow(String id, String name, String address, int players, double tps, boolean online, int capacity) {
             this.id = id;
             this.name = name;
             this.address = address;
             this.players = players;
+            this.capacity = capacity;
             this.tps = tps;
             this.online = online;
         }

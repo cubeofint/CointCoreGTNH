@@ -30,6 +30,8 @@ public class PacketServers implements IMessage {
 
         public String id = "", name = "";
         public int players;
+        public int capacity;
+        public int queuePosition = -1;
         public double tps;
         public boolean online, here, home;
     }
@@ -57,6 +59,8 @@ public class PacketServers implements IMessage {
                 entry.id = node.id;
                 entry.name = node.name;
                 entry.players = node.players;
+                entry.capacity = node.capacity;
+                entry.queuePosition = ClusterEntryQueue.position(uuid, node.id);
                 entry.tps = node.tps;
                 entry.online = node.online;
                 entry.here = node.id.equals(ClusterService.nodeId());
@@ -94,6 +98,8 @@ public class PacketServers implements IMessage {
             entry.id = ByteBufUtils.readUTF8String(buf);
             entry.name = ByteBufUtils.readUTF8String(buf);
             entry.players = buf.readInt();
+            entry.capacity = buf.readInt();
+            entry.queuePosition = buf.readInt();
             entry.tps = buf.readDouble();
             int flags = buf.readByte();
             entry.online = (flags & 1) != 0;
@@ -115,6 +121,8 @@ public class PacketServers implements IMessage {
             ByteBufUtils.writeUTF8String(buf, entry.id);
             ByteBufUtils.writeUTF8String(buf, entry.name == null ? entry.id : entry.name);
             buf.writeInt(entry.players);
+            buf.writeInt(entry.capacity);
+            buf.writeInt(entry.queuePosition);
             buf.writeDouble(entry.tps);
             buf.writeByte((entry.online ? 1 : 0) | (entry.here ? 2 : 0) | (entry.home ? 4 : 0));
         }

@@ -24,7 +24,7 @@ public class CommandServer extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/server [id|home]";
+        return "/server [id|home|cancel]";
     }
 
     @Override
@@ -39,6 +39,11 @@ public class CommandServer extends CommandBase {
 
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
+        if (args.length == 1 && args[0].equalsIgnoreCase("cancel") && sender instanceof EntityPlayerMP player) {
+            ClusterEntryQueue.cancel(player.getUniqueID());
+            sender.addChatMessage(new ChatComponentText("§eОжидание перехода отменено."));
+            return;
+        }
         if (!ClusterService.isRunning()) {
             sender.addChatMessage(new ChatComponentText("§cСеть серверов сейчас недоступна."));
             return;
@@ -65,7 +70,11 @@ public class CommandServer extends CommandBase {
         for (ClusterDatabase.NodeRow node : nodes) {
             boolean here = node.id.equals(ClusterService.nodeId());
             String state = node.online
-                ? "§a" + node.players + " онлайн, TPS " + String.format(Locale.ROOT, "%.1f", Math.min(20, node.tps))
+                ? "§a" + node.players
+                    + "/"
+                    + node.capacity
+                    + " слотов, TPS "
+                    + String.format(Locale.ROOT, "%.1f", Math.min(20, node.tps))
                 : "§8выключен";
             sender.addChatMessage(
                 new ChatComponentText(

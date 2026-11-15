@@ -21,6 +21,20 @@ final class TradeLog {
 
     private TradeLog() {}
 
+    static String participant(String name, String node, int priority) {
+        String epoch = "без эпохи";
+        if (coint.epochsync.EpochRegistry.INST != null) {
+            for (coint.epochsync.EpochEntry entry : coint.epochsync.EpochRegistry.INST.epochs.values()) {
+                if (entry.priority == priority) {
+                    epoch = entry.displayName == null || entry.displayName.isEmpty() ? entry.rankName
+                        : entry.displayName;
+                    break;
+                }
+            }
+        }
+        return name + " [" + epoch.replaceAll("§.", "") + "]" + (node == null ? "" : " [" + node + "]");
+    }
+
     static void log(String a, String b, List<ItemStack> fromA, List<ItemStack> fromB) {
         String when = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         String line = "[" + when

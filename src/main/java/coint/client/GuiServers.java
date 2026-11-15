@@ -73,7 +73,7 @@ public final class GuiServers extends GuiScreen {
         }
         PacketServers.Entry entry = state.entries.get(index);
         if (entry.online && !entry.here) {
-            mc.thePlayer.sendChatMessage("/server " + entry.id);
+            mc.thePlayer.sendChatMessage("/server " + (entry.queuePosition >= 0 ? "cancel" : entry.id));
             mc.displayGuiScreen(null);
         }
     }
@@ -113,7 +113,9 @@ public final class GuiServers extends GuiScreen {
 
         String status = entry.online
             ? "§aВключён §7· §f" + entry.players
-                + " §7онлайн · TPS "
+                + "/"
+                + entry.capacity
+                + " §7слотов · TPS "
                 + tpsColor(entry.tps)
                 + String.format(Locale.ROOT, "%.1f", Math.min(20, entry.tps))
             : "§cВыключен";
@@ -125,7 +127,9 @@ public final class GuiServers extends GuiScreen {
         }
         if (canGo) {
             fontRendererObj.drawStringWithShadow(
-                hover ? "§fНажмите, чтобы перейти" : "§7Нажмите, чтобы перейти",
+                entry.queuePosition >= 0 ? "§eОчередь №" + entry.queuePosition + " · Нажмите для отмены"
+                    : entry.players >= entry.capacity ? "§eМест нет · Нажмите для входа/очереди"
+                        : hover ? "§fНажмите, чтобы перейти" : "§7Нажмите, чтобы перейти",
                 x + 6,
                 y + CARD_HEIGHT - 14,
                 0xFFFFFF);
