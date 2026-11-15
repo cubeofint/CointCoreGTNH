@@ -8,6 +8,8 @@ import net.minecraft.server.management.IPBanEntry;
 import net.minecraft.server.management.ServerConfigurationManager;
 import net.minecraft.server.management.UserListBans;
 import net.minecraft.server.management.UserListBansEntry;
+import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.util.IChatComponent;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -33,6 +35,24 @@ public class MixinServerConfigurationManager {
 
     @Shadow
     int maxPlayers;
+
+    // Keep the server log, but do not broadcast routine connection announcements to players.
+    @Inject(
+        method = "sendChatMsgImpl",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/server/management/ServerConfigurationManager;sendPacketToAllPlayers(Lnet/minecraft/network/Packet;)V"),
+        cancellable = true,
+        require = 1)
+    private void cointcore$hideConnectionAnnouncements(IChatComponent component, boolean isChat, CallbackInfo ci) {
+        if (component instanceof ChatComponentTranslation translation) {
+            String key = translation.getKey();
+            if ("multiplayer.player.joined".equals(key) || "multiplayer.player.joined.renamed".equals(key)
+                || "multiplayer.player.left".equals(key)) {
+                ci.cancel();
+            }
+        }
+    }
 
     // Run after loading the saved position, before vanilla tries to hotload that world.
     @Inject(

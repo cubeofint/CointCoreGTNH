@@ -174,7 +174,8 @@ public final class TabRankSorter {
         JsonObject players = new JsonObject();
         Set<String> customNames = new HashSet<>();
         for (PlayerEntry entry : entries) {
-            if (entry.primaryRank == null) continue;
+            // Override SU's chat-derived name for everyone, including players without a donor/staff rank.
+            // Otherwise their optional team prefix leaks into the local tab list.
             JsonObject playerData = new JsonObject();
             playerData.addProperty("displayName", buildDisplayName(entry));
             players.add(entry.name, playerData);
