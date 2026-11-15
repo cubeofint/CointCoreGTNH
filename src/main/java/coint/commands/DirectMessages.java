@@ -11,7 +11,6 @@ import net.minecraft.util.IChatComponent;
 import coint.CointCore;
 import coint.cluster.ClusterService;
 import coint.commands.spy.DmLogger;
-import coint.commands.spy.PersonalSpyRegistry;
 import coint.integration.discord.DiscordModerationWebhook;
 
 /**
@@ -50,11 +49,10 @@ public final class DirectMessages {
         // Sender: [ЛС] Вы → Target (Server): text
         ChatComponentText toSender = new ChatComponentText(
             CommandReply.PREFIX + EnumChatFormatting.GRAY
-                + "Вы"
+                + coint.cluster.ClusterSpy.label("Вы")
                 + CommandReply.ARROW
                 + EnumChatFormatting.BLUE
-                + target
-                + serverTag(server)
+                + coint.cluster.ClusterSpy.label(target, server)
                 + EnumChatFormatting.GRAY
                 + ": "
                 + EnumChatFormatting.WHITE);
@@ -62,9 +60,11 @@ public final class DirectMessages {
         sender.addChatMessage(toSender);
 
         MessageTracker.setReply(senderName, target);
-        DmLogger.log("TELL", senderDisplay, target + "@" + server, plain);
-        DiscordModerationWebhook.logDm(senderDisplay, target + " (" + server + ")", plain);
-        PersonalSpyRegistry.notifySpies(senderDisplay, target, text);
+        String from = coint.cluster.ClusterSpy.label(senderDisplay);
+        String to = coint.cluster.ClusterSpy.label(target, server);
+        DmLogger.log("TELL", from, to, plain);
+        DiscordModerationWebhook.logDm(from, to, plain);
+        coint.cluster.ClusterSpy.dm(senderName, target, from, to, plain);
         return true;
     }
 
@@ -88,18 +88,18 @@ public final class DirectMessages {
         }
         ChatComponentText message = new ChatComponentText(
             CommandReply.PREFIX + EnumChatFormatting.AQUA
-                + senderDisplay
-                + serverTag(server)
+                + coint.cluster.ClusterSpy.label(senderDisplay, server)
                 + CommandReply.ARROW
                 + EnumChatFormatting.WHITE
                 + text);
         target.addChatMessage(message);
         MessageTracker.setReply(target.getCommandSenderName(), senderName);
-        DmLogger.log("TELL", senderDisplay + "@" + server, target.getCommandSenderName(), text);
-        PersonalSpyRegistry.notifySpies(senderDisplay, target.getCommandSenderName(), new ChatComponentText(text));
+        DmLogger.log(
+            "TELL",
+            coint.cluster.ClusterSpy.label(senderDisplay, server),
+            coint.cluster.ClusterSpy.label(target.getCommandSenderName()),
+            text);
+        // The originating node publishes the single cluster-wide spy copy, including this node.
     }
 
-    private static String serverTag(String server) {
-        return server == null || server.isEmpty() ? "" : " " + EnumChatFormatting.DARK_GRAY + "(" + server + ")";
-    }
 }

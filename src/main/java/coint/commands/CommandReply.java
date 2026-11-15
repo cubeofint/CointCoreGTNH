@@ -16,7 +16,6 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 
 import coint.commands.spy.DmLogger;
-import coint.commands.spy.PersonalSpyRegistry;
 import coint.integration.discord.DiscordModerationWebhook;
 import serverutils.ranks.ICommandWithPermission;
 
@@ -125,6 +124,8 @@ public class CommandReply extends CommandBase {
             .getUnformattedText();
         String targetDisplay = target.func_145748_c_()
             .getUnformattedText();
+        senderDisplay = coint.cluster.ClusterSpy.label(senderDisplay);
+        targetDisplay = coint.cluster.ClusterSpy.label(targetDisplay);
 
         // Recipient: [ЛС] SenderName → text
         ChatComponentText toRecipient = new ChatComponentText(
@@ -135,7 +136,7 @@ public class CommandReply extends CommandBase {
         // Sender confirmation: [ЛС] Вы → TargetName: text
         ChatComponentText toSender = new ChatComponentText(
             PREFIX + EnumChatFormatting.GRAY
-                + "Вы"
+                + coint.cluster.ClusterSpy.label("Вы")
                 + ARROW
                 + EnumChatFormatting.AQUA
                 + targetDisplay
@@ -151,6 +152,11 @@ public class CommandReply extends CommandBase {
         // Append to the dedicated DM log file and notify in-game spies.
         DmLogger.log("REPLY", senderDisplay, targetDisplay, text.getUnformattedText());
         DiscordModerationWebhook.logDm(senderDisplay, targetDisplay, text.getUnformattedText());
-        PersonalSpyRegistry.notifySpies(senderDisplay, targetDisplay, text);
+        coint.cluster.ClusterSpy.dm(
+            sender.getCommandSenderName(),
+            target.getCommandSenderName(),
+            senderDisplay,
+            targetDisplay,
+            text.getUnformattedText());
     }
 }

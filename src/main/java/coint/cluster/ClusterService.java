@@ -549,6 +549,10 @@ public final class ClusterService {
                 ClusterEntryQueue.onMessage(row);
                 continue;
             }
+            if (ClusterSpy.isMessage(row)) {
+                ClusterSpy.receive(row);
+                continue;
+            }
             if (!CointConfig.cluster.chatEnabled) continue;
             if (KIND_DM.equals(row.kind)) {
                 DirectMessages.deliverRemote(row.sender, row.senderFormatted, row.nodeName, row.target, row.text);

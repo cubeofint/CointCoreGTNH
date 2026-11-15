@@ -47,9 +47,9 @@ public final class PersonalSpyRegistry {
 
     public static ChatComponentText toggleWithMessage(ForgePlayer player) {
         return new ChatComponentText(
-            PersonalSpyRegistry.SPY_PREFIX
-                + (toggle(player) ? EnumChatFormatting.GREEN + "Включён — вы видите личную переписку игроков."
-                    : EnumChatFormatting.RED + "Выключен."));
+            PersonalSpyRegistry.SPY_PREFIX + (toggle(player)
+                ? EnumChatFormatting.GREEN + "Включён — вы видите личную переписку игроков всех серверов."
+                : EnumChatFormatting.RED + "Выключен."));
     }
 
     public static void enable(ForgePlayer player) {
@@ -71,14 +71,17 @@ public final class PersonalSpyRegistry {
      * @param targetDisplay unformatted display name of the recipient
      * @param text          the original message component (will be deep-copied per recipient)
      */
-    public static void notifySpies(String senderDisplay, String targetDisplay, IChatComponent text) {
+    public static void deliver(String sender, String target, String senderDisplay, String targetDisplay,
+        IChatComponent text) {
         if (SPIES.isEmpty()) return;
 
         for (ForgePlayer spy : SPIES) {
             if (!spy.isOnline() || spy.getName()
-                .equals(senderDisplay)
+                .equalsIgnoreCase(sender)
                 || spy.getName()
-                    .equals(targetDisplay))
+                    .equalsIgnoreCase(target)
+                || !serverutils.lib.util.permission.PermissionAPI
+                    .hasPermission(spy.getPlayer(), coint.commands.CommandSpy.PERMISSION))
                 continue;
             ChatComponentText msg = new ChatComponentText(
                 SPY_PREFIX + EnumChatFormatting.AQUA

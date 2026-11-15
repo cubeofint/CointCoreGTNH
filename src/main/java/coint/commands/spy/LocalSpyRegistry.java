@@ -24,7 +24,7 @@ import serverutils.lib.data.ForgePlayer;
  * the normal local-chat pipeline and do not need a duplicate.
  *
  * <p>
- * The copy includes the sender's dimension and block coordinates so the admin has enough
+ * The copy includes the sender's node and dimension so the admin has enough
  * context to understand where the conversation is taking place.
  *
  * <p>
@@ -64,7 +64,7 @@ public final class LocalSpyRegistry {
     public static ChatComponentText toggleWithMessage(ForgePlayer player) {
         return new ChatComponentText(
             LocalSpyRegistry.SPY_PREFIX
-                + (toggle(player) ? EnumChatFormatting.GREEN + "Включён — вы видите локальные сообщения всех игроков."
+                + (toggle(player) ? EnumChatFormatting.GREEN + "Включён — вы видите локальные сообщения всех серверов."
                     : EnumChatFormatting.RED + "Выключен."));
     }
 
@@ -84,7 +84,7 @@ public final class LocalSpyRegistry {
      * Format:
      *
      * <pre>
-     * §8[§dЛОКАЛ§8] §bPlayerName §8(dim:0 x:-12 z:305)§7: §ftext
+     * §8[§dЛОКАЛ§8] §bPlayerName §8[Alpha] (dim:0)§7: §ftext
      * </pre>
      *
      * @param sender        the player who sent the message
@@ -92,13 +92,18 @@ public final class LocalSpyRegistry {
      * @param text          raw message text (no colour codes from the local format string)
      */
     public static void notifySpies(EntityPlayerMP sender, String senderDisplay, String text) {
+        coint.cluster.ClusterSpy.local(sender.getCommandSenderName(), senderDisplay, sender.dimension, text);
+        senderDisplay = coint.cluster.ClusterSpy.label(senderDisplay);
         if (SPIES.isEmpty()) return;
 
         double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
         String location = EnumChatFormatting.DARK_GRAY + "(dim:" + sender.dimension + ")";
 
         for (ForgePlayer spy : SPIES) {
-            if (!spy.isOnline() || spy.equalsPlayer(sender)) continue;
+            if (!spy.isOnline() || spy.equalsPlayer(sender)
+                || !serverutils.lib.util.permission.PermissionAPI
+                    .hasPermission(spy.getPlayer(), coint.commands.CommandSpy.PERMISSION))
+                continue;
             if (spy.getPlayer().dimension == sender.dimension
                 && sender.getDistanceSqToEntity(spy.getPlayer()) <= radiusSq) continue;
 
@@ -113,6 +118,17 @@ public final class LocalSpyRegistry {
                     + text);
             spy.getPlayer()
                 .addChatMessage(msg);
+        }
+    }
+
+    public static void deliverRemote(String senderDisplay, int dimension, String text) {
+        for (ForgePlayer spy : SPIES) {
+            if (!spy.isOnline() || !serverutils.lib.util.permission.PermissionAPI
+                .hasPermission(spy.getPlayer(), coint.commands.CommandSpy.PERMISSION)) continue;
+            spy.getPlayer()
+                .addChatMessage(
+                    new ChatComponentText(
+                        SPY_PREFIX + "§b" + senderDisplay + " §8(dim:" + dimension + ")§7: §f" + text));
         }
     }
 }

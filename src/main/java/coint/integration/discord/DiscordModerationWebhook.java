@@ -44,7 +44,10 @@ public final class DiscordModerationWebhook {
     public static void logLocal(EntityPlayerMP sender, String text) {
         if (!CointConfig.discord.enabled || !CointConfig.discord.sendLocalChat) return;
 
-        String message = sender.getCommandSenderName() + " (dim:" + sender.dimension + "): " + stripFormatting(text);
+        String message = stripFormatting(coint.cluster.ClusterSpy.label(sender.getCommandSenderName())) + " (dim:"
+            + sender.dimension
+            + "): "
+            + stripFormatting(text);
         sendTo(CointConfig.discord.logChannelId, message);
     }
 

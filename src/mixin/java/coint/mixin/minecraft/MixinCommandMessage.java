@@ -26,7 +26,6 @@ import coint.commands.CommandReply;
 import coint.commands.DirectMessages;
 import coint.commands.MessageTracker;
 import coint.commands.spy.DmLogger;
-import coint.commands.spy.PersonalSpyRegistry;
 import coint.integration.discord.DiscordModerationWebhook;
 
 /**
@@ -127,6 +126,8 @@ public class MixinCommandMessage {
             .getUnformattedText();
         String targetDisplay = target.func_145748_c_()
             .getUnformattedText();
+        senderDisplay = coint.cluster.ClusterSpy.label(senderDisplay);
+        targetDisplay = coint.cluster.ClusterSpy.label(targetDisplay);
 
         // Recipient: [ЛС] SenderName → text
         ChatComponentText toRecipient = new ChatComponentText(
@@ -140,7 +141,7 @@ public class MixinCommandMessage {
         // Sender: [ЛС] Вы → TargetName: text
         ChatComponentText toSender = new ChatComponentText(
             CommandReply.PREFIX + EnumChatFormatting.GRAY
-                + "Вы"
+                + coint.cluster.ClusterSpy.label("Вы")
                 + CommandReply.ARROW
                 + EnumChatFormatting.BLUE
                 + targetDisplay
@@ -156,6 +157,11 @@ public class MixinCommandMessage {
         // Append to the dedicated DM log file and notify in-game spies.
         DmLogger.log("TELL", senderDisplay, targetDisplay, text.getUnformattedText());
         DiscordModerationWebhook.logDm(senderDisplay, targetDisplay, text.getUnformattedText());
-        PersonalSpyRegistry.notifySpies(senderDisplay, targetDisplay, text);
+        coint.cluster.ClusterSpy.dm(
+            sender.getCommandSenderName(),
+            target.getCommandSenderName(),
+            senderDisplay,
+            targetDisplay,
+            text.getUnformattedText());
     }
 }
