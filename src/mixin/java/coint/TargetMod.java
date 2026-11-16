@@ -20,6 +20,7 @@ public enum TargetMod implements ITargetMod {
     JABBA("JABBA"),
     HODGEPODGE("hodgepodge"),
     MATTERMANIPULATOR("matter-manipulator"),
+    NEI("NotEnoughItems"),
     PERSONALSPACE("personalspace"),
     SERVERUTILITIES("serverutilities"),
     THAUMCRAFT("Thaumcraft"),

@@ -131,15 +131,17 @@ public class ChatSplitHandler {
 
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onServerChat(ServerChatEvent event) {
-        if (!CointConfig.chat.splitEnabled || event.isCanceled()) {
+        if (event.isCanceled()) {
             return;
         }
-        event.setCanceled(true);
 
-        if (event.message.contains("betterquesting.msg.sharequest")) {
+        if (event.message != null && event.message.startsWith("betterquesting.msg.sharequest:")) {
+            event.setCanceled(true);
             send(event.player, event.message, true);
             return;
         }
+        if (!CointConfig.chat.splitEnabled) return;
+        event.setCanceled(true);
 
         String message = event.message == null ? "" : event.message;
         String configuredPrefix = CointConfig.chat.prefix;

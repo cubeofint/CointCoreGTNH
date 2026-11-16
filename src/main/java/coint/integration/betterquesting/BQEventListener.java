@@ -88,6 +88,7 @@ public class BQEventListener {
                 MinecraftServer.getServer()
                     .getConfigurationManager()
                     .sendChatMsg(new ChatComponentText(msg));
+                coint.cluster.ClusterService.publishAnnouncement(msg);
             }
 
             LOG.info("Successfully set rank {} for player {}", epoch.rankName, playerId);

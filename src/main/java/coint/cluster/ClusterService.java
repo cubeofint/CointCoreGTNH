@@ -271,6 +271,15 @@ public final class ClusterService {
     }
 
     /** A Discord message this server received, for the other servers. */
+    public static void publishAnnouncement(String text) {
+        DiscordModerationWebhook.logAnnouncement(displayName(), text);
+        if (running && CointConfig.cluster.chatEnabled) publish("announcement", "", "", text);
+    }
+
+    public static void publishItemLink(String sender, String formatted, String payload) {
+        if (running && CointConfig.cluster.chatEnabled) publish("item_link", sender, formatted, payload);
+    }
+
     public static void publishDiscordChat(String author, String text) {
         if (!running || !CointConfig.cluster.chatEnabled) {
             return;
@@ -554,6 +563,16 @@ public final class ClusterService {
                 continue;
             }
             if (!CointConfig.cluster.chatEnabled) continue;
+            if ("announcement".equals(row.kind)) {
+                server.getConfigurationManager()
+                    .sendChatMsg(new ChatComponentText("§8[" + row.nodeName + "]§r " + row.text));
+                DiscordModerationWebhook.logAnnouncement(row.nodeName, row.text);
+                continue;
+            }
+            if ("item_link".equals(row.kind)) {
+                ClusterItemLinks.receive(row.nodeName, row.senderFormatted, row.text);
+                continue;
+            }
             if (KIND_DM.equals(row.kind)) {
                 DirectMessages.deliverRemote(row.sender, row.senderFormatted, row.nodeName, row.target, row.text);
                 continue;
