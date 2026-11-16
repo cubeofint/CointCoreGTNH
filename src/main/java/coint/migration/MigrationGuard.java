@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -131,11 +132,13 @@ public final class MigrationGuard {
     }
 
     static void checkConflict(MoveRecord candidate) throws IOException {
+        if (broken) throw new IOException("Повреждён журнал блокировок миграции");
         Set<String> positions = new HashSet<>();
         Set<Integer> candidateDimensions = new HashSet<>(candidate.dimensions);
         for (int[] c : candidate.claims) positions.add(MoveRecord.key(c));
         for (MoveRecord old : records.values()) {
             if (old.id.equals(candidate.id)) continue;
+            if (completedReturn(old, candidate)) continue;
             for (int dim : old.dimensions) {
                 if (candidateDimensions.contains(dim))
                     throw new IOException("Измерение " + dim + " заблокировано переносом " + old.id);
@@ -144,6 +147,85 @@ public final class MigrationGuard {
             }
             for (int[] c : old.claims) if (candidateDimensions.contains(c[0]) || positions.contains(MoveRecord.key(c)))
                 throw new IOException("Чанк " + MoveRecord.key(c) + " заблокирован переносом " + old.id);
+        }
+    }
+
+    /** A completed retirement can be replaced only by its own whole team returning from the receiving node. */
+    private static boolean completedReturn(MoveRecord old, MoveRecord candidate) {
+        if (old.joining() || candidate.joining()
+            || !candidate.target.equals(CointConfig.cluster.nodeId)
+            || !old.source.equals(candidate.target)
+            || !old.target.equals(candidate.source)
+            || !old.team.equals(candidate.team)
+            || !new HashSet<>(old.players).equals(new HashSet<>(candidate.players))
+            || !candidate.dimensions.containsAll(old.dimensions)) return false;
+        Set<String> claims = new HashSet<>();
+        for (int[] c : candidate.claims) claims.add(MoveRecord.key(c));
+        for (int[] c : old.claims)
+            if (!candidate.dimensions.contains(c[0]) && !claims.contains(MoveRecord.key(c))) return false;
+        try {
+            Path journal = MigrationStorage.archives()
+                .toPath()
+                .resolve("team-moves/" + old.id);
+            Path finished = MigrationStorage.serverDirectory()
+                .toPath()
+                .resolve("cointcore/finished-team-moves/" + old.id);
+            // The old completion handler must already have run locally, otherwise it could reinstate the retirement.
+            if (!Files.isRegularFile(finished) || !text(finished).equals(old.target)
+                || Files.exists(journal.resolve("error"))) return false;
+            MoveRecord request = JSON.fromJson(text(journal.resolve("request.json")), MoveRecord.class);
+            request.validate();
+            if (!request.id.equals(old.id) || !request.source.equals(old.source)
+                || !request.target.equals(old.target)
+                || !request.team.equals(old.team)
+                || !new HashSet<>(request.players).equals(new HashSet<>(old.players))) return false;
+            if (!request.dimensions.containsAll(old.dimensions)) return false;
+            Set<String> originalClaims = new HashSet<>();
+            for (int[] c : request.claims) originalClaims.add(MoveRecord.key(c));
+            for (int[] c : old.claims) if (!originalClaims.contains(MoveRecord.key(c))) return false;
+            Receipt archive = JSON.fromJson(text(journal.resolve("archive.json")), Receipt.class);
+            if (archive == null || !MigrationStorage.validArchiveName(archive.name)
+                || archive.sha256 == null
+                || !archive.sha256.matches("[a-f0-9]{64}")) return false;
+            return text(journal.resolve("done")).equals(old.target + ":" + archive.sha256)
+                && text(journal.resolve("imported")).equals(archive.sha256)
+                && text(journal.resolve("retired")).equals(archive.sha256);
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    private static final class Receipt {
+
+        String name, sha256;
+    }
+
+    private static String text(Path file) throws IOException {
+        return new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Persist the new receiving freeze before archiving and removing a superseded source freeze. Crash-safe on retry.
+     */
+    static void freezeReceiving(MoveRecord candidate) throws IOException {
+        if (!candidate.target.equals(CointConfig.cluster.nodeId)) throw new IOException("Not the receiving node");
+        checkConflict(candidate);
+        freeze(candidate);
+        for (MoveRecord old : new ArrayList<>(records.values())) {
+            if (old.id.equals(candidate.id) || !completedReturn(old, candidate)) continue;
+            Path backup = MigrationStorage.serverDirectory()
+                .toPath()
+                .resolve("cointcore/migration-return-backups/" + candidate.id + "/" + old.id + ".json");
+            Files.createDirectories(backup.getParent());
+            String data = JSON.toJson(old);
+            if (!Files.exists(backup)) {
+                Path temp = backup.resolveSibling(old.id + ".tmp");
+                Files.write(temp, data.getBytes(StandardCharsets.UTF_8));
+                Files.move(temp, backup, StandardCopyOption.ATOMIC_MOVE);
+            }
+            if (!text(backup).equals(data)) throw new IOException("Return freeze backup mismatch: " + old.id);
+            release(old.id);
+            CointCore.LOG.info("[TeamMove] Return {} supersedes completed source freeze {}", candidate.id, old.id);
         }
     }
 

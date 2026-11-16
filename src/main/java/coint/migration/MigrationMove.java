@@ -313,6 +313,10 @@ public final class MigrationMove {
                 return;
             }
             if (target) {
+                for (int dim : move.dimensions) if (MigrationStations.get(move, dim) == null) TeamsManager.get()
+                    .restorePDim(dim);
+                // Persist the returned IDs while the receiving freeze still protects them.
+                MigrationExporter.saveEverything(MinecraftServer.getServer());
                 MigrationGuard.release(move.id);
                 MigrationChunks.activate(move);
             } else if (has(move, "source-chunks-reset")) {
@@ -395,13 +399,13 @@ public final class MigrationMove {
                         MigrationChunks.checkClaims(move, true);
                         MigrationChunks.materialize(move);
                         put(move, "target-start", "Receiving worlds frozen before unpacking");
-                        MigrationGuard.freeze(move);
+                        MigrationGuard.freezeReceiving(move);
                         MigrationChunks.unforce(move);
                     } else
                     if (target && has(move, "target-start") && !has(move, "importing") && !has(move, "imported")) {
                         offline(move);
                         MigrationChunks.checkClaims(move, true);
-                        MigrationGuard.freeze(move);
+                        MigrationGuard.freezeReceiving(move);
                         MigrationChunks.unforce(move);
                         if (!MigrationChunks.drainSource(move)) return;
                         MigrationExporter.saveEverything(MinecraftServer.getServer());

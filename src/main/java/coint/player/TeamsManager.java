@@ -164,6 +164,11 @@ public class TeamsManager extends WorldSavedData {
         if (dimId > 0 && retiredPDimIds.add(dimId)) markDirty();
     }
 
+    /** Called after a confirmed migration imports a previously retired personal dimension back here. */
+    public void restorePDim(int dimId) {
+        if (retiredPDimIds.remove(dimId)) markDirty();
+    }
+
     public boolean resetPDimState(ForgeTeam team, int retiredDimId) {
         if (team == null || !team.isValid()) return false;
 

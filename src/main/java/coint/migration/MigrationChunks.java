@@ -94,8 +94,6 @@ public final class MigrationChunks {
                         + ". Передайте его серверной команде.");
             if (!move.dimensions.contains(c[0]) && !DimensionManager.isDimensionRegistered(c[0]))
                 throw new IOException("Нет дополнительного измерения " + c[0]);
-            if (target && MigrationGuard.sourceChunk(DimensionManager.getWorld(c[0]), c[1], c[2]))
-                throw new IOException("На цели чанк уже архивирован прежним переносом: " + MoveRecord.key(c));
             ClaimedChunk existing = ClaimedChunks.instance.getChunk(new ChunkDimPos(c[1], c[2], c[0]));
             if (existing != null && !existing.getTeam()
                 .getId()
@@ -128,8 +126,6 @@ public final class MigrationChunks {
         for (int dim : move.dimensions) {
             MigrationStations.Station station = MigrationStations.get(move, dim);
             if (station != null) MigrationStations.check(move, station, target);
-            if (target && MigrationGuard.sourceDimension(dim))
-                throw new IOException("На цели персоналка архивирована прежним переносом: " + dim);
             Short owner = station != null ? null
                 : coint.player.TeamsManager.get()
                     .getTeamUidForDim(dim);

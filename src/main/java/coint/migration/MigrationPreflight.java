@@ -188,8 +188,6 @@ public final class MigrationPreflight {
                             + ", команда "
                             + existing.getTeam()
                                 .getId());
-                if (target && MigrationGuard.sourceChunk(DimensionManager.getWorld(c[0]), c[1], c[2]))
-                    errors.add(node + "чанк уже архивирован прежним переносом: " + MoveRecord.key(c));
             }
             for (ClaimedChunk c : ClaimedChunks.instance.getAllChunks())
                 if (!c.isInvalid() && move.dimensions.contains(c.getPos().dim)
@@ -216,7 +214,6 @@ public final class MigrationPreflight {
                     errors.add(node + e.getMessage());
                 }
             }
-            if (target && MigrationGuard.sourceDimension(dim)) errors.add(node + "мир уже архивирован: " + dim);
             if (station == null && target
                 && DimensionManager.isDimensionRegistered(dim)
                 && DimensionConfig.getForDimension(dim, false) == null)
