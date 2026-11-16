@@ -26,6 +26,8 @@ public enum Mixins implements IMixins {
         "minecraft.MixinItemStackKitOrigin",
         "minecraft.MixinPacketBufferKitOrigin",
         "minecraft.MixinEntityItemMeteorBoots",
+        "minecraft.MixinEntityItemDropLog",
+        "minecraft.MixinForgeHooksDropLog",
         "minecraft.MixinEntityMeteorBootsSetDead",
         "minecraft.MixinWorldMeteorBoots",
         "minecraft.MixinEntityLivingBase",

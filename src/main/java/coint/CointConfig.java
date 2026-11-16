@@ -38,6 +38,7 @@ public class CointConfig {
     public static final Cluster cluster = new Cluster();
     public static final Trade trade = new Trade();
     public static final BlockLog blockLog = new BlockLog();
+    public static final DropLog dropLog = new DropLog();
 
     public static class General {
 
@@ -638,6 +639,29 @@ public class CointConfig {
         @Config.DefaultStringList({})
         @Config.Reloadable(RELOAD)
         public String[] epochItems;
+    }
+
+    public static class DropLog {
+
+        @Config.Comment("Send player item drops and their pickups to a separate Discord webhook")
+        @Config.DefaultBoolean(false)
+        @Config.Reloadable(RELOAD)
+        public boolean enabled;
+
+        @Config.Comment("Discord webhook URL for the drop/pickup log. Keep private; empty disables sending")
+        @Config.DefaultString("")
+        @Config.Reloadable(RELOAD)
+        public String webhookUrl;
+
+        @Config.Comment("Display name used by the drop log webhook")
+        @Config.DefaultString("GTNH Drop Log")
+        @Config.Reloadable(RELOAD)
+        public String webhookName;
+
+        @Config.Comment("Ignore items: mod:item, mod:item:meta, @modid, or #oreDictionaryName")
+        @Config.DefaultStringList({})
+        @Config.Reloadable(RELOAD)
+        public String[] ignoredItems;
     }
 
     public static class BlockLog {
