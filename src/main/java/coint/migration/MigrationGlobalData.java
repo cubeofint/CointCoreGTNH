@@ -57,6 +57,7 @@ final class MigrationGlobalData {
     }
 
     static void preflight(MoveRecord move) throws IOException {
+        MigrationVending.preflight(move);
         try {
             if (Loader.isModLoaded("gregtech") && !move.joining()) leaders(move);
         } catch (ReflectiveOperationException e) {

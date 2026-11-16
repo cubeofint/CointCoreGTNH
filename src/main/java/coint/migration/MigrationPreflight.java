@@ -48,6 +48,7 @@ public final class MigrationPreflight {
     public static final class Report {
 
         public String id;
+        public int vendingFormat;
         public List<String> problems = new ArrayList<>();
 
         public boolean ready() {
@@ -141,6 +142,7 @@ public final class MigrationPreflight {
         request.move = move;
         request.ids = MigrationData.idMap();
         request.expires = System.currentTimeMillis() + 30_000;
+        MigrationVending.prepare(move);
         Report report = inspect(move, false);
         write(root().resolve(move.id + "/request.json"), request);
         Pending p = new Pending(request, report, callback);
@@ -275,6 +277,7 @@ public final class MigrationPreflight {
         }
         Report report = new Report();
         report.id = move.id;
+        report.vendingFormat = 1;
         report.problems.addAll(errors);
         return report;
     }
@@ -334,6 +337,8 @@ public final class MigrationPreflight {
                         if (target == null || !report.id.equals(target.id) || target.problems == null)
                             throw new IOException("Повреждён результат проверки");
                         report.problems.addAll(target.problems);
+                        if (p.request.move.vendingSnapshot != null && target.vendingFormat != 1) report.problems.add(
+                            "Целевая нода не поддерживает перенос кошельков VendingMachine; обновите CointCore на обеих игровых нодах");
                     } catch (IOException | RuntimeException e) {
                         report.problems.add("Не удалось прочитать ответ цели: " + e.getMessage());
                     }

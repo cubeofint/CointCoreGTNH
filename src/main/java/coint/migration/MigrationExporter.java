@@ -288,6 +288,9 @@ public final class MigrationExporter {
             manifest.put("worldFolder", worldName);
             manifest.put("team", teamInfo);
             manifest.put("players", playerInfo);
+            MigrationVending.snapshot(staging, playerInfo, move);
+            if (MigrationStorage.child(staging, MigrationVending.FILE)
+                .isFile()) manifest.put("vending", 1);
             MigrationBackpacks.players(staging, worldName, playerInfo);
             manifest.put("backpacks", 1);
             manifest.put("personalDimensions", dimInfo);

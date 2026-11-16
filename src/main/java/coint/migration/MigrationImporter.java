@@ -488,6 +488,7 @@ public final class MigrationImporter {
         // 2. Files. Whatever is replaced goes to migrations/replaced/<stamp>/.
         try {
             MigrationBackpacks.check(staging, manifest);
+            MigrationVending.check(staging, manifest);
         } catch (IOException e) {
             return e.getMessage();
         }
@@ -534,6 +535,11 @@ public final class MigrationImporter {
                     placePlayer(data, dimIds, entry);
                 }
                 for (File file : playerFiles(sourceRoot, uuid, str(p.get("name")))) {
+                    // New exports restore VendingMachine's GTNHLib team through its live API.
+                    // Copying a legacy team JSON behind that cache can resurrect a second team on restart.
+                    if (manifest.containsKey("vending") && file.getParentFile()
+                        .getName()
+                        .equals("gtnhteams")) continue;
                     String rel = sourceRoot.toPath()
                         .relativize(file.toPath())
                         .toString();
@@ -605,12 +611,10 @@ public final class MigrationImporter {
         }
 
         // 5. Team, claims, epoch ranks, dimension binding: now, or when each player first joins.
-        if (operation.move != null) {
-            try {
-                MigrationGlobalData.apply(MigrationGlobalData.read(staging), operation.move, false);
-            } catch (IOException e) {
-                return e.getMessage();
-            }
+        try {
+            installGlobalData(staging, manifest, replaced, operation.move);
+        } catch (IOException e) {
+            return e.getMessage();
         }
         MigrationPending.Entry pending = MigrationPending.Entry.from(manifest);
         if (operation.move != null) {
@@ -727,6 +731,13 @@ public final class MigrationImporter {
     }
 
     /** Vanilla and mod files of one player inside the unpacked world: quest progress is merged, not copied. */
+    /** GlobalData revalidates the destination, so it must run before installing nonempty vending wallets. */
+    static void installGlobalData(File staging, Map<String, Object> manifest, File backup, MoveRecord move)
+        throws IOException {
+        if (move != null) MigrationGlobalData.apply(MigrationGlobalData.read(staging), move, false);
+        MigrationVending.install(staging, manifest, backup);
+    }
+
     private static List<File> playerFiles(File root, String uuid, String name) {
         List<File> files = new ArrayList<>();
         files.add(new File(root, "playerdata/" + uuid + ".dat"));

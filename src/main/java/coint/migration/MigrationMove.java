@@ -206,6 +206,7 @@ public final class MigrationMove {
                 throw new IOException("Нет метаданных персоналки " + dim);
             offline(move);
             MigrationChunks.checkClaims(move, false);
+            MigrationVending.prepare(move);
             MigrationGlobalData.preflight(move);
             reserve(move);
         } catch (IOException | RuntimeException e) {
@@ -360,11 +361,17 @@ public final class MigrationMove {
             offline(move);
             MigrationChunks.checkClaims(move, true);
             MigrationGlobalData.preflight(move);
-            put(move, "approved", "Claims checked on " + move.target);
+            put(
+                move,
+                "approved",
+                "Claims checked on " + move.target + (move.vendingSnapshot == null ? "" : "; vending=1"));
         } else if (!target && has(move, "approved")
             && !has(move, "source-start")
             && !has(move, "archive.json")
             && !has(move, "imported")) {
+                if (move.vendingSnapshot != null && !read(move, "approved").endsWith("; vending=1"))
+                    throw new IOException(
+                        "Цель не поддерживает перенос кошельков VendingMachine; обновите CointCore на целевой ноде");
                 offline(move);
                 MigrationChunks.checkClaims(move, false);
                 MigrationChunks.materialize(move);
@@ -422,6 +429,10 @@ public final class MigrationMove {
                                 try {
                                     if (!success) throw new IOException(
                                         "Импорт не завершён; исходные данные сохранены, вход заблокирован");
+                                    if (move.vendingSnapshot != null) {
+                                        MigrationVending.verifyImported(move);
+                                        put(move, "vending-imported", archive.sha256);
+                                    }
                                     put(move, "imported", archive.sha256);
                                 } catch (IOException e) {
                                     fail(move, e);
@@ -509,10 +520,13 @@ public final class MigrationMove {
         MigrationExporter.saveEverything(MinecraftServer.getServer());
         File root = MigrationStorage.session().world;
         File backup = MigrationStorage.child(MigrationStorage.localDirectory(), "retired/" + move.id);
+        MigrationVending.requireReceipt(move, archiveHash(move));
+        MigrationVending.checkUnchanged(move);
         if (!MigrationGlobalData.unchanged(move)) throw new IOException(
             "Глобальные данные команды изменились после снимка. Источник не очищен; нужна сверка данных, повторная выдача/покупка во время переноса не потеряна.");
         if (!new File(backup, MigrationGlobalData.FILE).isFile()) MigrationGlobalData.write(backup, move);
         MigrationBackpacks.retire(move, backup);
+        MigrationVending.retire(move, backup);
         MigrationGlobalData.apply(MigrationGlobalData.read(backup), move, true);
         RegionFileCache.clearRegionFileReferences();
         MigrationChunks.resetExternalSource(move, backup);
@@ -730,6 +744,10 @@ public final class MigrationMove {
                             "reviewed-import",
                             "Console confirmed independent file review; epochs repaired and target saved. SHA-256="
                                 + hash);
+                        if (move.vendingSnapshot != null) {
+                            MigrationVending.verifyImported(move);
+                            if (!has(move, "vending-imported")) put(move, "vending-imported", hash);
+                        }
                         put(move, "imported", hash);
                         // Keep error and all freezes until the administrator explicitly resumes the source.
                         tell(sender, "§aИмпорт сохранён и подтверждён. На исходной ноде: migrate move-resume " + id);
