@@ -1,9 +1,12 @@
 package coint;
 
+import java.util.Map;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import coint.integration.discord.DiscordServerStatus;
+import coint.network.NetworkCompatibility;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
@@ -14,6 +17,8 @@ import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 import cpw.mods.fml.common.event.FMLServerStoppingEvent;
+import cpw.mods.fml.common.network.NetworkCheckHandler;
+import cpw.mods.fml.relauncher.Side;
 import serverutils.lib.data.Universe;
 
 @Mod(
@@ -28,7 +33,7 @@ import serverutils.lib.data.Universe;
 public class CointCore {
 
     public static final String MOD_ID = "cointcore";
-    public static final String VERSION = Tags.VERSION;
+    public static final String VERSION = Tags.VERSION + NetworkCompatibility.PROTOCOL_SUFFIX;
     public static final String MOD_NAME = "Coint Core GTNH";
 
     public static final Logger LOG = LogManager.getLogger(MOD_ID);
@@ -42,6 +47,11 @@ public class CointCore {
     // ServerUtilities clears its static Universe instance before CointCore receives
     // FMLServerStoppingEvent, so keep the live object while the server is running.
     private Universe serverUtilitiesUniverse;
+
+    @NetworkCheckHandler
+    public boolean checkRemoteVersions(Map<String, String> versions, Side remoteSide) {
+        return NetworkCompatibility.accepts(versions.get(MOD_ID), remoteSide);
+    }
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
