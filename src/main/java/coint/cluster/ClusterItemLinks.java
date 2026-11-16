@@ -1,6 +1,8 @@
 package coint.cluster;
 
 import java.util.Base64;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -9,6 +11,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTSizeTracker;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
@@ -16,6 +19,7 @@ import net.minecraft.util.IChatComponent;
 
 import codechicken.lib.packet.PacketCustom;
 import coint.CointCore;
+import coint.integration.discord.DiscordModerationWebhook;
 import coint.trade.TradeItems;
 import coint.util.ChatUtil;
 
@@ -25,7 +29,13 @@ public final class ClusterItemLinks {
     private ClusterItemLinks() {}
 
     public static void publish(EntityPlayerMP sender, NBTTagCompound payload) {
-        if (!ClusterService.isRunning() || payload == null) return;
+        if (payload == null) return;
+        // The readable notice is independent of the (potentially large) NEI bookmark packet.
+        // Exactly the node configured as the global Discord bridge sends it, like normal global chat.
+        String notice = describe(payload);
+        DiscordModerationWebhook.logGlobal(sender, notice);
+        ClusterService.publishItemNotice(sender.getCommandSenderName(), notice);
+        if (!ClusterService.isRunning()) return;
         try {
             NBTTagCompound copy = (NBTTagCompound) payload.copy();
             TradeItems.portable(copy);
@@ -41,6 +51,43 @@ public final class ClusterItemLinks {
                 .publishItemLink(sender.getCommandSenderName(), ChatUtil.getRankFormattedName(sender), encoded);
         } catch (Exception e) {
             CointCore.LOG.warn("[Cluster] Could not publish NEI link", e);
+        }
+    }
+
+    static String describe(NBTTagCompound payload) {
+        boolean recipe = "recipe".equals(payload.getString("linkType"));
+        if (payload.hasKey("item", 10)) {
+            String item = itemName(payload.getCompoundTag("item"));
+            return (recipe ? "Рецепт: " : "Предмет: ") + (item == null ? "[неизвестный предмет]" : item);
+        }
+        NBTTagList items = payload.getTagList("items", 10);
+        Set<String> names = new LinkedHashSet<>();
+        int shown = Math.min(6, items.tagCount());
+        for (int i = 0; i < shown; i++) {
+            String name = itemName(
+                items.getCompoundTagAt(i)
+                    .getCompoundTag("item"));
+            if (name != null) names.add(name);
+        }
+        String title = recipe ? "Рецепт" : "Группа закладок";
+        return title + (names.isEmpty() ? " (позиций: " + items.tagCount() + ")" : ": " + String.join(", ", names))
+            + (items.tagCount() > shown ? "; ещё позиций: " + (items.tagCount() - shown) : "");
+    }
+
+    private static String itemName(NBTTagCompound item) {
+        try {
+            ItemStack stack = (ItemStack) Class.forName("codechicken.nei.recipe.StackInfo")
+                .getMethod("loadFromNBT", NBTTagCompound.class)
+                .invoke(null, item);
+            if (stack == null) return null;
+            String name = stack.getDisplayName()
+                .replaceAll("(?i)§[0-9A-FK-OR]", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+            if (name.length() > 160) name = name.substring(0, 157) + "…";
+            return "[" + name + "]" + (stack.stackSize > 1 ? " ×" + stack.stackSize : "");
+        } catch (Exception e) {
+            return null;
         }
     }
 

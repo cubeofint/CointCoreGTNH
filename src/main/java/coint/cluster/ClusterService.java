@@ -284,6 +284,11 @@ public final class ClusterService {
         if (running && CointConfig.cluster.chatEnabled) publish("item_link", sender, formatted, payload);
     }
 
+    /** Plain NEI link description for the Discord bridge; never rebroadcast as a second in-game message. */
+    public static void publishItemNotice(String sender, String text) {
+        if (running && CointConfig.cluster.chatEnabled) publish("item_notice", sender, sender, text);
+    }
+
     public static void publishDiscordChat(String author, String text) {
         if (!running || !CointConfig.cluster.chatEnabled) {
             return;
@@ -567,6 +572,10 @@ public final class ClusterService {
                 continue;
             }
             if (!CointConfig.cluster.chatEnabled) continue;
+            if ("item_notice".equals(row.kind)) {
+                DiscordModerationWebhook.logRemoteGlobal(row.nodeName, row.sender, row.text);
+                continue;
+            }
             if ("announcement".equals(row.kind)) {
                 server.getConfigurationManager()
                     .sendChatMsg(new ChatComponentText("§8[" + row.nodeName + "]§r " + row.text));
