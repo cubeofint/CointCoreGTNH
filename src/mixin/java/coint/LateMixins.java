@@ -5,10 +5,6 @@ import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
 public enum LateMixins implements IMixins {
 
-    NEI(new MixinBuilder("NEI chat links").addRequiredMod(TargetMod.NEI)
-        .setPhase(Phase.LATE)
-        .addCommonMixins("nei.MixinNEIServerUtilsLinks")),
-
     APPLIEDENERGISTICS2(new MixinBuilder("Applied Energistics 2").addRequiredMod(TargetMod.APPLIEDENERGISTICS2)
         .setPhase(Phase.LATE)
         .addCommonMixins(

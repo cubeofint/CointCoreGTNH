@@ -5,6 +5,10 @@ import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
 public enum Mixins implements IMixins {
 
+    // NEI is a coremod: NEIServerUtils is loaded before late mixins are prepared.
+    // The pseudo target also permits running without NEI.
+    NEI(new MixinBuilder("NEI chat links").addCommonMixins("nei.MixinNEIServerUtilsLinks")),
+
     VANILLA(new MixinBuilder("Vanilla/Forge").addCommonMixins(
         "minecraft.MixinCommandMessage",
         "minecraft.MixinDimensionManagerMissingWorldTrace",
