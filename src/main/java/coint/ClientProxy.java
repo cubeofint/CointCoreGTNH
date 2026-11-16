@@ -21,6 +21,9 @@ public class ClientProxy extends CommonProxy {
         super.init(event);
         FMLCommonHandler.instance()
             .bus()
+            .register(new coint.client.chat.ClientChatChannels());
+        FMLCommonHandler.instance()
+            .bus()
             .register(new ClientWorldTravelEvents());
         MinecraftForge.EVENT_BUS.register(new ClientRestartOverlay());
         MinecraftForge.EVENT_BUS.register(new coint.client.ClientCardsOverlay());
@@ -49,6 +52,11 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void queueWorldTravelGui(PacketOpenWorlds packet) {
         ClientWorldTravelState.queue(packet);
+    }
+
+    @Override
+    public void receiveChatChannel(coint.chat.PacketChatChannel packet) {
+        coint.client.chat.ClientChatChannels.receive(packet);
     }
 
     @Override

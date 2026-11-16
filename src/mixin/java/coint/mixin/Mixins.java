@@ -5,6 +5,11 @@ import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
 public enum Mixins implements IMixins {
 
+    CHAT(new MixinBuilder("Chat channel tabs").addClientMixins(
+        "minecraft.MixinGuiNewChatChannels",
+        "minecraft.MixinGuiChatChannels",
+        "hodgepodge.MixinChatCompactionChannels")),
+
     // NEI is a coremod: NEIServerUtils is loaded before late mixins are prepared.
     // The pseudo target also permits running without NEI.
     NEI(new MixinBuilder("NEI chat links").addCommonMixins("nei.MixinNEIServerUtilsLinks")),

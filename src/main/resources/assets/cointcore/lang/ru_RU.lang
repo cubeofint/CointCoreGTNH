@@ -87,3 +87,11 @@ cointcore.cards.log.call=%s: одна карта!
 cointcore.cards.log.missed=%s забыл сказать «одна карта» и берёт %s
 cointcore.cards.log.caught=%s: одна карта! Кто-то промолчал
 cointcore.cards.error.cantCall=Сказать «одна карта» можно в свой ход с двумя картами или сразу после хода, когда осталась одна.
+
+cointcore.chat.tab.all=[Все]
+cointcore.chat.tab.local=[L]
+cointcore.chat.tab.global=[G]
+cointcore.chat.tab.trade=[$]
+cointcore.chat.tab.private=[ЛС]
+cointcore.chat.privateHint=Для личных сообщений используйте /msg <ник> <сообщение> или /r <сообщение>.
+cointcore.chat.tradeCooldown=Подождите %s сек. перед следующим сообщением в торговый чат.

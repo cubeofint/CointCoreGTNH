@@ -407,6 +407,16 @@ public class CointConfig {
     // TODO: move to client mod
     public static class Chat {
 
+        @Config.Comment("Show channel tabs in the chat screen (all, local, global, trade, private)")
+        @Config.DefaultBoolean(true)
+        public boolean tabsEnabled;
+
+        @Config.Comment("Cooldown between $ trade chat messages in seconds (0 disables)")
+        @Config.DefaultInt(10)
+        @Config.RangeInt(min = 0, max = 3600)
+        @Config.Reloadable(RELOAD)
+        public int tradeCooldownSeconds;
+
         @Config.Comment("Enable chat splitting")
         @Config.DefaultBoolean(true)
         @Config.Reloadable(RELOAD)

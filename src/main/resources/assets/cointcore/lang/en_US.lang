@@ -87,3 +87,11 @@ cointcore.cards.log.call=%s: last card!
 cointcore.cards.log.missed=%s forgot to say "last card" and takes %s
 cointcore.cards.log.caught=%s: last card! Someone forgot to say it
 cointcore.cards.error.cantCall=You can say "last card" on your turn with two cards, or right after playing down to one.
+
+cointcore.chat.tab.all=[ALL]
+cointcore.chat.tab.local=[L]
+cointcore.chat.tab.global=[G]
+cointcore.chat.tab.trade=[$]
+cointcore.chat.tab.private=[PM]
+cointcore.chat.privateHint=Use /msg <player> <message> or /r <message> for private messages.
+cointcore.chat.tradeCooldown=Wait %s seconds before sending another trade message.

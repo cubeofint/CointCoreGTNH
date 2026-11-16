@@ -58,7 +58,7 @@ public final class DirectMessages {
                 + ": "
                 + EnumChatFormatting.WHITE);
         toSender.appendSibling(text.createCopy());
-        sender.addChatMessage(toSender);
+        coint.chat.ChatChannels.send(sender, coint.chat.ChatChannel.PRIVATE, toSender);
 
         MessageTracker.setReply(senderName, target);
         String from = coint.cluster.ClusterSpy.label(senderDisplay);
@@ -94,7 +94,7 @@ public final class DirectMessages {
                 + CommandReply.ARROW
                 + EnumChatFormatting.WHITE
                 + text);
-        target.addChatMessage(message);
+        coint.chat.ChatChannels.send(target, coint.chat.ChatChannel.PRIVATE, message);
         MessageTracker.setReply(target.getCommandSenderName(), senderName);
         DmLogger.log(
             "TELL",

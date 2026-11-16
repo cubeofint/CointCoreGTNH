@@ -264,10 +264,14 @@ public final class ClusterService {
 
     /** Global chat of a player here, for the other servers. */
     public static void publishPlayerChat(EntityPlayerMP sender, String senderFormatted, String text) {
+        publishPlayerChat(sender, senderFormatted, text, false);
+    }
+
+    public static void publishPlayerChat(EntityPlayerMP sender, String senderFormatted, String text, boolean trade) {
         if (!running || !CointConfig.cluster.chatEnabled) {
             return;
         }
-        publish(KIND_PLAYER, sender.getCommandSenderName(), senderFormatted, text);
+        publish(trade ? "tradechat" : KIND_PLAYER, sender.getCommandSenderName(), senderFormatted, text);
     }
 
     /** A Discord message this server received, for the other servers. */
@@ -599,12 +603,16 @@ public final class ClusterService {
             } else {
                 name = row.senderFormatted;
                 // Only players' chat goes to Discord: Discord's own messages came from there.
-                DiscordModerationWebhook.logRemoteGlobal(row.nodeName, row.sender, row.text);
+                DiscordModerationWebhook.logRemoteGlobal(
+                    row.nodeName,
+                    row.sender,
+                    "tradechat".equals(row.kind) ? "[$] " + row.text : row.text);
             }
+            boolean trade = "tradechat".equals(row.kind);
             ChatComponentText component = ChatUtil
-                .getChatMessage(name, row.text, "G", KIND_DISCORD.equals(row.kind) ? null : row.nodeName);
-            server.getConfigurationManager()
-                .sendChatMsg(component);
+                .getChatMessage(name, row.text, trade ? "$" : "G", KIND_DISCORD.equals(row.kind) ? null : row.nodeName);
+            coint.chat.ChatChannels
+                .broadcast(trade ? coint.chat.ChatChannel.TRADE : coint.chat.ChatChannel.GLOBAL, component);
             CointCore.LOG.info("[GLOBAL/{}] {}: {}", row.nodeName, row.sender, row.text);
         }
     }

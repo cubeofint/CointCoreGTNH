@@ -97,6 +97,8 @@ public class CommonProxy {
      */
     public void queueWorldTravelGui(PacketOpenWorlds packet) {}
 
+    public void receiveChatChannel(coint.chat.PacketChatChannel packet) {}
+
     public void setPDimRewardBlockedClient(boolean blocked) {}
 
     public boolean isPDimRewardBlockedClient() {
@@ -160,6 +162,7 @@ public class CommonProxy {
 
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
+        coint.chat.ChatChannels.reset();
         coint.migration.MigrationStorage.stop();
         coint.cluster.ClusterAccess.reset();
         coint.cluster.ClusterService.stop();

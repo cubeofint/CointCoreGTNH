@@ -81,7 +81,7 @@ public final class ClusterItemLinks {
             for (EntityPlayerMP player : MinecraftServer.getServer()
                 .getConfigurationManager().playerEntityList) {
                 packet.sendToPlayer(player);
-                player.addChatMessage(message.createCopy());
+                coint.chat.ChatChannels.send(player, coint.chat.ChatChannel.GLOBAL, message.createCopy());
             }
         } catch (Exception e) {
             CointCore.LOG.warn("[Cluster] Could not receive NEI link from {}", node, e);

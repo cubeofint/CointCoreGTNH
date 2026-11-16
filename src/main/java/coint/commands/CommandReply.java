@@ -129,7 +129,7 @@ public class CommandReply extends CommandBase {
         ChatComponentText toRecipient = new ChatComponentText(
             PREFIX + EnumChatFormatting.AQUA + senderDisplay + ARROW + EnumChatFormatting.WHITE);
         toRecipient.appendSibling(text.createCopy());
-        target.addChatMessage(toRecipient);
+        coint.chat.ChatChannels.send(target, coint.chat.ChatChannel.PRIVATE, toRecipient);
 
         // Sender confirmation: [ЛС] Вы → TargetName: text
         ChatComponentText toSender = new ChatComponentText(
@@ -142,7 +142,7 @@ public class CommandReply extends CommandBase {
                 + ": "
                 + EnumChatFormatting.WHITE);
         toSender.appendSibling(text.createCopy());
-        sender.addChatMessage(toSender);
+        coint.chat.ChatChannels.send(sender, coint.chat.ChatChannel.PRIVATE, toSender);
 
         // Keep reply chain current for both parties.
         MessageTracker.setReply(sender.getCommandSenderName(), targetName);

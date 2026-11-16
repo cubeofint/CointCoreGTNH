@@ -134,7 +134,7 @@ public class MixinCommandMessage {
                 + CommandReply.ARROW
                 + EnumChatFormatting.WHITE);
         toRecipient.appendSibling(text.createCopy());
-        target.addChatMessage(toRecipient);
+        coint.chat.ChatChannels.send(target, coint.chat.ChatChannel.PRIVATE, toRecipient);
 
         // Sender: [ЛС] Вы → TargetName: text
         ChatComponentText toSender = new ChatComponentText(
@@ -147,7 +147,7 @@ public class MixinCommandMessage {
                 + ": "
                 + EnumChatFormatting.WHITE);
         toSender.appendSibling(text.createCopy());
-        sender.addChatMessage(toSender);
+        coint.chat.ChatChannels.send(sender, coint.chat.ChatChannel.PRIVATE, toSender);
 
         // Record reply targets so both parties can use /r.
         MessageTracker.setReply(sender.getCommandSenderName(), target.getCommandSenderName());

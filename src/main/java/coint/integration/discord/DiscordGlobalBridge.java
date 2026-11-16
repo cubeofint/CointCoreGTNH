@@ -64,8 +64,7 @@ public final class DiscordGlobalBridge {
         while (processed < 50 && (message = INBOUND.poll()) != null) {
             String sender = "§9[Discord]§r " + message.author;
             ChatComponentText component = ChatUtil.getChatMessage(sender, message.text, "G");
-            server.getConfigurationManager()
-                .sendChatMsg(component);
+            coint.chat.ChatChannels.broadcast(coint.chat.ChatChannel.GLOBAL, component);
             CointCore.LOG.info("[GLOBAL/DISCORD] {}: {}", message.author, message.text);
             coint.cluster.ClusterService.publishDiscordChat(message.author, message.text);
             processed++;

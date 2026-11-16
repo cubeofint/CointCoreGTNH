@@ -19,6 +19,8 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
 import coint.CointCore;
+import coint.chat.ChatChannel;
+import coint.chat.ChatChannels;
 import coint.cluster.ClusterService;
 import coint.commands.spy.LocalSpyRegistry;
 import coint.integration.discord.DiscordModerationWebhook;
@@ -137,7 +139,7 @@ public class ChatSplitHandler {
 
         if (event.message != null && event.message.startsWith("betterquesting.msg.sharequest:")) {
             event.setCanceled(true);
-            send(event.player, event.message, true);
+            send(event.player, event.message, ChatChannel.GLOBAL);
             return;
         }
         if (!CointConfig.chat.splitEnabled) return;
@@ -151,29 +153,41 @@ public class ChatSplitHandler {
 
         boolean usesConfiguredPrefix = message.startsWith(configuredPrefix);
         boolean usesBangPrefix = message.startsWith("!");
-        boolean isGlobal = usesConfiguredPrefix || usesBangPrefix;
+        boolean isTrade = message.startsWith("$");
+        boolean isGlobal = !isTrade && (usesConfiguredPrefix || usesBangPrefix);
         int prefixLength = usesConfiguredPrefix ? configuredPrefix.length() : usesBangPrefix ? 1 : 0;
+        if (isTrade) prefixLength = 1;
 
-        String text = isGlobal ? message.substring(prefixLength)
+        String text = isGlobal || isTrade ? message.substring(prefixLength)
             .trim() : message;
         if (text.isEmpty()) return;
+        if (isTrade) {
+            long seconds = ChatChannels.tradeCooldown(event.player.getUniqueID(), System.currentTimeMillis());
+            if (seconds > 0) {
+                event.player.addChatMessage(
+                    new net.minecraft.util.ChatComponentTranslation("cointcore.chat.tradeCooldown", seconds));
+                return;
+            }
+        }
 
         String colorCode = ChatUtil.getTextColorCode(event.player);
-        send(event.player, colorCode + text, isGlobal);
+        send(
+            event.player,
+            colorCode + text,
+            isTrade ? ChatChannel.TRADE : isGlobal ? ChatChannel.GLOBAL : ChatChannel.LOCAL);
     }
 
-    private static void send(EntityPlayerMP sender, String text, boolean isGlobal) {
+    private static void send(EntityPlayerMP sender, String text, ChatChannel channel) {
         String senderName = ChatUtil.getRankFormattedName(sender);
-        var origin = isGlobal ? "G" : "L";
+        var origin = channel == ChatChannel.TRADE ? "$" : channel == ChatChannel.GLOBAL ? "G" : "L";
         ChatComponentText component = ChatUtil.getChatMessage(senderName, text, origin);
 
         var server = MinecraftServer.getServer();
-        if (isGlobal) {
-            server.getConfigurationManager()
-                .sendChatMsg(component);
-            CointCore.LOG.info("[GLOBAL] {}: {}", senderName, text);
-            DiscordModerationWebhook.logGlobal(sender, text);
-            ClusterService.publishPlayerChat(sender, senderName, text);
+        if (channel != ChatChannel.LOCAL) {
+            ChatChannels.broadcast(channel, component);
+            CointCore.LOG.info("[{}] {}: {}", channel, senderName, text);
+            DiscordModerationWebhook.logGlobal(sender, channel == ChatChannel.TRADE ? "[$] " + text : text);
+            ClusterService.publishPlayerChat(sender, senderName, text, channel == ChatChannel.TRADE);
         } else {
             double radiusSq = CointConfig.chat.radius * CointConfig.chat.radius;
             int senderDim = sender.dimension;
@@ -183,7 +197,7 @@ public class ChatSplitHandler {
                 if (p.dimension != senderDim || sender.getDistanceSqToEntity(p) > radiusSq) {
                     continue;
                 }
-                p.addChatMessage(component);
+                ChatChannels.send(p, channel, component);
                 recipients++;
             }
 
