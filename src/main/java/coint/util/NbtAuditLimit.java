@@ -18,11 +18,18 @@ public final class NbtAuditLimit {
     public static final int MAX_BYTES = 16 * 1024 * 1024;
     private int nodes;
     private long bytes;
+    private final int maxBytes;
 
-    private NbtAuditLimit() {}
+    private NbtAuditLimit(int maxBytes) {
+        this.maxBytes = maxBytes;
+    }
 
     public static void check(NBTBase value) throws IOException {
-        new NbtAuditLimit().visit(value, 0);
+        check(value, MAX_BYTES);
+    }
+
+    public static void check(NBTBase value, int maxBytes) throws IOException {
+        new NbtAuditLimit(maxBytes).visit(value, 0);
     }
 
     private void visit(NBTBase value, int depth) throws IOException {
@@ -43,6 +50,6 @@ public final class NbtAuditLimit {
         else if (value instanceof NBTTagIntArray array) bytes += 4L * array.func_150302_c().length;
         else if (value instanceof NBTTagString string) bytes += 2L * string.func_150285_a_()
             .length();
-        if (bytes > MAX_BYTES) throw new IOException("Audit input size limit exceeded");
+        if (bytes > maxBytes) throw new IOException("Audit input size limit exceeded");
     }
 }

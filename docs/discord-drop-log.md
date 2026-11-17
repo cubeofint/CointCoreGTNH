@@ -31,6 +31,8 @@ These match a registry ID, ID plus metadata, an entire mod, or an OreDictionary 
 
 Cancelled tosses, rejected entity spawns, cancelled pickups and attempts with no inventory space do not produce records. Partial pickups record only the quantity actually removed. Thrower information lives on the dropped entity and survives its NBT save/load; item NBT and vanilla merging remain unchanged. When player drops merge with each other, the original throwers' quantities are preserved. For a stack mixed with ordinary world loot, untracked items are allocated first, so the world loot is not attributed to a player.
 
+Repeated actions within one calendar second are summed when the player UUID, node, action, item/metadata/NBT, dimension, block coordinates and original thrower all match. The timestamp remains the event time; the current second stays open until complete, even when the sending batch changes. Counts use a 64-bit total. NBT is copied for comparison with a 16 KiB audit budget; larger or malformed tags keep individual records instead of retaining large snapshots. Aggregates and formatted lines share the 2,000-record queue limit.
+
 Sending runs on a separate thread in batches every three seconds. A bounded queue holds up to 2,000 records; HTTP failures retain queued records for retry and Discord rate limits defer sending. Queue overflow is reported in the server log at most once per minute. The queue is in memory; abrupt shutdown or a prolonged outage can lose unsent records. Webhook posts suppress Discord mentions.
 
 ## Check after deployment
@@ -40,5 +42,6 @@ Sending runs on a separate thread in batches every three seconds. A bounded queu
 3. Pick up part of a stack with an almost full inventory; the pickup count should match the received quantity. With no room, there should be no pickup record.
 4. Let two players' compatible stacks merge, then pick them up; records should retain the two throwers and quantities.
 5. Mine a block and collect its ordinary loot: no record. Add an item exclusion and check that its manual drop/pickup is also omitted.
+6. Throw several identical stacks from one block within one second: one entry with the summed count. Different seconds, positions, metadata, NBT or original throwers must remain separate.
 
 Local verification uses real Forge toss, spawn, pickup and merge paths on an isolated dedicated server, with mocked webhook HTTP. Delivery to a real Discord channel still requires the deployment check above.

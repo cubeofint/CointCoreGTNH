@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 15;
+    private static final int SCHEMA_VERSION = 16;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -203,6 +203,14 @@ final class ClusterDatabase {
                 SessionStore.createTables(s);
             }
             if (version < 15) PlayerResetStore.createTables(s);
+            if (version < 16) {
+                try {
+                    s.executeUpdate("ALTER TABLE cluster_chat ADD COLUMN sender_epoch VARCHAR(128) NULL");
+                } catch (SQLException e) {
+                    // Another node may have migrated the shared schema concurrently.
+                    if (e.getErrorCode() != 1060) throw e;
+                }
+            }
         }
         try (PreparedStatement p = c.prepareStatement(
             "INSERT INTO cluster_meta (meta_key, meta_value) VALUES ('schema_version', ?) "
@@ -395,14 +403,21 @@ final class ClusterDatabase {
 
     void publishChat(String nodeId, String kind, String sender, String senderFormatted, String text, String target)
         throws SQLException {
+        publishChat(nodeId, kind, sender, senderFormatted, text, target, null);
+    }
+
+    void publishChat(String nodeId, String kind, String sender, String senderFormatted, String text, String target,
+        String senderEpoch) throws SQLException {
         try (PreparedStatement p = connection().prepareStatement(
-            "INSERT INTO cluster_chat (node_id, kind, sender, sender_formatted, text, target) VALUES (?, ?, ?, ?, ?, ?)")) {
+            "INSERT INTO cluster_chat (node_id, kind, sender, sender_formatted, text, target, sender_epoch) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
             p.setString(1, nodeId);
             p.setString(2, kind);
             p.setString(3, clip(sender, 64));
             p.setString(4, clip(senderFormatted, 512));
             p.setString(5, clip(text, 4000));
             p.setString(6, target == null ? null : clip(target, 32));
+            p.setString(7, senderEpoch == null ? null : clip(senderEpoch, 128));
             p.executeUpdate();
         }
     }
@@ -415,7 +430,8 @@ final class ClusterDatabase {
     List<ChatRow> chatSince(String nodeId, long afterId, int limit) throws SQLException {
         List<ChatRow> result = new ArrayList<>();
         try (PreparedStatement p = connection().prepareStatement(
-            "SELECT c.id, c.node_id, COALESCE(n.display_name, c.node_id), c.kind, c.sender, c.sender_formatted, c.text, c.target "
+            "SELECT c.id, c.node_id, COALESCE(n.display_name, c.node_id), c.kind, c.sender, c.sender_formatted, "
+                + "c.text, c.target, c.sender_epoch "
                 + "FROM cluster_chat c LEFT JOIN cluster_nodes n ON n.node_id = c.node_id "
                 + "WHERE c.id > ? ORDER BY c.id LIMIT ?")) {
             p.setLong(1, afterId);
@@ -432,6 +448,7 @@ final class ClusterDatabase {
                             r.getString(6),
                             r.getString(7),
                             r.getString(8),
+                            r.getString(9),
                             nodeId.equals(r.getString(2))));
                 }
             }
@@ -800,11 +817,18 @@ final class ClusterDatabase {
         final String nodeId, nodeName, kind, sender, senderFormatted, text;
         /** Who a private message is for; null for global chat. */
         final String target;
+        /** Plain epoch label captured on the source server when sent; null for old writers or unknown epochs. */
+        final String senderEpoch;
         /** Written by this server: only moves the read position on. */
         final boolean own;
 
         ChatRow(long id, String nodeId, String nodeName, String kind, String sender, String senderFormatted,
             String text, String target, boolean own) {
+            this(id, nodeId, nodeName, kind, sender, senderFormatted, text, target, null, own);
+        }
+
+        ChatRow(long id, String nodeId, String nodeName, String kind, String sender, String senderFormatted,
+            String text, String target, String senderEpoch, boolean own) {
             this.id = id;
             this.target = target;
             this.nodeId = nodeId;
@@ -813,6 +837,7 @@ final class ClusterDatabase {
             this.sender = sender;
             this.senderFormatted = senderFormatted;
             this.text = text;
+            this.senderEpoch = senderEpoch;
             this.own = own;
         }
     }

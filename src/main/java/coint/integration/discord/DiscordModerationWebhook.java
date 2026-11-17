@@ -26,11 +26,20 @@ public final class DiscordModerationWebhook {
 
     public static void logGlobal(EntityPlayerMP sender, String text) {
         if (!CointConfig.discord.enabled || !CointConfig.discord.sendGlobalChat) return;
+        logGlobal(sender, text, DiscordEpochFormatter.capture(sender));
+    }
+
+    /** A source-event snapshot shared with the readable NEI notice sent through the cluster. */
+    public static void logGlobal(EntityPlayerMP sender, String text, String senderEpoch) {
+        if (!CointConfig.discord.enabled || !CointConfig.discord.sendGlobalChat) return;
 
         String prefix = coint.cluster.ClusterService.isRunning()
             ? "[" + stripFormatting(coint.cluster.ClusterService.displayName()) + "] "
             : "";
-        String message = prefix + sender.getCommandSenderName() + ": " + stripFormatting(text);
+        String message = prefix + DiscordEpochFormatter.prefix(senderEpoch)
+            + sender.getCommandSenderName()
+            + ": "
+            + stripFormatting(text);
         sendTo(mainChannelId(), message);
     }
 
@@ -41,10 +50,19 @@ public final class DiscordModerationWebhook {
 
     /** Global chat of another server of the network, relayed by the server that runs the Discord bridge. */
     public static void logRemoteGlobal(String serverName, String sender, String text) {
+        logRemoteGlobal(serverName, sender, text, null);
+    }
+
+    /** Uses only the source server's event snapshot; this node's ranks may be stale or absent. */
+    public static void logRemoteGlobal(String serverName, String sender, String text, String senderEpoch) {
         if (!CointConfig.discord.enabled || !CointConfig.discord.sendGlobalChat) return;
 
-        String message = "[" + stripFormatting(
-            serverName) + "] " + stripFormatting(sender) + ": " + stripFormatting(text);
+        String message = "[" + stripFormatting(serverName)
+            + "] "
+            + DiscordEpochFormatter.prefix(senderEpoch)
+            + stripFormatting(sender)
+            + ": "
+            + stripFormatting(text);
         sendTo(mainChannelId(), message);
     }
 

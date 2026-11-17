@@ -26,6 +26,7 @@ import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 import coint.CointConfig;
 import coint.CointCore;
 import coint.commands.DirectMessages;
+import coint.integration.discord.DiscordEpochFormatter;
 import coint.integration.discord.DiscordModerationWebhook;
 import coint.util.ChatUtil;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -273,7 +274,15 @@ public final class ClusterService {
         if (!running || !CointConfig.cluster.chatEnabled) {
             return;
         }
-        publish(trade ? "tradechat" : KIND_PLAYER, sender.getCommandSenderName(), senderFormatted, text);
+        // Read ranks here on the server thread, never after the worker or the receiving node picks this up.
+        String senderEpoch = DiscordEpochFormatter.capture(sender);
+        publish(
+            trade ? "tradechat" : KIND_PLAYER,
+            sender.getCommandSenderName(),
+            senderFormatted,
+            text,
+            null,
+            senderEpoch);
     }
 
     /** A Discord message this server received, for the other servers. */
@@ -288,7 +297,11 @@ public final class ClusterService {
 
     /** Plain NEI link description for the Discord bridge; never rebroadcast as a second in-game message. */
     public static void publishItemNotice(String sender, String text) {
-        if (running && CointConfig.cluster.chatEnabled) publish("item_notice", sender, sender, text);
+        publishItemNotice(sender, text, null);
+    }
+
+    public static void publishItemNotice(String sender, String text, String senderEpoch) {
+        if (running && CointConfig.cluster.chatEnabled) publish("item_notice", sender, sender, text, null, senderEpoch);
     }
 
     public static void publishDiscordChat(String author, String text) {
@@ -353,11 +366,16 @@ public final class ClusterService {
     }
 
     private static void publish(String kind, String sender, String senderFormatted, String text, String target) {
+        publish(kind, sender, senderFormatted, text, target, null);
+    }
+
+    private static void publish(String kind, String sender, String senderFormatted, String text, String target,
+        String senderEpoch) {
         ClusterDatabase db = database;
         String id = nodeId;
         submit(() -> {
             try {
-                db.publishChat(id, kind, sender, senderFormatted, text, target);
+                db.publishChat(id, kind, sender, senderFormatted, text, target, senderEpoch);
             } catch (SQLException e) {
                 logError("send chat", e);
             }
@@ -576,7 +594,7 @@ public final class ClusterService {
             }
             if (!CointConfig.cluster.chatEnabled) continue;
             if ("item_notice".equals(row.kind)) {
-                DiscordModerationWebhook.logRemoteGlobal(row.nodeName, row.sender, row.text);
+                DiscordModerationWebhook.logRemoteGlobal(row.nodeName, row.sender, row.text, row.senderEpoch);
                 continue;
             }
             if ("announcement".equals(row.kind)) {
@@ -618,7 +636,8 @@ public final class ClusterService {
                 DiscordModerationWebhook.logRemoteGlobal(
                     row.nodeName,
                     row.sender,
-                    "tradechat".equals(row.kind) ? "[$] " + row.text : row.text);
+                    "tradechat".equals(row.kind) ? "[$] " + row.text : row.text,
+                    row.senderEpoch);
             }
             boolean trade = "tradechat".equals(row.kind);
             ChatComponentText component = ChatUtil

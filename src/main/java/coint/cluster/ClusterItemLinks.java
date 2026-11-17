@@ -19,6 +19,7 @@ import net.minecraft.util.IChatComponent;
 
 import codechicken.lib.packet.PacketCustom;
 import coint.CointCore;
+import coint.integration.discord.DiscordEpochFormatter;
 import coint.integration.discord.DiscordModerationWebhook;
 import coint.trade.TradeItems;
 import coint.util.ChatUtil;
@@ -32,9 +33,10 @@ public final class ClusterItemLinks {
         if (payload == null) return;
         // The readable notice is independent of the (potentially large) NEI bookmark packet.
         // Exactly the node configured as the global Discord bridge sends it, like normal global chat.
+        String senderEpoch = DiscordEpochFormatter.capture(sender);
         String notice = describe(payload);
-        DiscordModerationWebhook.logGlobal(sender, notice);
-        ClusterService.publishItemNotice(sender.getCommandSenderName(), notice);
+        DiscordModerationWebhook.logGlobal(sender, notice, senderEpoch);
+        ClusterService.publishItemNotice(sender.getCommandSenderName(), notice, senderEpoch);
         if (!ClusterService.isRunning()) return;
         try {
             NBTTagCompound copy = (NBTTagCompound) payload.copy();
