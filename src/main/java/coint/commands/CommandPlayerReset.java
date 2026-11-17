@@ -11,6 +11,8 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
 
+import coint.CointConfig;
+import coint.cluster.ClusterPlayerResets;
 import coint.player.PlayerLookup;
 import coint.player.PlayerResetManager;
 import coint.player.PlayerResetManager.TeamResetResult;
@@ -34,7 +36,7 @@ public class CommandPlayerReset extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/playerreset <player> [all|pdim|quests|thaum|data] [newLeader]";
+        return "/playerreset <player|uuid> [all|pdim|quests|thaum|data|status|cancel] [newLeader]";
     }
 
     @Override
@@ -51,12 +53,19 @@ public class CommandPlayerReset extends CommandBase {
             throw new WrongUsageException(getCommandUsage(sender));
         }
 
-        ForgePlayer target = requireForgePlayer(args[0]);
         String mode = args.length == 1 ? "all" : args[1].toLowerCase(Locale.ROOT);
+        if (mode.equals("playerdata")) mode = "data";
+        if (!java.util.Arrays.asList("all", "pdim", "quests", "thaum", "data", "status", "cancel")
+            .contains(mode)) throw new WrongUsageException(getCommandUsage(sender));
 
         if (args.length == 3 && !mode.equals("all")) {
             throw new WrongUsageException(getCommandUsage(sender));
         }
+        if (CointConfig.cluster.enabled) {
+            ClusterPlayerResets.command(sender, args[0], mode, args.length == 3 ? args[2] : null);
+            return;
+        }
+        ForgePlayer target = requireForgePlayer(args[0]);
 
         switch (mode) {
             case "all" -> resetAll(sender, target, args.length == 3 ? args[2] : null);
@@ -139,7 +148,7 @@ public class CommandPlayerReset extends CommandBase {
             return getListOfStringsMatchingLastWord(args, values.toArray(new String[0]));
         }
         if (args.length == 2) {
-            return getListOfStringsMatchingLastWord(args, "all", "pdim", "quests", "thaum", "data");
+            return getListOfStringsMatchingLastWord(args, "all", "pdim", "quests", "thaum", "data", "status", "cancel");
         }
         if (args.length == 3 && "all".equalsIgnoreCase(args[1])) {
             ForgePlayer target = PlayerLookup.exact(args[0]);

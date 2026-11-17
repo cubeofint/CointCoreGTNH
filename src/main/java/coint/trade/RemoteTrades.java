@@ -686,8 +686,10 @@ public final class RemoteTrades {
         TradeLog.log(
             TradeLog.participant(row.name[0], row.node[0], row.epoch[0]),
             TradeLog.participant(row.name[1], row.node[1], row.epoch[1]),
-            fromA == null ? Collections.emptyList() : fromA,
-            fromB == null ? Collections.emptyList() : fromB);
+            fromA,
+            fromB,
+            TradeContents.remote(fromA, row.offer[0]),
+            TradeContents.remote(fromB, row.offer[1]));
     }
 
     private static void abort(Remote r, String why) {

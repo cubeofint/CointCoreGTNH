@@ -77,6 +77,7 @@ public final class AccessRanks {
                     new AccessSnapshot.Operator(profile.getName(), entry.func_152644_a()));
             }
         }
+        ClusterPlayerResets.filterAccess(snapshot);
         snapshot.validate(authority);
         return snapshot;
     }
@@ -90,6 +91,7 @@ public final class AccessRanks {
     }
 
     static void apply(AccessSnapshot snapshot, boolean syncOp) {
+        ClusterPlayerResets.filterAccess(snapshot);
         TempRankManager.get()
             .receiveReplica(snapshot.temporaryRanks);
         DonationDelivery.receive(snapshot.kitGrants);

@@ -65,6 +65,20 @@ public final class PlayerResetManager {
 
     private PlayerResetManager() {}
 
+    /** Read-only preflight used by every cluster node before the destructive barrier opens. */
+    public static void validateFullReset(ForgePlayer target, ForgePlayer successor) throws CommandException {
+        ForgeTeam team = getServerUtilitiesTeam(target);
+        DBEntry<IParty> party = PartyManager.INSTANCE.getParty(target.getId());
+        boolean su = team != null && team.getMembers()
+            .size() > 1 && team.isOwner(target);
+        boolean bq = party != null && party.getValue()
+            .getMembers()
+            .size() > 1
+            && party.getValue()
+                .getStatus(target.getId()) == EnumPartyStatus.OWNER;
+        if (su || bq) validateSuccessor(target, successor, team, party, su, bq);
+    }
+
     public static boolean requiresLeadershipTransfer(ForgePlayer target) {
         ForgeTeam suTeam = getServerUtilitiesTeam(target);
         if (suTeam != null && suTeam.getMembers()

@@ -571,6 +571,10 @@ public class CointConfig {
         @Config.Reloadable(RELOAD)
         public String newPlayerNodeId;
 
+        @Config.Comment("Home node id after a completed full /playerreset. Use the same value on every node; never the hub.")
+        @Config.DefaultString("alpha")
+        public String playerResetHomeNodeId;
+
         @Config.Comment("Hub: send players who join from the launcher on to their home server when it is up")
         @Config.DefaultBoolean(true)
         @Config.Reloadable(RELOAD)

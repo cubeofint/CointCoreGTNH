@@ -66,6 +66,13 @@ public final class BackpackTransfer {
             .copy();
     }
 
+    /** Audit-only snapshot: validate the cached value before a potentially large deep copy. */
+    public static NBTTagCompound loadForAudit(String kind, String id) throws IOException {
+        NBTTagCompound value = (NBTTagCompound) call("load" + kind, new Class<?>[] { String.class }, uuid(id));
+        coint.util.NbtAuditLimit.check(value);
+        return (NBTTagCompound) value.copy();
+    }
+
     public static boolean exists(String kind, String id) throws IOException {
         return (Boolean) call(
             kind.equals("Player") ? "playerSaveExists" : "backpackSaveExists",

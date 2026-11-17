@@ -36,6 +36,12 @@ public final class ClusterSessions {
             disconnect(network, UNAVAILABLE);
             return false;
         }
+        if (ClusterPlayerResets.blocked(
+            profile.getId()
+                .toString())) {
+            disconnect(network, "Сброс прогресса ещё не завершён. Обратитесь к администратору.");
+            return false;
+        }
         startWatchdog();
         Admission a = connections.computeIfAbsent(
             network,
@@ -57,7 +63,7 @@ public final class ClusterSessions {
         String node = ClusterService.nodeId();
         a.inFlight = true;
         boolean queued = ClusterService
-            .query(db -> SessionStore.acquire(db.connection(), a.uuid, a.token, node), ok -> {
+            .query(db -> PlayerResetStore.acquireSession(db.connection(), a.uuid, a.token, node), ok -> {
                 a.inFlight = false;
                 if (connections.get(network) != a || !network.isChannelOpen()) {
                     release(a);
@@ -153,6 +159,30 @@ public final class ClusterSessions {
                 return true;
         }
         return false;
+    }
+
+    /** Closes pending admissions too, and waits for the logout save and session release. Server thread only. */
+    static boolean quiesce(String uuid) {
+        boolean offline = true;
+        for (Map.Entry<NetworkManager, Admission> entry : new ArrayList<>(connections.entrySet())) {
+            if (!entry.getValue().uuid.equals(uuid)) continue;
+            offline = false;
+            entry.getValue().expired = true;
+            disconnect(entry.getKey(), "Ваш прогресс сбрасывается. Дождитесь завершения операции.");
+        }
+        net.minecraft.server.MinecraftServer server = net.minecraft.server.MinecraftServer.getServer();
+        for (Object value : new ArrayList<>(server.getConfigurationManager().playerEntityList)) {
+            net.minecraft.entity.player.EntityPlayerMP player = (net.minecraft.entity.player.EntityPlayerMP) value;
+            if (!player.getUniqueID()
+                .toString()
+                .equals(uuid)) continue;
+            offline = false;
+            player.playerNetServerHandler
+                .kickPlayerFromServer("Ваш прогресс сбрасывается. Дождитесь завершения операции.");
+        }
+        return offline && releases.values()
+            .stream()
+            .noneMatch(a -> a.uuid.equals(uuid));
     }
 
     private static void close(NetworkManager network, Admission a, String reason) {

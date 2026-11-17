@@ -215,6 +215,7 @@ public final class ClusterService {
         ClusterTpa.reset();
         ClusterCommands.reset();
         ClusterSanctions.reset();
+        ClusterPlayerResets.reset();
         running = true;
         CointCore.LOG.info("[Cluster] Starting as node '{}' ({})", nodeId, displayName);
     }
@@ -260,6 +261,7 @@ public final class ClusterService {
         results.clear();
         ClusterHub.reset();
         ClusterComfort.reset();
+        ClusterPlayerResets.reset();
     }
 
     /** Global chat of a player here, for the other servers. */
@@ -380,6 +382,7 @@ public final class ClusterService {
             return;
         }
         long now = System.currentTimeMillis();
+        ClusterPlayerResets.tick(now);
         CointConfig.Cluster config = CointConfig.cluster;
         if (now >= nextHeartbeatAt && heartbeatInFlight.compareAndSet(false, true)) {
             nextHeartbeatAt = now + config.heartbeatSeconds * 1000L;

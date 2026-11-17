@@ -36,6 +36,11 @@ final class TradeLog {
     }
 
     static void log(String a, String b, List<ItemStack> fromA, List<ItemStack> fromB) {
+        log(a, b, fromA, fromB, TradeContents.live(fromA), TradeContents.live(fromB));
+    }
+
+    static void log(String a, String b, List<ItemStack> fromA, List<ItemStack> fromB, String contentsA,
+        String contentsB) {
         String when = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         String line = "[" + when
             + "] "
@@ -50,7 +55,8 @@ final class TradeLog {
             + b
             + " отдал: "
             + list(fromB, true);
-        write(line);
+        String details = details(a, contentsA) + details(b, contentsB);
+        write(line + (details.isEmpty() ? "" : "\n" + details));
         CointCore.LOG.info("[Trade] {}", line);
         String discord = "**Обмен** " + when
             + "\n**"
@@ -69,13 +75,19 @@ final class TradeLog {
             + a
             + ": "
             + list(fromB, false);
-        DiscordModerationWebhook.logTrade(discord);
+        DiscordModerationWebhook.logTrade(discord, details.isEmpty() ? null : line + "\n\n" + details);
+    }
+
+    private static String details(String player, String contents) {
+        return contents == null || contents.isEmpty() ? "" : "Содержимое хранилищ, " + player + ":\n" + contents + "\n";
     }
 
     /** Same items merged: "64x Iron Ingot (minecraft:iron_ingot@0)"; "ничего" for an empty side. */
     private static String list(List<ItemStack> stacks, boolean ids) {
         List<ItemStack> merged = new ArrayList<>();
+        if (stacks == null) return "[снимок предметов недоступен]";
         for (ItemStack stack : stacks) {
+            if (stack == null || stack.getItem() == null) continue;
             ItemStack into = null;
             for (ItemStack m : merged) {
                 if (TradeManager.same(m, stack)) {
@@ -115,9 +127,8 @@ final class TradeLog {
 
     private static String name(ItemStack stack) {
         try {
-            return stack.getDisplayName()
-                .replaceAll("§.", "");
-        } catch (RuntimeException e) {
+            return TradeContents.clean(stack.getDisplayName(), 160);
+        } catch (RuntimeException | LinkageError e) {
             return String.valueOf(stack.getItem());
         }
     }

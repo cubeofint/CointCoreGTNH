@@ -156,6 +156,12 @@ public final class DonationDelivery {
         for (Object value : MinecraftServer.getServer()
             .getConfigurationManager().playerEntityList) {
             EntityPlayerMP player = (EntityPlayerMP) value;
+            // PREPARE snapshots paid balances only after this fence is installed on the server thread.
+            // Keep the credit and its receipt pending together; filtering the authoritative ledger would lose it.
+            if (ClusterPlayerResets.blocksDonation(
+                player.getUniqueID()
+                    .toString(),
+                player.getCommandSenderName())) continue;
             if (!ClusterService.nodeId()
                 .equals(ClusterHomes.homeOf(player.getUniqueID()))) continue;
             NBTTagCompound persisted = NBTUtils.getPersistedData(player, true);
@@ -193,10 +199,15 @@ public final class DonationDelivery {
         if (querying) return;
         load();
         Set<String> names = new HashSet<>();
-        for (Grant g : grants) if (g.uuid == null) names.add(g.name);
+        for (Grant g : grants)
+            if (g.uuid == null && !ClusterPlayerResets.blocksDonation(null, g.name)) names.add(g.name);
         TempRankManager.get()
             .getAllEntries()
-            .forEach(e -> { if (e.pendingIdentity) names.add(e.playerName); });
+            .forEach(
+                e -> {
+                    if (e.pendingIdentity && !ClusterPlayerResets.blocksDonation(null, e.playerName))
+                        names.add(e.playerName);
+                });
         if (names.isEmpty()) return;
         querying = true;
         long session = generation;
@@ -218,14 +229,22 @@ public final class DonationDelivery {
         }, identities -> {
             if (session != generation) return;
             querying = false;
+            boolean changed = false;
             for (Map.Entry<String, UUID> identity : identities.entrySet()) {
+                // The lookup may have started before PREPARE. Recheck at the actual mutation, not just enqueue.
+                if (ClusterPlayerResets.blocksDonation(
+                    identity.getValue()
+                        .toString(),
+                    identity.getKey())) continue;
                 TempRankManager.get()
                     .bindIdentity(identity.getKey(), identity.getValue());
-                for (Grant g : grants)
-                    if (g.uuid == null && g.name.equalsIgnoreCase(identity.getKey())) g.uuid = identity.getValue()
+                for (Grant g : grants) if (g.uuid == null && g.name.equalsIgnoreCase(identity.getKey())) {
+                    g.uuid = identity.getValue()
                         .toString();
+                    changed = true;
+                }
             }
-            if (!identities.isEmpty()) save(grants);
+            if (changed) save(grants);
         }, error -> { if (session == generation) querying = false; });
         if (!queued) querying = false;
     }

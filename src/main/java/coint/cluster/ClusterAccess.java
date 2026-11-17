@@ -73,6 +73,7 @@ public final class ClusterAccess {
     @SubscribeEvent
     public static void onTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END || !serverReady
+            || ClusterPlayerResets.accessPaused()
             || !enabled()
             || !ClusterService.isRunning()
             || !Universe.loaded()
