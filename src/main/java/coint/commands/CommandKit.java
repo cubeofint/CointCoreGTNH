@@ -1,5 +1,6 @@
 package coint.commands;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -21,6 +22,7 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
 
+import coint.CointCore;
 import coint.commands.kit.KitDefinition;
 import coint.commands.kit.KitManager;
 import coint.commands.kit.KitOrigin;
@@ -273,10 +275,16 @@ public class CommandKit extends CommandBase {
                 }
 
                 List<ItemStack> issuedItems = new ArrayList<>();
-                for (ItemStack stack : kit.getItems()) {
-                    if (stack != null) {
-                        issuedItems.add(KitOrigin.issuedCopy(stack, name, player));
+                try {
+                    for (ItemStack stack : kit.getItems()) {
+                        if (stack != null) {
+                            issuedItems.add(KitOrigin.issuedCopy(stack, name, player));
+                        }
                     }
+                } catch (IOException e) {
+                    CointCore.LOG.warn("[Kit] Could not prepare kit {} for {}", name, player.getCommandSenderName(), e);
+                    sendError(sender, "Не удалось подготовить содержимое набора. Сообщите администратору.");
+                    return;
                 }
                 if (!canFitAll(player, issuedItems)) {
                     sendError(sender, "Инвентарь полон, набор не получен");

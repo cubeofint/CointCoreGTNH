@@ -41,6 +41,12 @@ repeated snapshots and later migrations do not add the same credit again. Paid c
 default limit and are consumed before free claims. Keep `cointcore_donation_receipts` when restoring/migrating player
 data; deleting receipts independently from the paid balance can replay credits.
 
+Claimed items receive a provenance tooltip with the kit and recipient. For Avaritiaddons Compressed and Infinity Chests,
+the serialized contents are marked at claim time, including nested chests of these types. Slot positions, counts (including
+`intCount`), and other item NBT are preserved; kit templates are not changed. Later player deposits are not marked.
+Excessive or malformed supported inventories reject the claim before any items or claim counters change. Existing kit
+definitions do not need to be recreated. Contents already issued by an older build are not retroactively marked.
+
 An optional fifth argument deduplicates repeated website delivery commands:
 
 ```
