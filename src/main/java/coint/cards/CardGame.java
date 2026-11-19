@@ -582,7 +582,7 @@ final class CardGame {
         clearHandCall(player);
         clearHandCall(other);
         pendingSwap = null;
-        log(Line.SWAP, names.get(player) + " ↔ " + names.get(other), 0, -1);
+        log(Line.SWAP, names.get(player) + " ↔ " + names.get(other), top(), -1);
         advance(1);
         return null;
     }
@@ -614,7 +614,8 @@ final class CardGame {
         }
         pendingCall = null;
         called.clear();
-        log(Line.ROTATE, names.get(lastPlayed), 0, -1);
+        // Retain direction and colour at this event, even if a later card reverses the table before rendering.
+        log(Line.ROTATE, names.get(lastPlayed), direction, Cards.suit(top()));
     }
 
     private void penalize(int cards) {

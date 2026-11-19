@@ -13,6 +13,13 @@ public final class DonorQueueTest {
     }
     private static void check(boolean ok) { checks++; if (!ok) throw new AssertionError("Check " + checks); }
     public static void main(String[] args) {
+        check(DonorQueue.priority("thorium") > 0 && DonorQueue.priority("thorium") < DonorQueue.priority("uranium"));
+        TempRankEntry thorium = rank("thorium", 11000), uranium = rank("uranium", 6000);
+        List<TempRankEntry> first = new ArrayList<>(Arrays.asList(thorium, uranium));
+        DonorQueue.settle(first, PLAYER, 1000);
+        check(thorium.pausedMillis == 10000 && uranium.expiresAt == 6000);
+        DonorQueue.settle(first, PLAYER, 8000);
+        check(first.size() == 1 && thorium.expiresAt == 16000 && thorium.pausedMillis == 0);
         TempRankEntry low = rank("uranium", 11000), high = rank("fusion", 6000);
         List<TempRankEntry> entries = new ArrayList<>(Arrays.asList(low, high));
         DonorQueue.settle(entries, PLAYER, 1000);
