@@ -109,6 +109,9 @@ public class CointCore {
 
     @Mod.EventHandler
     public void serverStopped(FMLServerStoppedEvent event) {
+        coint.commands.privilege.CommandDset.reset();
+        coint.commands.kit.KitManager.reset();
+        coint.cosmetic.Cosmetics.reset();
         proxy.serverStopped(event);
         coint.migration.MigrationPending.reset();
     }

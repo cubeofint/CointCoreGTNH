@@ -39,6 +39,27 @@ public class CointConfig {
     public static final Trade trade = new Trade();
     public static final BlockLog blockLog = new BlockLog();
     public static final DropLog dropLog = new DropLog();
+    public static final Building building = new Building();
+
+    public static class Building {
+
+        @Config.Comment("Maximum cuboid volume for //dset. Only the player's own base/claims and building blocks are allowed.")
+        @Config.DefaultInt(32768)
+        @Config.RangeInt(min = 1, max = 262144)
+        @Config.Reloadable(RELOAD)
+        public int maxBlocks;
+
+        @Config.Comment("Maximum //dset positions checked or changed per server tick, across all players.")
+        @Config.DefaultInt(256)
+        @Config.RangeInt(min = 1, max = 4096)
+        @Config.Reloadable(RELOAD)
+        public int blocksPerTick;
+
+        @Config.Comment("Additional building block registry names for //dset. No tile entities or liquids are permitted, even if listed. Chisel and concrete blocks are recognized automatically.")
+        @Config.DefaultStringList({})
+        @Config.Reloadable(RELOAD)
+        public String[] extraBlocks;
+    }
 
     public static class General {
 

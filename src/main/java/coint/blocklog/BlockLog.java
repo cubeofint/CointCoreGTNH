@@ -147,6 +147,21 @@ public final class BlockLog {
         }
     }
 
+    /** Committed //dset edits have no inventory item in hand representing the placed block. */
+    public static void buildingChanged(EntityPlayerMP player, World world, int x, int y, int z, Block before,
+        int beforeMeta, Block after, int afterMeta) {
+        if (!active() || skipping || world.isRemote || !isRealPlayer(player)) return;
+        if (before != net.minecraft.init.Blocks.air)
+            add(world, x, y, z, BlockLogEntry.BREAK, player.getCommandSenderName(), buildingKey(before, beforeMeta), 1);
+        if (after != net.minecraft.init.Blocks.air)
+            add(world, x, y, z, BlockLogEntry.PLACE, player.getCommandSenderName(), buildingKey(after, afterMeta), 1);
+    }
+
+    private static ItemKey buildingKey(Block block, int meta) {
+        Item item = Item.getItemFromBlock(block);
+        return new ItemKey(item == null ? "b:" + Block.blockRegistry.getNameForObject(block) : itemName(item), meta);
+    }
+
     private static String explosionActor(ExplosionEvent.Detonate event) {
         EntityLivingBase by = event.explosion.getExplosivePlacedBy();
         if (by instanceof EntityPlayer player && !(player instanceof FakePlayer)) {

@@ -50,6 +50,8 @@ public final class AccessRanks {
             snapshot.players.put(id.toString(), rules);
         });
         if (authority.equals(ClusterService.nodeId())) {
+            snapshot.kitCatalog = coint.commands.kit.KitManager.catalog(MinecraftServer.getServer());
+            snapshot.cosmetics = coint.cosmetic.Cosmetics.snapshot();
             snapshot.temporaryRanks = new ArrayList<>(
                 TempRankManager.get()
                     .getAllEntries());
@@ -91,6 +93,8 @@ public final class AccessRanks {
     }
 
     static void apply(AccessSnapshot snapshot, boolean syncOp) {
+        coint.commands.kit.KitManager.receiveCatalog(MinecraftServer.getServer(), snapshot.kitCatalog);
+        coint.cosmetic.Cosmetics.receive(snapshot.cosmetics);
         ClusterPlayerResets.filterAccess(snapshot);
         TempRankManager.get()
             .receiveReplica(snapshot.temporaryRanks);

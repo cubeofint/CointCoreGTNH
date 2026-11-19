@@ -65,7 +65,7 @@ public class ChatUtil {
         String plainName = player.getGameProfile()
             .getName();
         var rfn = rfnCache.get(plainName);
-        if (rfn != null) return rfn;
+        if (rfn != null) return coint.cosmetic.Cosmetics.formatName(player, rfn);
 
         try {
             if (Ranks.INSTANCE == null) {
@@ -86,7 +86,7 @@ public class ChatUtil {
                 .trim();
 
             rfnCache.put(plainName, format);
-            return format;
+            return coint.cosmetic.Cosmetics.formatName(player, format);
 
         } catch (Exception e) {
             CointCore.LOG.warn("Failed to get rank format for {}:\n{}", plainName, e.getMessage());
@@ -95,6 +95,8 @@ public class ChatUtil {
     }
 
     public static String getTextColorCode(EntityPlayerMP player) {
+        String selected = coint.cosmetic.Cosmetics.chatColor(player);
+        if (selected != null) return selected;
         if (Ranks.INSTANCE == null) {
             return "";
         }

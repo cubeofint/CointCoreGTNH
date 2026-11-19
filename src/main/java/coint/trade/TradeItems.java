@@ -125,7 +125,8 @@ public final class TradeItems {
 
     /** False when an item (or one inside it) is unknown here. */
     public static boolean localize(NBTTagCompound tag) {
-        if (tag.hasKey("in", 8)) {
+        // Ordinary machine/item configuration can also contain a string named "in".
+        if (isStack(tag) && tag.hasKey("in", 8)) {
             Item item = (Item) Item.itemRegistry.getObject(tag.getString("in"));
             if (item == null) {
                 return false;

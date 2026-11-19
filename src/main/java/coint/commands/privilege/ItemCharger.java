@@ -34,16 +34,21 @@ final class ItemCharger {
     private ItemCharger() {}
 
     static Result charge(ItemStack stack) {
+        return charge(stack, Double.POSITIVE_INFINITY);
+    }
+
+    static Result charge(ItemStack stack, double budget) {
         if (stack == null || stack.getItem() == null || stack.stackSize != 1) {
             return Result.NO_STORAGE;
         }
+        if (!(budget > 0)) return Result.NO_STORAGE;
         if (stack.getItem() instanceof IElectricItem electric) {
-            return chargeEu(stack, electric);
+            return chargeEu(stack, electric, budget);
         }
-        return chargeRf(stack);
+        return chargeRf(stack, budget);
     }
 
-    private static Result chargeEu(ItemStack stack, IElectricItem electric) {
+    private static Result chargeEu(ItemStack stack, IElectricItem electric, double budget) {
         IElectricItemManager manager = electric instanceof ISpecialElectricItem special ? special.getManager(stack)
             : ElectricItem.manager;
         if (manager == null) {
@@ -57,8 +62,8 @@ final class ItemCharger {
             return Result.ALREADY_FULL;
         }
         boolean any = false;
-        for (int i = 0; i < FILL_GUARD; i++) {
-            double room = max - manager.getCharge(stack);
+        for (int i = 0; i < FILL_GUARD && budget > 0; i++) {
+            double room = Math.min(budget, max - manager.getCharge(stack));
             if (room <= 0) {
                 break;
             }
@@ -66,12 +71,13 @@ final class ItemCharger {
             if (got <= 0) {
                 break;
             }
+            budget -= got;
             any = true;
         }
         return any ? Result.CHARGED : Result.ALREADY_FULL;
     }
 
-    private static Result chargeRf(ItemStack stack) {
+    private static Result chargeRf(ItemStack stack, double budget) {
         if (!rfLooked) {
             rfLooked = true;
             try {
@@ -96,8 +102,8 @@ final class ItemCharger {
                 return Result.ALREADY_FULL;
             }
             boolean any = false;
-            for (int i = 0; i < FILL_GUARD; i++) {
-                int room = max - (Integer) rfStored.invoke(item, stack);
+            for (int i = 0; i < FILL_GUARD && budget > 0; i++) {
+                int room = (int) Math.min(budget, max - (Integer) rfStored.invoke(item, stack));
                 if (room <= 0) {
                     break;
                 }
@@ -105,6 +111,7 @@ final class ItemCharger {
                 if (got <= 0) {
                     break;
                 }
+                budget -= got;
                 any = true;
             }
             return any ? Result.CHARGED : Result.ALREADY_FULL;

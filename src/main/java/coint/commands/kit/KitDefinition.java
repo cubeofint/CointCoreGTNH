@@ -11,11 +11,21 @@ public class KitDefinition {
     private final String name;
     private final List<ItemStack> items;
     private final int maxClaims;
+    private final String requiredRank;
 
     public KitDefinition(String name, List<ItemStack> items, int maxClaims) {
+        this(name, items, maxClaims, "");
+    }
+
+    public KitDefinition(String name, List<ItemStack> items, int maxClaims, String requiredRank) {
         this.name = name;
         this.items = new ArrayList<>(items);
         this.maxClaims = maxClaims;
+        this.requiredRank = requiredRank;
+    }
+
+    public String getRequiredRank() {
+        return requiredRank;
     }
 
     public String getName() {

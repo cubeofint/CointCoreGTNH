@@ -65,7 +65,7 @@ public final class DonationDelivery {
         if (g == null || g.id == null
             || !g.id.matches("[A-Za-z0-9_.:-]{1,160}")
             || g.name == null
-            || !g.name.matches("[A-Za-z0-9_]{1,16}")
+            || !g.name.matches("[A-Za-z0-9_.]{1,16}")
             || g.kit == null
             || !g.kit.matches("[a-z0-9_-]{1,64}")
             || g.amount <= 0) throw new IllegalArgumentException("Invalid kit delivery record");

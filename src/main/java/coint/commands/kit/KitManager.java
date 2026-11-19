@@ -37,6 +37,15 @@ public final class KitManager {
 
     private static final Map<String, KitDefinition> KITS = new LinkedHashMap<>();
     private static boolean loaded = false;
+    private static String portableCatalog;
+    private static String receivedCatalog;
+    private static boolean replicaBackedUp;
+
+    public static synchronized void reset() {
+        KITS.clear();
+        loaded = replicaBackedUp = false;
+        portableCatalog = receivedCatalog = null;
+    }
 
     private KitManager() {
         // Utility class
@@ -57,8 +66,7 @@ public final class KitManager {
         try {
             NBTTagCompound root = CompressedStreamTools.read(file);
             if (root == null) {
-                loaded = true;
-                return;
+                throw new IOException("Empty kit file");
             }
 
             NBTTagCompound kitsTag = root.getCompoundTag(TAG_KITS);
@@ -68,14 +76,15 @@ public final class KitManager {
                 KitDefinition kit = readKit(name, kitTag);
                 KITS.put(name, kit);
             }
-        } catch (IOException ignored) {
-            // Ignore corrupt or missing data, will recreate on save.
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot read kits; refusing to publish an empty catalog", e);
         }
 
         loaded = true;
     }
 
     public static synchronized void save(MinecraftServer server) {
+        portableCatalog = null;
         File file = server.getFile(KIT_FILE);
         // noinspection ResultOfMethodCallIgnored
         file.getParentFile()
@@ -89,16 +98,22 @@ public final class KitManager {
         root.setTag(TAG_KITS, kitsTag);
 
         try {
-            CompressedStreamTools.write(root, file);
-        } catch (IOException ignored) {
-            // Ignore write errors.
+            atomicWrite(root, file);
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot save kits", e);
         }
     }
 
     public static synchronized void putKit(MinecraftServer server, KitDefinition kit) {
         loadIfNeeded(server);
-        KITS.put(kit.getName(), kit);
-        save(server);
+        KitDefinition old = KITS.put(kit.getName(), kit);
+        try {
+            save(server);
+        } catch (RuntimeException e) {
+            if (old == null) KITS.remove(kit.getName());
+            else KITS.put(kit.getName(), old);
+            throw e;
+        }
     }
 
     public static synchronized KitDefinition getKit(MinecraftServer server, String name) {
@@ -113,8 +128,14 @@ public final class KitManager {
 
     public static synchronized void removeKit(MinecraftServer server, String name) {
         loadIfNeeded(server);
-        if (KITS.remove(name) != null) {
-            save(server);
+        KitDefinition old = KITS.remove(name);
+        if (old != null) {
+            try {
+                save(server);
+            } catch (RuntimeException e) {
+                KITS.put(name, old);
+                throw e;
+            }
         }
     }
 
@@ -124,12 +145,12 @@ public final class KitManager {
         for (int i = 0; i < list.tagCount(); i++) {
             NBTTagCompound itemTag = list.getCompoundTagAt(i);
             ItemStack stack = ItemStack.loadItemStackFromNBT(itemTag);
-            if (stack != null) {
-                items.add(stack);
-            }
+            if (stack == null || stack.getItem() == null || stack.stackSize <= 0)
+                throw new IllegalArgumentException("Invalid kit item: " + name + " slot " + i);
+            items.add(stack);
         }
         int maxClaims = kitTag.hasKey(TAG_MAX_CLAIMS) ? kitTag.getInteger(TAG_MAX_CLAIMS) : -1;
-        return new KitDefinition(name, items, maxClaims);
+        return new KitDefinition(name, items, maxClaims, kitTag.getString("requiredRank"));
     }
 
     private static NBTTagCompound writeKit(KitDefinition kit) {
@@ -139,13 +160,122 @@ public final class KitManager {
             if (stack == null) {
                 continue;
             }
+            try {
+                coint.util.NbtAuditLimit.check(stack.getTagCompound());
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Kit item NBT exceeds safety limits", e);
+            }
             NBTTagCompound itemTag = new NBTTagCompound();
             stack.writeToNBT(itemTag);
             list.appendTag(itemTag);
         }
         kitTag.setTag(TAG_ITEMS, list);
         kitTag.setInteger(TAG_MAX_CLAIMS, kit.getMaxClaims());
+        kitTag.setString("requiredRank", kit.getRequiredRank());
         return kitTag;
+    }
+
+    /** Paid individual purchases remain claimable regardless of a free kit's minimum privilege. */
+    public static boolean rankAllows(EntityPlayer player, KitDefinition kit) {
+        String required = kit.getRequiredRank();
+        if (required.isEmpty()) return true;
+        for (serverutils.ranks.Rank rank : serverutils.ranks.Ranks.INSTANCE.getPlayerRank(player)
+            .getActualParents()) {
+            if (rank.getId()
+                .equals(required)) return true;
+            int minimum = coint.commands.temprank.DonorQueue.priority(required);
+            if (minimum > 0 && coint.commands.temprank.DonorQueue.priority(rank.getId()) >= minimum) return true;
+        }
+        return false;
+    }
+
+    /** Portable catalog only: player counters and purchase receipts never enter this snapshot. */
+    public static synchronized String catalog(MinecraftServer server) {
+        loadIfNeeded(server);
+        if (portableCatalog != null) return portableCatalog;
+        try {
+            NBTTagCompound root = new NBTTagCompound();
+            for (KitDefinition kit : KITS.values()) root.setTag(kit.getName(), writeKit(kit));
+            coint.util.NbtAuditLimit.check(root);
+            // ItemStack.writeToNBT attaches its live tag. Portable item IDs must never mutate kit templates.
+            root = (NBTTagCompound) root.copy();
+            coint.trade.TradeItems.portable(root);
+            byte[] bytes = CompressedStreamTools.compress(root);
+            if (bytes.length > 4 * 1024 * 1024) throw new IOException("Kit catalog exceeds 4 MiB compressed");
+            portableCatalog = java.util.Base64.getEncoder()
+                .encodeToString(bytes);
+            return portableCatalog;
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot capture kit catalog", e);
+        }
+    }
+
+    /** Validate all items before atomically replacing definitions; preserve the old file once per session. */
+    public static synchronized void receiveCatalog(MinecraftServer server, String payload) {
+        if (payload == null || payload.equals(receivedCatalog)) return;
+        try {
+            if (payload.length() > 6 * 1024 * 1024) throw new IOException("Kit catalog too large");
+            byte[] bytes = java.util.Base64.getDecoder()
+                .decode(payload);
+            NBTTagCompound root = CompressedStreamTools
+                .func_152457_a(bytes, new net.minecraft.nbt.NBTSizeTracker(coint.util.NbtAuditLimit.MAX_BYTES));
+            coint.util.NbtAuditLimit.check(root);
+            if (!coint.trade.TradeItems.localize(root)) throw new IOException("Unknown item in kit catalog");
+            Map<String, KitDefinition> next = new LinkedHashMap<>();
+            for (String name : (Set<String>) root.func_150296_c()) {
+                if (!name.matches("[a-z0-9_-]{1,32}") || !root.hasKey(name, 10))
+                    throw new IOException("Invalid kit name/type");
+                NBTTagCompound tag = root.getCompoundTag(name);
+                String rank = tag.getString("requiredRank");
+                if (!rank.isEmpty() && !serverutils.ranks.Ranks.isValidName(rank))
+                    throw new IOException("Invalid kit rank");
+                KitDefinition kit = readKit(name, tag);
+                if (kit.getMaxClaims() == 0 || kit.getMaxClaims() < -1
+                    || kit.getItems()
+                        .size()
+                        != tag.getTagList(TAG_ITEMS, 10)
+                            .tagCount())
+                    throw new IOException("Invalid kit definition: " + name);
+                for (ItemStack item : kit.getItems())
+                    if (item.stackSize <= 0) throw new IOException("Invalid kit item count");
+                next.put(name, kit);
+            }
+            NBTTagCompound local = new NBTTagCompound(), definitions = new NBTTagCompound();
+            next.forEach((name, kit) -> definitions.setTag(name, writeKit(kit)));
+            local.setTag(TAG_KITS, definitions);
+            File file = server.getFile(KIT_FILE);
+            if (!replicaBackedUp && file.isFile()) {
+                java.nio.file.Files.copy(
+                    file.toPath(),
+                    file.toPath()
+                        .resolveSibling("kits.dat.before-cluster-" + java.util.UUID.randomUUID()));
+                replicaBackedUp = true;
+            }
+            atomicWrite(local, file);
+            KITS.clear();
+            KITS.putAll(next);
+            loaded = true;
+            receivedCatalog = payload;
+            portableCatalog = null;
+        } catch (IOException | IllegalArgumentException e) {
+            throw new IllegalStateException("Kit replica rejected; previous definitions retained", e);
+        }
+    }
+
+    private static void atomicWrite(NBTTagCompound root, File file) throws IOException {
+        java.nio.file.Path target = file.toPath();
+        java.nio.file.Files.createDirectories(target.getParent());
+        java.nio.file.Path temporary = java.nio.file.Files.createTempFile(target.getParent(), "kits-", ".tmp");
+        try {
+            CompressedStreamTools.write(root, temporary.toFile());
+            java.nio.file.Files.move(
+                temporary,
+                target,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            java.nio.file.Files.deleteIfExists(temporary);
+        }
     }
 
     public static int getKitClaimCount(EntityPlayer player, String kitName) {

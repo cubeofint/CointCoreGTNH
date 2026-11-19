@@ -19,6 +19,11 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void init(FMLInitializationEvent event) {
         super.init(event);
+        coint.client.CommandKitManifest kitManifest = new coint.client.CommandKitManifest();
+        net.minecraftforge.client.ClientCommandHandler.instance.registerCommand(kitManifest);
+        FMLCommonHandler.instance()
+            .bus()
+            .register(kitManifest);
         FMLCommonHandler.instance()
             .bus()
             .register(new coint.client.chat.ClientChatChannels());

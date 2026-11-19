@@ -47,10 +47,12 @@ public final class TabRankSorter {
         STAFF_RANKS.add("owner");
         STAFF_RANKS.add("mod");
 
+        DONOR_RANKS.add("singularity");
         DONOR_RANKS.add("fusion");
         DONOR_RANKS.add("quantum");
         DONOR_RANKS.add("plutonium");
         DONOR_RANKS.add("uranium");
+        DONOR_RANKS.add("thorium");
 
         PROGRESS_RANKS.add("stargateowner");
         PROGRESS_RANKS.add("uxv");
@@ -260,6 +262,7 @@ public final class TabRankSorter {
         }
 
         return new PlayerEntry(
+            player,
             name,
             category,
             staffPriority,
@@ -293,7 +296,7 @@ public final class TabRankSorter {
             .append(entry.name)
             .append("§r");
 
-        return name.toString();
+        return coint.cosmetic.Cosmetics.formatName(entry.player, name.toString());
     }
 
     private static String getPrimaryPrefix(Rank rank) {
@@ -315,9 +318,11 @@ public final class TabRankSorter {
             case "media" -> "§a[Media]§r";
             case "owner" -> "§4§l[Owner]§r";
             case "fusion" -> "§c[§lF§r§c]§r";
+            case "singularity" -> "§5[SG]§r";
             case "quantum" -> "§e[Q]§r";
             case "plutonium" -> "§b[P]§r";
             case "uranium" -> "§2[U]§r";
+            case "thorium" -> "§7[Th]§r";
             default -> "§7[" + id + "]§r";
         };
     }
@@ -377,6 +382,8 @@ public final class TabRankSorter {
 
     private static final class PlayerEntry {
 
+        private final EntityPlayerMP player;
+
         private final String name;
         private final int category;
         private final int staffPriority;
@@ -386,8 +393,9 @@ public final class TabRankSorter {
         private final Rank primaryRank;
         private final Rank progressRank;
 
-        private PlayerEntry(String name, int category, int staffPriority, int donorPriority, int progressPriority,
-            int otherPriority, Rank primaryRank, Rank progressRank) {
+        private PlayerEntry(EntityPlayerMP player, String name, int category, int staffPriority, int donorPriority,
+            int progressPriority, int otherPriority, Rank primaryRank, Rank progressRank) {
+            this.player = player;
             this.name = name;
             this.category = category;
             this.staffPriority = staffPriority;

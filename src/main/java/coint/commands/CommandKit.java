@@ -58,7 +58,7 @@ public class CommandKit extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         if (!(sender instanceof EntityPlayerMP)) {
-            return "/kit <create|claim|list|delete|add|set>";
+            return "/kit <create|claim|list|delete|bind|add|set>";
         }
         ForgePlayer player = Universe.get()
             .getPlayer(sender);
@@ -67,8 +67,9 @@ public class CommandKit extends CommandBase {
         parts.add("/kit list");
 
         if (PermissionAPI.hasPermission(player.getPlayer(), PERM_KIT_EDIT)) {
-            parts.add("/kit create <name> [maxClaims]");
+            parts.add("/kit create <name> [maxClaims] [rank]");
             parts.add("/kit delete <name>");
+            parts.add("/kit bind <name> <rank|none>");
         }
         if (PermissionAPI.hasPermission(player.getPlayer(), PERM_KIT_RESET)) {
             parts.add("/kit add <name> <player> <amount>");
@@ -85,13 +86,14 @@ public class CommandKit extends CommandBase {
                 if (PermissionAPI.hasPermission(player, PERM_KIT_EDIT)) {
                     subs.add("create");
                     subs.add("delete");
+                    subs.add("bind");
                 }
                 if (PermissionAPI.hasPermission(player, PERM_KIT_RESET)) {
                     subs.add("add");
                     subs.add("set");
                 }
             } else {
-                subs.addAll(java.util.Arrays.asList("create", "delete", "add", "set"));
+                subs.addAll(java.util.Arrays.asList("create", "delete", "bind", "add", "set"));
             }
             return getListOfStringsMatchingLastWord(args, subs.toArray(new String[0]));
         }
@@ -112,6 +114,7 @@ public class CommandKit extends CommandBase {
         }
         if (args.length == 2 && ("create".equalsIgnoreCase(args[0]) || "delete".equalsIgnoreCase(args[0])
             || "add".equalsIgnoreCase(args[0])
+            || "bind".equalsIgnoreCase(args[0])
             || "set".equalsIgnoreCase(args[0]))) {
             Collection<String> names = KitManager.getKitNames(MinecraftServer.getServer());
             return getListOfStringsMatchingLastWord(args, names.toArray(new String[0]));
@@ -132,6 +135,26 @@ public class CommandKit extends CommandBase {
         }
 
         String sub = args[0].toLowerCase();
+        if ("create".equals(sub) || "delete".equals(sub) || "bind".equals(sub)) {
+            if (sender instanceof EntityPlayer player && !PermissionAPI.hasPermission(player, PERM_KIT_EDIT))
+                throw new CommandException("commands.generic.permission");
+            if (coint.cluster.ClusterAccess.enabled() && !coint.cluster.ClusterService.nodeId()
+                .equals(coint.CointConfig.cluster.accessAuthorityNodeId))
+                throw new CommandException(
+                    "Редактируйте наборы на ноде " + coint.CointConfig.cluster.accessAuthorityNodeId);
+        }
+        if ("bind".equals(sub)) {
+            if (args.length != 3) throw new WrongUsageException("/kit bind <name> <rank|none>");
+            String kitName = args[1].toLowerCase(java.util.Locale.ROOT);
+            KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), kitName);
+            if (kit == null) throw new CommandException("Набор не найден");
+            String rank = checkedRank(args[2]);
+            KitManager.putKit(
+                MinecraftServer.getServer(),
+                new KitDefinition(kitName, kit.getItems(), kit.getMaxClaims(), rank));
+            sendSuccess(sender, "Привязка набора " + kitName + ": " + (rank.isEmpty() ? "без ранга" : rank));
+            return;
+        }
 
         if ("add".equals(sub) || "set".equals(sub)) {
             if (sender instanceof EntityPlayer player && !PermissionAPI.hasPermission(player, PERM_KIT_RESET)) {
@@ -262,7 +285,8 @@ public class CommandKit extends CommandBase {
                     return;
                 }
 
-                KitDefinition kit = new KitDefinition(name, items, maxClaims);
+                String rank = args.length > 3 ? checkedRank(args[3]) : "";
+                KitDefinition kit = new KitDefinition(name, items, maxClaims, rank);
                 KitManager.putKit(MinecraftServer.getServer(), kit);
                 sendSuccess(sender, "Набор сохранен: " + name);
                 return;
@@ -271,6 +295,11 @@ public class CommandKit extends CommandBase {
                 KitDefinition kit = KitManager.getKit(MinecraftServer.getServer(), name);
                 if (kit == null) {
                     sendError(sender, "Набор не найден: " + name);
+                    return;
+                }
+
+                if (KitManager.getKitBonusRemaining(player, name) <= 0 && !KitManager.rankAllows(player, kit)) {
+                    sendError(sender, "Для бесплатного получения нужен ранг " + kit.getRequiredRank() + " или выше");
                     return;
                 }
 
@@ -504,6 +533,7 @@ public class CommandKit extends CommandBase {
 
     private boolean hasRemainingClaims(EntityPlayer player, String kitName, KitDefinition kit) {
         if (KitManager.getKitBonusRemaining(player, kitName) > 0) return true;
+        if (!KitManager.rankAllows(player, kit)) return false;
         int maxClaims = kit.getMaxClaims();
         if (maxClaims <= 0) {
             return false;
@@ -518,6 +548,7 @@ public class CommandKit extends CommandBase {
      */
     private boolean canClaimKitNow(EntityPlayer player, String kitName, KitDefinition kit) {
         if (KitManager.getKitBonusRemaining(player, kitName) > 0) return true;
+        if (!KitManager.rankAllows(player, kit)) return false;
         int maxClaims = kit.getMaxClaims();
         if (maxClaims < 0) {
             return KitManager.getKitBonusRemaining(player, kitName) > 0;
@@ -542,6 +573,14 @@ public class CommandKit extends CommandBase {
      *
      * @return значение или {@code -1}, если цифр нет или число не помещается в {@code int}
      */
+    private static String checkedRank(String value) {
+        String rank = value.toLowerCase(java.util.Locale.ROOT);
+        if (rank.equals("none")) return "";
+        if (!serverutils.ranks.Ranks.isValidName(rank) || !serverutils.ranks.Ranks.INSTANCE.ranks.containsKey(rank))
+            throw new CommandException("Неизвестный ранг: " + rank);
+        return rank;
+    }
+
     private static int parseAmountAllowingSuffix(String raw) {
         if (raw == null || raw.isEmpty()) {
             return -1;

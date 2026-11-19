@@ -12,16 +12,18 @@ public final class DonorQueue {
 
     public static int priority(String rank) {
         switch (rank) {
-            case "uranium":
+            case "thorium":
                 return 1;
-            case "plutonium":
+            case "uranium":
                 return 2;
-            case "quantum":
+            case "plutonium":
                 return 3;
-            case "fusion":
+            case "quantum":
                 return 4;
-            case "singularity":
+            case "fusion":
                 return 5;
+            case "singularity":
+                return 6;
             default:
                 return 0;
         }

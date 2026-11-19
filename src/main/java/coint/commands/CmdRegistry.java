@@ -11,6 +11,7 @@ public class CmdRegistry {
         event.registerServerCommand(new CommandCards());
         event.registerServerCommand(new CommandSync());
         event.registerServerCommand(new CommandRepair());
+        event.registerServerCommand(new coint.commands.privilege.CommandDset());
         event.registerServerCommand(
             new coint.commands.privilege.CommandPrivilege(coint.commands.privilege.CommandPrivilege.Kind.CHARGE));
         event.registerServerCommand(
@@ -20,6 +21,8 @@ public class CmdRegistry {
         event.registerServerCommand(new CommandHeal());
         event.registerServerCommand(new CommandFeed());
         event.registerServerCommand(new CommandKit());
+        event.registerServerCommand(new coint.cosmetic.CommandCosmetic());
+        event.registerServerCommand(new coint.cosmetic.CommandShop());
         event.registerServerCommand(new CommandNightVision());
         event.registerServerCommand(new CommandTpAlias());
         event.registerServerCommand(new CommandWarn());

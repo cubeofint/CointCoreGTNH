@@ -47,10 +47,22 @@ public class TempRankManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
         .create();
 
-    private static TempRankManager INSTANCE;
+    private static volatile TempRankManager INSTANCE;
 
     /** All currently tracked entries (expired + active). Mutated only on server thread. */
     private final List<TempRankEntry> entries = new ArrayList<>();
+    /** Kept after expiry/reset: retrying a paid receipt must never grant the same time twice. */
+    private JsonObject purchaseReceipts = new JsonObject();
+    private volatile Thread ownerThread;
+
+    public boolean ready() {
+        return ownerThread != null;
+    }
+
+    public boolean onServerThread() {
+        return ownerThread == Thread.currentThread();
+    }
+
     private List<TempRankEntry> replicaEntries = new ArrayList<>();
 
     public static boolean replica() {
@@ -72,7 +84,7 @@ public class TempRankManager {
         if (p != null) return p.getProfile();
         for (TempRankEntry entry : get().getAllEntries()) if (entry.playerName.equalsIgnoreCase(name))
             return new com.mojang.authlib.GameProfile(entry.playerUuid, entry.playerName);
-        if (!name.matches("[A-Za-z0-9_]{1,16}")) throw new IllegalArgumentException("Некорректный ник");
+        if (!name.matches("[A-Za-z0-9_.]{1,16}")) throw new IllegalArgumentException("Некорректный ник");
         if (!coint.cluster.DonationDelivery.enabled())
             throw new IllegalArgumentException("Игрок ещё не заходил на сервер");
         return new com.mojang.authlib.GameProfile(pendingId(name), name);
@@ -153,7 +165,7 @@ public class TempRankManager {
 
     private TempRankManager() {}
 
-    public static TempRankManager get() {
+    public static synchronized TempRankManager get() {
         if (INSTANCE == null) {
             INSTANCE = new TempRankManager();
         }
@@ -165,7 +177,7 @@ public class TempRankManager {
      * Discards any stale in-memory state left over from a previous server session in the
      * same JVM (e.g. integrated server, /reload, test environments).
      */
-    public static void reset() {
+    public static synchronized void reset() {
         INSTANCE = null;
     }
 
@@ -207,6 +219,88 @@ public class TempRankManager {
             playerUuid,
             durationMs < 0 ? "permanent" : durationMs + " ms",
             issuer);
+    }
+
+    /** One durable write stores the time and its receipt, before SU is changed. Retrying repairs SU only. */
+    public void purchase(String receipt, String fingerprint, String playerName, String rankId, long durationMs) {
+        if (!ready() || !onServerThread())
+            throw new IllegalStateException("Shop purchases require the initialized server thread");
+        requireAuthority();
+        if (!receipt.matches("[A-Za-z0-9_.:-]{1,120}") || !fingerprint.matches("[a-f0-9]{64}"))
+            throw new IllegalArgumentException("Invalid purchase receipt");
+        if (purchaseReceipts.has(receipt)) {
+            if (!fingerprint.equals(
+                purchaseReceipts.get(receipt)
+                    .getAsString()))
+                throw new IllegalArgumentException("Purchase receipt reused with different contents");
+            reconcile();
+            return;
+        }
+        validateRankExists(rankId);
+        if (DonorQueue.priority(rankId) <= 0 || durationMs <= 0)
+            throw new IllegalArgumentException("Invalid donor purchase");
+        com.mojang.authlib.GameProfile profile = identity(playerName);
+        reconcile();
+        // A deep copy is needed: settling/extension mutates entry timers in place.
+        List<TempRankEntry> before = new ArrayList<>();
+        for (TempRankEntry e : entries) {
+            TempRankEntry copy = new TempRankEntry(e.playerUuid, e.playerName, e.rankId, e.expiresAt, e.issuer);
+            copy.pausedMillis = e.pausedMillis;
+            copy.pendingIdentity = e.pendingIdentity;
+            before.add(copy);
+        }
+        TempRankEntry existing = entries.stream()
+            .filter(e -> e.playerUuid.equals(profile.getId()) && e.rankId.equals(rankId))
+            .findFirst()
+            .orElse(null);
+        try {
+            if (existing == null) {
+                TempRankEntry e = new TempRankEntry(
+                    profile.getId(),
+                    playerName,
+                    rankId,
+                    Math.addExact(System.currentTimeMillis(), durationMs),
+                    "Shop:" + receipt);
+                e.pendingIdentity = profile.getId()
+                    .equals(pendingId(playerName));
+                entries.add(e);
+            } else if (existing.expiresAt < 0 && existing.pausedMillis == 0 || existing.pausedMillis < 0) {
+                throw new IllegalArgumentException("Cannot extend a permanent donor rank");
+            } else
+                if (existing.pausedMillis > 0) existing.pausedMillis = Math.addExact(existing.pausedMillis, durationMs);
+                else existing.expiresAt = Math.addExact(existing.expiresAt, durationMs);
+            DonorQueue.settle(entries, profile.getId(), System.currentTimeMillis());
+            purchaseReceipts.addProperty(receipt, fingerprint);
+            save();
+        } catch (RuntimeException failure) {
+            entries.clear();
+            entries.addAll(before);
+            purchaseReceipts.remove(receipt);
+            throw failure;
+        }
+        reconcile();
+    }
+
+    /** Reserve a kit-only receipt durably; retrying it can finish the corresponding kit ledger append. */
+    public void kitReceipt(String receipt, String fingerprint) {
+        requireAuthority();
+        if (!ready() || !onServerThread()
+            || !receipt.matches("[A-Za-z0-9_.:-]{1,120}")
+            || !fingerprint.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("Invalid kit receipt");
+        if (purchaseReceipts.has(receipt)) {
+            if (!fingerprint.equals(
+                purchaseReceipts.get(receipt)
+                    .getAsString()))
+                throw new IllegalArgumentException("Purchase receipt reused with different contents");
+            return;
+        }
+        purchaseReceipts.addProperty(receipt, fingerprint);
+        try {
+            save();
+        } catch (RuntimeException failure) {
+            purchaseReceipts.remove(receipt);
+            throw failure;
+        }
     }
 
     /**
@@ -298,8 +392,11 @@ public class TempRankManager {
      * On the authority, reconciles SU parents with the active rank and pauses lower donor timers.
      */
     public void restoreAll() {
+        ownerThread = null;
         entries.clear();
+        purchaseReceipts = new JsonObject();
         load();
+        ownerThread = Thread.currentThread();
         if (replica()) return;
         reconcile();
         LOG.info("[TempRank] Restored {} active/queued temp-rank entries", entries.size());
@@ -373,10 +470,20 @@ public class TempRankManager {
             java.nio.file.Path target = file.toPath(),
                 backup = target.resolveSibling("temp_ranks.before-donor-queue.json");
             if (file.isFile() && !java.nio.file.Files.exists(backup)) java.nio.file.Files.copy(target, backup);
+            java.nio.file.Path shopBackup = target.resolveSibling("temp_ranks.before-shop-receipts.json");
+            if (!purchaseReceipts.entrySet()
+                .isEmpty() && file.isFile() && !java.nio.file.Files.exists(shopBackup))
+                java.nio.file.Files.copy(target, shopBackup);
+            JsonObject document = new JsonObject();
+            document.addProperty("schema", 2);
+            document.add("entries", array);
+            document.add("purchaseReceipts", purchaseReceipts);
             java.nio.file.Path temp = target.resolveSibling("temp_ranks.json.tmp");
             try (java.io.FileOutputStream output = new java.io.FileOutputStream(temp.toFile())) {
                 output.write(
-                    GSON.toJson(array)
+                    GSON.toJson(
+                        purchaseReceipts.entrySet()
+                            .isEmpty() ? array : document)
                         .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 output.getFD()
                     .sync();
@@ -396,7 +503,24 @@ public class TempRankManager {
         if (!file.exists()) return;
         try (FileReader reader = new FileReader(file)) {
             JsonElement root = new JsonParser().parse(reader);
-            if (!root.isJsonArray()) throw new IllegalArgumentException("Expected temporary rank array");
+            if (root.isJsonObject()) {
+                JsonObject document = root.getAsJsonObject();
+                if (!document.has("schema") || document.get("schema")
+                    .getAsInt() != 2) throw new IllegalArgumentException("Unknown temporary rank schema");
+                purchaseReceipts = document.getAsJsonObject("purchaseReceipts");
+                if (purchaseReceipts == null) throw new IllegalArgumentException("Missing purchase receipts");
+                for (java.util.Map.Entry<String, JsonElement> receipt : purchaseReceipts.entrySet()) {
+                    if (!receipt.getKey()
+                        .matches("[A-Za-z0-9_.:-]{1,120}")
+                        || !receipt.getValue()
+                            .getAsString()
+                            .matches("[a-f0-9]{64}"))
+                        throw new IllegalArgumentException("Invalid stored purchase receipt");
+                }
+                root = document.get("entries");
+            }
+            if (root == null || !root.isJsonArray())
+                throw new IllegalArgumentException("Expected temporary rank entries");
             for (JsonElement el : root.getAsJsonArray()) {
                 JsonObject obj = el.getAsJsonObject();
                 UUID uuid = UUID.fromString(

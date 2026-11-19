@@ -11,7 +11,7 @@ has not yet joined. An internal pending identity is resolved to the authenticate
 an offline-mode UUID and is never assigned SU permissions. Active purchased time starts at purchase, not first login.
 Ambiguous names are rejected during resolution. Known players keep their UUID even when offline.
 
-Donor priority, highest first: singularity, fusion, quantum, plutonium, uranium. Other ranks (including staff and epochs)
+Donor priority, highest first: singularity, fusion, quantum, plutonium, uranium, thorium. Other ranks (including staff and epochs)
 are outside this queue. Only the highest available donor status runs. Lower status durations pause, including purchases
 made while a higher status is active. Extending a queued status adds to its saved duration. Expiry resumes the next
 status, accounting for elapsed time during server downtime. Expiration is checked by the existing minute task.

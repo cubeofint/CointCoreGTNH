@@ -20,10 +20,14 @@ final class AccessSnapshot {
     Map<String, Map<String, Long>> parentExpiry = new LinkedHashMap<>();
     java.util.List<coint.commands.temprank.TempRankEntry> temporaryRanks;
     java.util.List<DonationDelivery.Grant> kitGrants;
+    // Null is an older publisher, not an instruction to delete definitions.
+    String kitCatalog;
+    Map<String, coint.cosmetic.CosmeticSelection> cosmetics;
     // Null means OP synchronization is disabled on the publisher, never "revoke everyone".
     Map<String, Operator> operators;
 
     void validate(String expectedAuthority) {
+        if (cosmetics != null) coint.cosmetic.Cosmetics.validate(cosmetics);
         if (format != 1 || !expectedAuthority.equals(authority)
             || definitions == null
             || definitions.isEmpty()

@@ -23,7 +23,7 @@ import serverutils.lib.util.permission.PermissionAPI;
 /**
  * Privilege commands carried over from the ATM10 server:
  * <ul>
- * <li>{@code /charge}: fills the energy of the item in hand.</li>
+ * <li>{@code /charge}: adds up to one million energy to the item in hand.</li>
  * <li>{@code /maxcharge}: fills everything carried (inventory, armor, baubles).</li>
  * <li>{@code /expadd <levels>}: gives experience levels, up to the rank's limit.</li>
  * </ul>
@@ -125,10 +125,10 @@ public class CommandPrivilege extends CommandBase {
 
     private static boolean chargeHand(EntityPlayerMP player) {
         ItemStack held = player.getHeldItem();
-        switch (ItemCharger.charge(held)) {
+        switch (ItemCharger.charge(held, 1_000_000)) {
             case CHARGED -> {
                 player.inventoryContainer.detectAndSendChanges();
-                ok(player, "Предмет в руке заряжен.");
+                ok(player, "В предмет добавлено до 1 000 000 энергии.");
                 return true;
             }
             case ALREADY_FULL -> {
