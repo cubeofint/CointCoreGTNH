@@ -31,7 +31,7 @@ public class GuiCardTable extends GuiScreen {
     private static final int TURN_MS = 30_000;
 
     private static final int B_START = 0, B_DRAW = 1, B_PASS = 2, B_LEAVE = 3, B_ADD_BOT = 4, B_REMOVE_BOT = 5,
-        B_CALL = 6, B_MODE = 7, B_WATCH = 8, B_GAMES = 9, B_SUIT = 10;
+        B_CALL = 6, B_MODE = 7, B_WATCH = 8, B_GAMES = 9, B_SUIT = 10, B_JUMP_IN = 15, B_SEVEN_ZERO = 16, B_SWAP = 20;
 
     /** A card on its way across the table. */
     private static final class Fly {
@@ -248,6 +248,22 @@ public class GuiCardTable extends GuiScreen {
         buttonList.clear();
         int y = height - 26;
         int cx = width / 2;
+        if (state.swapping >= 0 && state.swapping == state.you) {
+            int row = 0;
+            for (int i = 0; i < state.names.size(); i++) {
+                if (i == state.you) continue;
+                buttonList.add(
+                    new GuiButton(
+                        B_SWAP + i,
+                        cx - 105,
+                        height / 2 + 18 + row++ * 22,
+                        210,
+                        20,
+                        state.names.get(i) + " (" + state.counts.get(i) + ")"));
+            }
+            buttonList.add(new GuiButton(B_LEAVE, cx - 50, y, 100, 20, tr("cointcore.cards.leave")));
+            return;
+        }
         if (pickingFor >= 0) {
             for (int s = 0; s < Cards.SUITS; s++) {
                 buttonList.add(new GuiButton(B_SUIT + s, cx - 166 + s * 84, height / 2 + 30, 80, 20, suitName(s)));
@@ -260,6 +276,16 @@ public class GuiCardTable extends GuiScreen {
             start.enabled = state.host && state.names.size() >= 2;
             buttonList.add(start);
             if (state.host) {
+                buttonList.add(
+                    new GuiButton(B_JUMP_IN, cx - 105, centerY() + 24, 210, 20, ruleLabel("jumpIn", state.jumpIn)));
+                buttonList.add(
+                    new GuiButton(
+                        B_SEVEN_ZERO,
+                        cx - 105,
+                        centerY() + 48,
+                        210,
+                        20,
+                        ruleLabel("sevenZero", state.sevenZero)));
                 buttonList.add(
                     new GuiButton(
                         B_MODE,
@@ -283,10 +309,10 @@ public class GuiCardTable extends GuiScreen {
             }
         } else {
             GuiButton draw = new GuiButton(B_DRAW, cx - 207, y, 100, 20, tr("cointcore.cards.draw"));
-            draw.enabled = myTurn() && !state.drew;
+            draw.enabled = myTurn() && state.swapping < 0 && !state.drew;
             buttonList.add(draw);
             GuiButton pass = new GuiButton(B_PASS, cx - 102, y, 100, 20, tr("cointcore.cards.pass"));
-            pass.enabled = myTurn() && state.drew;
+            pass.enabled = myTurn() && state.swapping < 0 && state.drew;
             buttonList.add(pass);
             String label = state.canCatch ? "§6§l" + tr("cointcore.cards.catch")
                 : state.called ? "§a✔ " + tr("cointcore.cards.call")
@@ -309,7 +335,11 @@ public class GuiCardTable extends GuiScreen {
 
     @Override
     protected void actionPerformed(GuiButton button) {
-        if (button.id >= B_SUIT) {
+        if (button.id >= B_SWAP && button.id < B_SWAP + 4) {
+            send(PacketCardAction.SWAP, button.id - B_SWAP, 0);
+            return;
+        }
+        if (button.id >= B_SUIT && button.id <= B_SUIT + Cards.SUITS) {
             int suit = button.id - B_SUIT;
             int index = pickingFor;
             pickingFor = -1;
@@ -325,6 +355,8 @@ public class GuiCardTable extends GuiScreen {
                 mc.thePlayer.sendChatMessage("/cards");
             }
             case B_MODE -> send(PacketCardAction.MODE, 0, 0);
+            case B_JUMP_IN -> send(PacketCardAction.JUMP_IN, 0, 0);
+            case B_SEVEN_ZERO -> send(PacketCardAction.SEVEN_ZERO, 0, 0);
             case B_WATCH -> send(PacketCardAction.WATCH, 0, 0);
             case B_START -> send(PacketCardAction.START, 0, 0);
             case B_DRAW -> send(PacketCardAction.DRAW, 0, 0);
@@ -340,8 +372,8 @@ public class GuiCardTable extends GuiScreen {
         }
     }
 
-    private static void send(int action, int index, int suit) {
-        WorldTravelNetwork.CHANNEL.sendToServer(new PacketCardAction(action, index, suit));
+    private void send(int action, int index, int suit) {
+        WorldTravelNetwork.CHANNEL.sendToServer(new PacketCardAction(action, index, suit, state.logSeq));
     }
 
     // ---- your hand
@@ -374,9 +406,13 @@ public class GuiCardTable extends GuiScreen {
     }
 
     private boolean canPlay(int index) {
-        if (!myTurn() || index < 0 || index >= state.hand.size()) {
+        if (state.phase != PacketCardState.PHASE_PLAYING || state.you < 0
+            || state.swapping >= 0
+            || index < 0
+            || index >= state.hand.size()) {
             return false;
         }
+        if (!myTurn()) return state.canJump && Cards.identicalForJump(state.hand.get(index), state.top);
         if (state.drew && index != state.hand.size() - 1) {
             return false;
         }
@@ -390,7 +426,7 @@ public class GuiCardTable extends GuiScreen {
     @Override
     protected void mouseClicked(int mx, int my, int button) {
         super.mouseClicked(mx, my, button);
-        if (button != 0 || pickingFor >= 0) {
+        if (button != 0 || pickingFor >= 0 || state.swapping >= 0) {
             return;
         }
         int index = cardAt(mx, my);
@@ -422,6 +458,20 @@ public class GuiCardTable extends GuiScreen {
             String wait = state.names.size() < 2 ? tr("cointcore.cards.waiting")
                 : state.host ? tr("cointcore.cards.youStart") : tr("cointcore.cards.hostStarts");
             drawCenteredString(fontRendererObj, wait, width / 2, centerY(), 0xDDDDDD);
+            if (!state.host) {
+                drawCenteredString(
+                    fontRendererObj,
+                    ruleLabel("jumpIn", state.jumpIn),
+                    width / 2,
+                    centerY() + 28,
+                    0xAAAAAA);
+                drawCenteredString(
+                    fontRendererObj,
+                    ruleLabel("sevenZero", state.sevenZero),
+                    width / 2,
+                    centerY() + 42,
+                    0xAAAAAA);
+            }
         } else {
             drawTable();
             drawHand(mx, my, now);
@@ -441,12 +491,25 @@ public class GuiCardTable extends GuiScreen {
             Gui.drawRect(width / 2 - 172, height / 2 + 14, width / 2 + 172, height / 2 + 80, 0xE0101010);
             drawCenteredString(fontRendererObj, tr("cointcore.cards.pickSuit"), width / 2, height / 2 + 18, 0xFFFF55);
         }
+        if (state.swapping >= 0) {
+            boolean choosing = state.swapping == state.you;
+            String text = choosing ? tr("cointcore.cards.pickPlayer") + " §7" + (msLeft() + 999) / 1000 + "s"
+                : StatCollector
+                    .translateToLocalFormatted("cointcore.cards.choosingPlayer", state.names.get(state.swapping));
+            int panel = choosing ? 224 : Math.min(width - 16, Math.max(224, fontRendererObj.getStringWidth(text) + 16));
+            int bottom = height / 2 + (choosing ? 20 + 22 * (state.names.size() - 1) : 18);
+            Gui.drawRect(width / 2 - panel / 2, height / 2, width / 2 + panel / 2, bottom, 0xF0101010);
+            drawCenteredString(fontRendererObj, text, width / 2, height / 2 + 4, 0xFFFF55);
+        }
         super.drawScreen(mx, my, partial);
 
-        int hover = pickingFor < 0 && state.phase == PacketCardState.PHASE_PLAYING ? cardAt(mx, my) : -1;
+        int hover = pickingFor < 0 && state.swapping < 0 && state.phase == PacketCardState.PHASE_PLAYING
+            ? cardAt(mx, my)
+            : -1;
         if (hover >= 0) {
             List<String> tip = new ArrayList<>();
             tip.add(cardName(state.hand.get(hover)));
+            if (!myTurn() && canPlay(hover)) tip.add("§e" + tr("cointcore.cards.jumpNow"));
             drawHoveringText(tip, mx, my, fontRendererObj);
         }
     }
@@ -591,9 +654,9 @@ public class GuiCardTable extends GuiScreen {
     }
 
     private void drawHand(int mx, int my, long now) {
-        int hover = pickingFor < 0 ? cardAt(mx, my) : -1;
+        int hover = pickingFor < 0 && state.swapping < 0 ? cardAt(mx, my) : -1;
         int top = handTop();
-        if (myTurn()) {
+        if (myTurn() && state.swapping < 0) {
             int n = state.hand.size();
             int x0 = handLeft() - 8, x1 = handLeft() + (n - 1) * handStep() + CARD_W + 8;
             int glow = 0x60 + (int) (0x60 * (0.5 + 0.5 * Math.sin(now / 160.0)));
@@ -604,7 +667,15 @@ public class GuiCardTable extends GuiScreen {
             }
             drawCenteredString(fontRendererObj, text, width / 2, top - 19, 0xFFFFFF);
             timeBar(width / 2 - 40, top - 9, 80);
-        }
+        } else if (state.canJump && state.hand.stream()
+            .anyMatch(card -> Cards.identicalForJump(card, state.top))) {
+                drawCenteredString(
+                    fontRendererObj,
+                    "§e" + tr("cointcore.cards.jumpNow"),
+                    width / 2,
+                    top - 19,
+                    0xFFFFFF);
+            }
         long callLeft = state.callMsLeft - (now - ClientCards.receivedAt);
         if (state.callMsLeft > 0 && callLeft > 0) {
             // Played down to one card without saying so: a few seconds to press the button.
@@ -618,7 +689,16 @@ public class GuiCardTable extends GuiScreen {
             boolean playable = liftOf(i);
             int y = top - (playable ? 6 : 0) - (i == hover ? 2 : 0);
             int chosen = i == pickingFor ? hoveredSuit(mx, my) : -1;
-            drawCard(fontRendererObj, state.hand.get(i), left, y, CARD_W, CARD_H, 1.5F, myTurn() && !playable, chosen);
+            drawCard(
+                fontRendererObj,
+                state.hand.get(i),
+                left,
+                y,
+                CARD_W,
+                CARD_H,
+                1.5F,
+                state.swapping >= 0 || myTurn() && !playable,
+                chosen);
             if (playable) {
                 Gui.drawRect(left, y + CARD_H, left + CARD_W, y + CARD_H + 2, 0xFFFFFF55);
             }
@@ -736,6 +816,10 @@ public class GuiCardTable extends GuiScreen {
         return StatCollector.translateToLocal(key);
     }
 
+    private static String ruleLabel(String key, boolean enabled) {
+        return tr("cointcore.cards.rule." + key) + ": " + tr("cointcore.cards.rule." + (enabled ? "on" : "off"));
+    }
+
     static String suitName(int suit) {
         return tr("cointcore.cards.suit." + suit);
     }
@@ -780,6 +864,9 @@ public class GuiCardTable extends GuiScreen {
             case 9 -> "§c"
                 + StatCollector.translateToLocalFormatted("cointcore.cards.log.missed", line.name, line.card);
             case 10 -> "§6" + StatCollector.translateToLocalFormatted("cointcore.cards.log.caught", line.name);
+            case 12 -> "§e" + StatCollector.translateToLocalFormatted("cointcore.cards.log.jump", line.name);
+            case 13 -> "§b" + StatCollector.translateToLocalFormatted("cointcore.cards.log.swap", line.name);
+            case 14 -> "§b" + StatCollector.translateToLocalFormatted("cointcore.cards.log.rotate", line.name);
             default -> "";
         };
     }

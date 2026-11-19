@@ -25,6 +25,9 @@ public class PacketCardState implements IMessage {
     public String error = "";
     public boolean host;
     public boolean elimination;
+    public boolean jumpIn, sevenZero, canJump;
+    /** Seat choosing a hand after a seven, or -1. */
+    public int swapping = -1;
     public int you = -1;
     public final List<String> names = new ArrayList<>();
     public final List<Integer> counts = new ArrayList<>();
@@ -76,6 +79,10 @@ public class PacketCardState implements IMessage {
         state.phase = game.phase == CardGame.Phase.PLAYING ? PHASE_PLAYING : PHASE_LOBBY;
         state.host = viewer.equals(game.host);
         state.elimination = game.elimination;
+        state.jumpIn = game.jumpIn;
+        state.sevenZero = game.sevenZero;
+        state.swapping = game.players.indexOf(game.pendingSwap);
+        state.canJump = game.mayJump(viewer, game.top());
         state.logSeq = game.logSeq;
         state.you = game.players.indexOf(viewer);
         for (UUID p : game.players) {
@@ -143,6 +150,13 @@ public class PacketCardState implements IMessage {
         for (int i = 0; i < lines; i++) {
             log.add(new Line(buf.readByte(), ByteBufUtils.readUTF8String(buf), buf.readShort(), buf.readByte()));
         }
+        // Appended fields keep old, ordinary tables readable during a staged client update.
+        if (buf.readableBytes() >= 4) {
+            jumpIn = buf.readBoolean();
+            sevenZero = buf.readBoolean();
+            canJump = buf.readBoolean();
+            swapping = buf.readByte();
+        }
     }
 
     @Override
@@ -181,6 +195,10 @@ public class PacketCardState implements IMessage {
             buf.writeShort(line.card);
             buf.writeByte(line.suit);
         }
+        buf.writeBoolean(jumpIn);
+        buf.writeBoolean(sevenZero);
+        buf.writeBoolean(canJump);
+        buf.writeByte(swapping);
     }
 
     public static class Handler implements IMessageHandler<PacketCardState, IMessage> {

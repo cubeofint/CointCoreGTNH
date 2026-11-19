@@ -36,7 +36,7 @@ final class CardGame {
     static final class Line {
 
         static final byte JOIN = 0, LEAVE = 1, START = 2, PLAY = 3, DRAW = 4, PASS = 5, TIMEOUT = 6, WIN = 7, CALL = 8,
-            MISSED = 9, CAUGHT = 10;
+            MISSED = 9, CAUGHT = 10, JUMP = 12, SWAP = 13, ROTATE = 14;
 
         final byte kind;
         final String name;
@@ -63,6 +63,11 @@ final class CardGame {
     final Set<UUID> bots = new HashSet<>();
     final Set<UUID> spectators = new HashSet<>();
     boolean elimination;
+    boolean jumpIn, sevenZero;
+    /** A seven was played: no further card may be played until its owner picks a hand. */
+    UUID pendingSwap;
+    /** No jump on the opening card or on your own most recent discard. */
+    UUID lastPlayed;
     UUID host;
     final List<Integer> drawPile = new ArrayList<>();
     /** The top is the last. */
@@ -140,6 +145,8 @@ final class CardGame {
         String name = names.remove(player);
         players.remove(index);
         bots.remove(player);
+        if (player.equals(pendingSwap)) pendingSwap = null;
+        if (player.equals(pendingCall)) pendingCall = null;
         log(Line.LEAVE, name, 0, -1);
         if (players.size() == bots.size() && spectators.isEmpty()) {
             // No one real is left: the bots go too.
@@ -194,6 +201,20 @@ final class CardGame {
         return null;
     }
 
+    String toggleJumpIn(UUID by) {
+        if (!by.equals(host)) return "cointcore.cards.error.notHost";
+        if (phase != Phase.LOBBY) return "cointcore.cards.error.running";
+        jumpIn = !jumpIn;
+        return null;
+    }
+
+    String toggleSevenZero(UUID by) {
+        if (!by.equals(host)) return "cointcore.cards.error.notHost";
+        if (phase != Phase.LOBBY) return "cointcore.cards.error.running";
+        sevenZero = !sevenZero;
+        return null;
+    }
+
     void watch(UUID player) {
         if (players.contains(player)) leave(player);
         spectators.add(player);
@@ -243,9 +264,26 @@ final class CardGame {
     /** A bot on turn makes its move once it has thought. True when it did. */
     boolean botMove(long now) {
         UUID bot = current();
-        if (bot == null || !bots.contains(bot) || now < turnStartedAt + BOT_MS) {
+        if (bot == null || now < turnStartedAt + BOT_MS) {
             return false;
         }
+        if (pendingSwap != null) {
+            if (!bots.contains(bot)) return false;
+            swapHands(bot, smallestHandOtherThan(bot), -1);
+            return true;
+        }
+        if (jumpIn) {
+            for (UUID other : players) {
+                if (!bots.contains(other) || !mayJump(other, top())) continue;
+                int duplicate = hands.get(other)
+                    .indexOf(top());
+                if (duplicate >= 0) {
+                    play(other, duplicate, -1);
+                    return true;
+                }
+            }
+        }
+        if (!bots.contains(bot)) return false;
         List<Integer> hand = hands.get(bot);
         int pick = BotBrain.choose(hand, top(), suit, drew, nextHandSize());
         if (pick >= 0) {
@@ -284,6 +322,8 @@ final class CardGame {
 
     private void beginRound() {
         pendingCall = null;
+        pendingSwap = null;
+        lastPlayed = null;
         called.clear();
         drawPile.clear();
         discard.clear();
@@ -321,29 +361,61 @@ final class CardGame {
 
     /** Null when played, else why not (a translation key). */
     String play(UUID player, int index, int pickedSuit) {
-        if (!player.equals(current())) {
-            return "cointcore.cards.error.notYourTurn";
-        }
+        return play(player, index, pickedSuit, -1);
+    }
+
+    boolean mayJump(UUID player, int card) {
+        return jumpIn && phase == Phase.PLAYING
+            && pendingSwap == null
+            && hands.containsKey(player)
+            && lastPlayed != null
+            && !player.equals(lastPlayed)
+            && !player.equals(current())
+            && Cards.identicalForJump(card, top());
+    }
+
+    /** A revision prevents a click from playing a different hand after another player swapped it. */
+    String play(UUID player, int index, int pickedSuit, int revision) {
+        if (revision >= 0 && revision != logSeq) return "cointcore.cards.error.handChanged";
+        if (pendingSwap != null) return "cointcore.cards.error.pickPlayer";
         List<Integer> hand = hands.get(player);
+        if (phase != Phase.PLAYING || hand == null) return "cointcore.cards.error.notYourTurn";
         if (index < 0 || index >= hand.size()) {
             return "cointcore.cards.error.noCard";
         }
-        if (drew && index != hand.size() - 1) {
+        int card = hand.get(index);
+        boolean jumping = !player.equals(current());
+        if (jumping && !mayJump(player, card)) return "cointcore.cards.error.notYourTurn";
+        if (!jumping && drew && index != hand.size() - 1) {
             return "cointcore.cards.error.onlyDrawn";
         }
-        int card = hand.get(index);
         if (!Cards.playable(card, top(), suit)) {
             return "cointcore.cards.error.cantPlay";
         }
         if (Cards.isWild(card) && (pickedSuit < 0 || pickedSuit >= Cards.SUITS)) {
             return "cointcore.cards.error.pickSuit";
         }
+        if (jumping) {
+            turn = players.indexOf(player);
+            log(Line.JUMP, names.get(player), card, -1);
+        }
         hand.remove(index);
         discard.add(card);
+        lastPlayed = player;
         suit = Cards.isWild(card) ? pickedSuit : Cards.suit(card);
         log(Line.PLAY, names.get(player), card, Cards.isWild(card) ? pickedSuit : -1);
         if (hand.isEmpty()) {
             win(player);
+            return null;
+        }
+        if (sevenZero && Cards.value(card) == 7) {
+            pendingSwap = player;
+            newTurn();
+            return null;
+        }
+        if (sevenZero && Cards.value(card) == 0) {
+            rotateHands();
+            advance(1);
             return null;
         }
         if (hand.size() == 1) {
@@ -371,6 +443,7 @@ final class CardGame {
 
     /** Null when drawn, else why not (a translation key). */
     String draw(UUID player) {
+        if (pendingSwap != null) return "cointcore.cards.error.pickPlayer";
         if (!player.equals(current())) {
             return "cointcore.cards.error.notYourTurn";
         }
@@ -426,7 +499,7 @@ final class CardGame {
 
     /** Someone else played down to one card without saying so, and {@code player} may still catch him. */
     boolean canCatch(UUID player) {
-        return pendingCall != null && !pendingCall.equals(player) && phase == Phase.PLAYING;
+        return pendingCall != null && !pendingCall.equals(player) && phase == Phase.PLAYING && pendingSwap == null;
     }
 
     /** Whoever let the time to say "last card" run out takes the penalty. True when someone did. */
@@ -460,6 +533,7 @@ final class CardGame {
 
     /** Null when passed, else why not (a translation key). */
     String pass(UUID player) {
+        if (pendingSwap != null) return "cointcore.cards.error.pickPlayer";
         if (!player.equals(current())) {
             return "cointcore.cards.error.notYourTurn";
         }
@@ -478,6 +552,11 @@ final class CardGame {
         }
         UUID player = current();
         log(Line.TIMEOUT, names.get(player), 0, -1);
+        if (pendingSwap != null) {
+            // A disconnected/idle chooser must not stall the table or draw for an already played turn.
+            swapHands(player, smallestHandOtherThan(player), -1);
+            return true;
+        }
         if (!drew) {
             int card = take();
             if (card >= 0) {
@@ -487,6 +566,55 @@ final class CardGame {
         }
         advance(1);
         return true;
+    }
+
+    String swapHands(UUID player, int target, int revision) {
+        if (revision >= 0 && revision != logSeq) return "cointcore.cards.error.handChanged";
+        if (!player.equals(pendingSwap) || !player.equals(current())) return "cointcore.cards.error.notYourTurn";
+        if (target < 0 || target >= players.size()
+            || players.get(target)
+                .equals(player))
+            return "cointcore.cards.error.swapTarget";
+        UUID other = players.get(target);
+        List<Integer> mine = hands.get(player);
+        hands.put(player, hands.get(other));
+        hands.put(other, mine);
+        clearHandCall(player);
+        clearHandCall(other);
+        pendingSwap = null;
+        log(Line.SWAP, names.get(player) + " ↔ " + names.get(other), 0, -1);
+        advance(1);
+        return null;
+    }
+
+    private int smallestHandOtherThan(UUID player) {
+        int best = -1;
+        for (int i = 0; i < players.size(); i++) {
+            if (players.get(i)
+                .equals(player)) continue;
+            if (best < 0 || hands.get(players.get(i))
+                .size()
+                < hands.get(players.get(best))
+                    .size())
+                best = i;
+        }
+        return best;
+    }
+
+    private void clearHandCall(UUID player) {
+        called.remove(player);
+        if (player.equals(pendingCall)) pendingCall = null;
+    }
+
+    private void rotateHands() {
+        List<List<Integer>> before = new ArrayList<>();
+        for (UUID player : players) before.add(hands.get(player));
+        for (int i = 0; i < players.size(); i++) {
+            hands.put(players.get(Math.floorMod(i + direction, players.size())), before.get(i));
+        }
+        pendingCall = null;
+        called.clear();
+        log(Line.ROTATE, names.get(lastPlayed), 0, -1);
     }
 
     private void penalize(int cards) {
@@ -570,6 +698,8 @@ final class CardGame {
     private void end() {
         phase = Phase.LOBBY;
         pendingCall = null;
+        pendingSwap = null;
+        lastPlayed = null;
         called.clear();
         hands.clear();
         drawPile.clear();

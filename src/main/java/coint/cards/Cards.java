@@ -39,6 +39,11 @@ public final class Cards {
         return isWild(card) || suit(card) == suit || !isWild(top) && value(card) == value(top);
     }
 
+    /** Jump-in needs an exact coloured duplicate; a wild has no colour of its own. */
+    public static boolean identicalForJump(int card, int top) {
+        return card >= 0 && card == top && !isWild(card);
+    }
+
     /** A full shuffled deck: per suit one 0 and two of each other value; four of each suitless card. */
     public static List<Integer> deck(Random random) {
         List<Integer> deck = new ArrayList<>();

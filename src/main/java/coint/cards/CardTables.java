@@ -29,7 +29,8 @@ public final class CardTables {
     private static final double MAX_DISTANCE_SQ = 8 * 8;
 
     static final int ACTION_OPEN = 0, ACTION_LEAVE = 1, ACTION_START = 2, ACTION_PLAY = 3, ACTION_DRAW = 4,
-        ACTION_PASS = 5, ACTION_ADD_BOT = 6, ACTION_REMOVE_BOT = 7, ACTION_CALL = 8, ACTION_MODE = 9, ACTION_WATCH = 10;
+        ACTION_PASS = 5, ACTION_ADD_BOT = 6, ACTION_REMOVE_BOT = 7, ACTION_CALL = 8, ACTION_MODE = 9, ACTION_WATCH = 10,
+        ACTION_JUMP_IN = 11, ACTION_SEVEN_ZERO = 12, ACTION_SWAP = 13;
 
     private static final Map<String, CardGame> games = new HashMap<>();
     private static int tick;
@@ -83,7 +84,7 @@ public final class CardTables {
     }
 
     /** An action sent from a player's table window; run on the server thread. */
-    static void act(EntityPlayerMP player, int action, int index, int suit) {
+    static void act(EntityPlayerMP player, int action, int index, int suit, int revision) {
         SupplyServerTasks.run(() -> {
             CardGame game = gameOf(player.getUniqueID());
             if (game == null) {
@@ -99,13 +100,16 @@ public final class CardTables {
                     yield null;
                 }
                 case ACTION_START -> game.start(id);
-                case ACTION_PLAY -> game.play(id, index, suit);
+                case ACTION_PLAY -> game.play(id, index, suit, revision);
                 case ACTION_DRAW -> game.draw(id);
                 case ACTION_PASS -> game.pass(id);
                 case ACTION_ADD_BOT -> game.addBot(id);
                 case ACTION_REMOVE_BOT -> game.removeBot(id);
                 case ACTION_CALL -> game.call(id);
                 case ACTION_MODE -> game.mode(id);
+                case ACTION_JUMP_IN -> game.toggleJumpIn(id);
+                case ACTION_SEVEN_ZERO -> game.toggleSevenZero(id);
+                case ACTION_SWAP -> game.swapHands(id, index, revision);
                 case ACTION_WATCH -> {
                     game.watch(id);
                     yield null;
