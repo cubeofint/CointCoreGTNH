@@ -40,7 +40,7 @@ node /opt/minecraft/gtnh/configure-gtnh-privileges.cjs \
   --rank-file /opt/minecraft/gtnh/gtnh/serverutilities/server/ranks.txt
 ```
 
-After reviewing the output, repeat with `--apply`. Reload SU ranks on Alpha with `/ranks reload`. Alpha's existing
+After reviewing the output, repeat with `--apply`. Reload SU ranks on Alpha with `/reload serverutilities:ranks`. Alpha's existing
 access synchronization publishes the definitions to Endgame/Hub. Do not run the policy tool independently on replicas.
 Test without OP: an OP account cannot establish whether donor permissions, cooldowns or home limits are correct.
 
