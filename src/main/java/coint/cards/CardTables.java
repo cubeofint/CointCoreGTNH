@@ -43,6 +43,24 @@ public final class CardTables {
 
     /** A player used a table: he sits down (if there is a seat) and its window opens. */
     public static void use(EntityPlayerMP player, int x, int y, int z) {
+        TableGames.use(player, x, y, z);
+    }
+
+    static boolean at(int dim, int x, int y, int z) {
+        return games.containsKey(key(dim, x, y, z));
+    }
+
+    static void leaveCurrent(UUID id) {
+        CardGame game = gameOf(id);
+        if (game == null) return;
+        game.leave(id);
+        EntityPlayerMP player = player(id);
+        if (player != null) send(player, PacketCardState.closed(null));
+        changed(game);
+    }
+
+    static void useUno(EntityPlayerMP player, int x, int y, int z) {
+        TableGames.leave(player.getUniqueID());
         int dim = player.worldObj.provider.dimensionId;
         CardGame game = games.computeIfAbsent(key(dim, x, y, z), k -> new CardGame(dim, x, y, z));
         CardGame other = gameOf(player.getUniqueID());
@@ -71,6 +89,7 @@ public final class CardTables {
 
     /** The table at this place is gone: its game ends. */
     static void removed(int dim, int x, int y, int z) {
+        TableGames.removed(dim, x, y, z);
         CardGame game = games.remove(key(dim, x, y, z));
         if (game == null) {
             return;
@@ -172,7 +191,7 @@ public final class CardTables {
         WorldTravelNetwork.CHANNEL.sendTo(state, player);
     }
 
-    private static EntityPlayerMP player(UUID uuid) {
+    static EntityPlayerMP player(UUID uuid) {
         MinecraftServer server = MinecraftServer.getServer();
         if (server == null) {
             return null;
@@ -243,6 +262,7 @@ public final class CardTables {
     /** All games end with the server. */
     public static void clear() {
         games.clear();
+        TableGames.clear();
     }
 
     public static void list(EntityPlayerMP viewer) {
@@ -264,11 +284,13 @@ public final class CardTables {
                         "/cards watch " + entry.getKey()));
             viewer.addChatMessage(line);
         }
+        TableGames.list(viewer);
     }
 
     public static void watch(EntityPlayerMP viewer, String key) {
         CardGame game = games.get(key);
         if (game == null) {
+            if (TableGames.watch(viewer, key)) return;
             list(viewer);
             return;
         }

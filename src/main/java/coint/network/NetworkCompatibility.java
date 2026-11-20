@@ -9,7 +9,7 @@ public final class NetworkCompatibility {
 
     // Bump before changing packet IDs/layouts or GUI/container messages incompatibly.
     // Builds with the same value must remain usable together on a hub in both directions.
-    public static final String PROTOCOL_SUFFIX = "+cointnet.1";
+    public static final String PROTOCOL_SUFFIX = "+cointnet.2";
     public static final String UPDATE_MESSAGE = "Перезапустите сборку через лаунчер, чтобы обновить моды.";
 
     private NetworkCompatibility() {}

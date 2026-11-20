@@ -21,6 +21,16 @@ public final class WorldTravelNetwork {
         }
         initialized = true;
         CHANNEL.registerMessage(
+            coint.cards.PacketTableState.Handler.class,
+            coint.cards.PacketTableState.class,
+            21,
+            Side.CLIENT);
+        CHANNEL.registerMessage(
+            coint.cards.PacketTableAction.Handler.class,
+            coint.cards.PacketTableAction.class,
+            22,
+            Side.SERVER);
+        CHANNEL.registerMessage(
             coint.chat.PacketChatChannel.Handler.class,
             coint.chat.PacketChatChannel.class,
             20,
