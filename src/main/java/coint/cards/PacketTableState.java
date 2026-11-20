@@ -10,10 +10,10 @@ import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import io.netty.buffer.ByteBuf;
 
-/** Per-viewer snapshot. Covered solitaire cards and opponents' poker cards are never encoded. */
+/** Per-viewer snapshot. Covered solitaire, private poker and hidden dealer cards are never encoded. */
 public class PacketTableState implements IMessage {
 
-    public static final int SOLITAIRE = 1, POKER = 2, MENU = 3;
+    public static final int SOLITAIRE = 1, POKER = 2, MENU = 3, BLACKJACK = 4;
     public int game = MENU, dim, x, y, z, revision, phase, you = -1, turn = -1, dealer = -1;
     public long session;
     public int pot, call, minRaise, maxRaise, msLeft, moves;
@@ -22,6 +22,7 @@ public class PacketTableState implements IMessage {
     public final List<String> names = new ArrayList<>();
     public final List<Integer> chips = new ArrayList<>(), wagers = new ArrayList<>();
     public final List<Boolean> folded = new ArrayList<>(), bots = new ArrayList<>();
+    // Blackjack uses seat 0 for the player and seat 1 for the dealer, with chips/bet in seat 0.
     public final List<int[]> hands = new ArrayList<>(), piles = new ArrayList<>();
     public int[] board = new int[0];
 

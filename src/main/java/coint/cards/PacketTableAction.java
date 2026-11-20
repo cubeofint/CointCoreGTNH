@@ -11,7 +11,7 @@ import io.netty.buffer.ByteBuf;
 public class PacketTableAction implements IMessage {
 
     public static final int SELECT = 0, LEAVE = 1, DEAL = 2, DRAW = 3, MOVE = 4, UNDO = 5, FOLD = 6, CALL = 7,
-        RAISE = 8, ADD_BOT = 9, REMOVE_BOT = 10;
+        RAISE = 8, ADD_BOT = 9, REMOVE_BOT = 10, HIT = 11, STAND = 12;
 
     int dim, x, y, z, action, a, b, c, revision;
     long session;

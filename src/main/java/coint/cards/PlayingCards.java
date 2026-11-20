@@ -33,6 +33,21 @@ public final class PlayingCards {
         };
     }
 
+    /** Best blackjack total without busting if possible; masked cards do not contribute. */
+    public static int blackjackTotal(int[] cards) {
+        int total = 0, aces = 0;
+        for (int card : cards) {
+            if (card < 0) continue;
+            int rank = rank(card);
+            if (rank == 1) {
+                aces++;
+                total += 11;
+            } else total += Math.min(rank, 10);
+        }
+        while (total > 21 && aces-- > 0) total -= 10;
+        return total;
+    }
+
     public static List<Integer> deck(Random random) {
         List<Integer> cards = new ArrayList<>();
         for (int i = 0; i < 52; i++) cards.add(i);

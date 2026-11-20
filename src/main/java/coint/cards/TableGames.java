@@ -41,6 +41,7 @@ public final class TableGames {
         final Set<UUID> viewers = new LinkedHashSet<>(), watchers = new LinkedHashSet<>();
         final SolitaireGame solitaire;
         final PokerGame poker;
+        final BlackjackGame blackjack;
         UUID owner;
 
         Session(int kind, EntityPlayerMP owner, int x, int y, int z) {
@@ -52,6 +53,7 @@ public final class TableGames {
             this.z = z;
             solitaire = kind == PacketTableState.SOLITAIRE ? new SolitaireGame() : null;
             poker = kind == PacketTableState.POKER ? new PokerGame() : null;
+            blackjack = kind == PacketTableState.BLACKJACK ? new BlackjackGame() : null;
         }
     }
 
@@ -90,8 +92,9 @@ public final class TableGames {
         UUID id = player.getUniqueID();
         Session session = games.get(key(action.dim, action.x, action.y, action.z));
         if (action.action == PacketTableAction.SELECT) {
-            if (action.a < 0 || action.a > PacketTableState.POKER
-                || !near(player, action.dim, action.x, action.y, action.z)
+            if (!(action.a == 0 || action.a == PacketTableState.SOLITAIRE
+                || action.a == PacketTableState.POKER
+                || action.a == PacketTableState.BLACKJACK) || !near(player, action.dim, action.x, action.y, action.z)
                 || !exists(action.dim, action.x, action.y, action.z)) return;
             if (session != null || CardTables.at(action.dim, action.x, action.y, action.z)) {
                 use(player, action.x, action.y, action.z);
@@ -125,7 +128,8 @@ public final class TableGames {
             return;
         }
         String error = null;
-        int revision = session.solitaire != null ? session.solitaire.revision : session.poker.revision;
+        int revision = session.solitaire != null ? session.solitaire.revision
+            : session.blackjack != null ? session.blackjack.revision : session.poker.revision;
         if (action.revision != revision) error = "cointcore.table.error.stale";
         else if (session.solitaire != null) {
             SolitaireGame game = session.solitaire;
@@ -140,6 +144,9 @@ public final class TableGames {
                 case PacketTableAction.UNDO -> game.undo(action.revision);
                 default -> "cointcore.table.error.move";
             };
+        } else if (session.blackjack != null) {
+            error = !id.equals(session.owner) ? "cointcore.table.error.spectator"
+                : session.blackjack.act(action.action, action.revision);
         } else {
             PokerGame game = session.poker;
             if (action.action == PacketTableAction.DEAL || action.action == PacketTableAction.ADD_BOT
@@ -167,7 +174,7 @@ public final class TableGames {
             leave(id);
             CardTables.leaveCurrent(id);
         }
-        if (session.solitaire != null) watch |= !id.equals(session.owner);
+        if (session.solitaire != null || session.blackjack != null) watch |= !id.equals(session.owner);
         else if (!watch && session.poker.join(id, player.getCommandSenderName(), false) != null) watch = true;
         if (watch) session.watchers.add(id);
         else session.watchers.remove(id);
@@ -207,10 +214,30 @@ public final class TableGames {
         return state;
     }
 
+    static PacketTableState blackjackState(BlackjackGame game, String name) {
+        PacketTableState state = new PacketTableState();
+        state.game = PacketTableState.BLACKJACK;
+        state.phase = game.phase;
+        state.revision = game.revision;
+        state.result = game.result;
+        for (int i = 0; i < 2; i++) {
+            state.names.add(i == 0 ? name : "Dealer");
+            state.chips.add(i == 0 ? game.chips : 0);
+            state.wagers.add(i == 0 ? BlackjackGame.BET : 0);
+            state.folded.add(false);
+            state.bots.add(i == 1);
+            state.hands.add(game.visibleHand(i == 1));
+        }
+        return state;
+    }
+
     private static PacketTableState state(Session session, UUID viewer, boolean open, String error) {
         PacketTableState state;
         if (session.poker != null) state = pokerState(session.poker, viewer, session.watchers.contains(viewer));
-        else {
+        else if (session.blackjack != null) {
+            EntityPlayerMP owner = player(session.owner);
+            state = blackjackState(session.blackjack, owner == null ? "" : owner.getCommandSenderName());
+        } else {
             state = new PacketTableState();
             state.game = PacketTableState.SOLITAIRE;
             state.revision = session.solitaire.revision;
@@ -242,7 +269,7 @@ public final class TableGames {
         session.watchers.remove(id);
         if (session.poker != null) session.poker.leave(id);
         if (id.equals(session.owner)) {
-            if (session.solitaire != null) {
+            if (session.solitaire != null || session.blackjack != null) {
                 end(session);
                 return;
             }

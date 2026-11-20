@@ -12,17 +12,20 @@ import coint.cards.PacketTableState;
 import coint.cards.PlayingCards;
 import coint.network.WorldTravelNetwork;
 
-/** The free-table picker, Klondike board and hold'em table. Card faces are drawn locally from public encodings. */
+/** The free-table picker and ordinary-deck games. Card faces use public server encodings only. */
 public class GuiTableGames extends GuiScreen {
 
     private static final int LEAVE = 0, DEAL = 1, DRAW = 2, UNDO = 3, FOLD = 4, CALL = 5, RAISE = 6, ADD_BOT = 7,
-        REMOVE_BOT = 8, SELECT = 20;
+        REMOVE_BOT = 8, HIT = 9, STAND = 10, SELECT = 20;
+    private static final int[] GAME_CHOICES = { 0, PacketTableState.SOLITAIRE, PacketTableState.POKER,
+        PacketTableState.BLACKJACK };
     private PacketTableState state;
     private GuiTextField raise;
     private int selected = -1, selectedCount;
     private long received;
     private SolitaireBoard board;
     private SolitaireBoard.Drag drag;
+    private SolitaireWinAnimation victory;
 
     public GuiTableGames(PacketTableState state) {
         this.state = state;
@@ -61,8 +64,8 @@ public class GuiTableGames extends GuiScreen {
         buttonList.clear();
         int bottom = height - 26, cx = width / 2;
         if (state.game == PacketTableState.MENU) {
-            for (int i = 0; i < 3; i++)
-                button(SELECT + i, cx - 105, height / 2 - 45 + i * 30, 210, tr("game." + i), true);
+            for (int i = 0; i < GAME_CHOICES.length; i++)
+                button(SELECT + i, cx - 105, height / 2 - 60 + i * 30, 210, tr("game." + GAME_CHOICES[i]), true);
             button(LEAVE, cx - 50, bottom, 100, tr("close"), true);
         } else if (state.game == PacketTableState.SOLITAIRE) {
             if (board != null && (board.width != width || board.height != height)) {
@@ -70,9 +73,26 @@ public class GuiTableGames extends GuiScreen {
                 selected = -1;
             }
             board = state.piles.size() == 13 ? new SolitaireBoard(state.piles, width, height) : null;
+            if (!state.won || board == null) victory = null;
+            else {
+                long now = System.nanoTime() / 1000000L;
+                victory = victory == null ? new SolitaireWinAnimation(board, now) : victory.resized(board, now);
+            }
             button(DEAL, 8, bottom, 102, tr("newDeal"), state.owner);
             button(UNDO, 115, bottom, 90, tr("undo"), state.owner && state.canUndo);
             button(LEAVE, width - 108, bottom, 100, tr("leave"), true);
+        } else if (state.game == PacketTableState.BLACKJACK) {
+            boolean playing = state.phase == 1;
+            int w = Math.min(100, (width - 24) / 3), left = (width - 3 * w - 8) / 2;
+            if (playing) {
+                button(HIT, left, bottom, w, tr("blackjack.hit"), state.owner);
+                button(STAND, left + w + 4, bottom, w, tr("blackjack.stand"), state.owner);
+            } else {
+                boolean canDeal = state.chips.size() >= 1 && state.wagers.size() >= 1
+                    && state.chips.get(0) >= state.wagers.get(0);
+                button(DEAL, left, bottom, w * 2 + 4, tr("deal"), state.owner && canDeal);
+            }
+            button(LEAVE, left + 2 * (w + 4), bottom, w, tr("leave"), true);
         } else {
             boolean playing = state.phase >= 1 && state.phase <= 4;
             boolean turn = playing && state.you >= 0 && state.turn == state.you;
@@ -109,8 +129,8 @@ public class GuiTableGames extends GuiScreen {
     protected void actionPerformed(GuiButton button) {
         if (drag != null && drag.pending && button.id != LEAVE) return;
         drag = null;
-        if (button.id >= SELECT && button.id < SELECT + 3) {
-            send(PacketTableAction.SELECT, button.id - SELECT, 0, 0);
+        if (button.id >= SELECT && button.id < SELECT + GAME_CHOICES.length) {
+            send(PacketTableAction.SELECT, GAME_CHOICES[button.id - SELECT], 0, 0);
             return;
         }
         switch (button.id) {
@@ -118,13 +138,21 @@ public class GuiTableGames extends GuiScreen {
                 if (state.game != PacketTableState.MENU) send(PacketTableAction.LEAVE, 0, 0, 0);
                 mc.displayGuiScreen(null);
             }
-            case DEAL -> send(PacketTableAction.DEAL, 0, 0, 0);
-            case UNDO -> send(PacketTableAction.UNDO, 0, 0, 0);
+            case DEAL -> {
+                victory = null;
+                send(PacketTableAction.DEAL, 0, 0, 0);
+            }
+            case UNDO -> {
+                victory = null;
+                send(PacketTableAction.UNDO, 0, 0, 0);
+            }
             case DRAW -> send(PacketTableAction.DRAW, 0, 0, 0);
             case FOLD -> send(PacketTableAction.FOLD, 0, 0, 0);
             case CALL -> send(PacketTableAction.CALL, 0, 0, 0);
             case ADD_BOT -> send(PacketTableAction.ADD_BOT, 0, 0, 0);
             case REMOVE_BOT -> send(PacketTableAction.REMOVE_BOT, 0, 0, 0);
+            case HIT -> send(PacketTableAction.HIT, 0, 0, 0);
+            case STAND -> send(PacketTableAction.STAND, 0, 0, 0);
             case RAISE -> {
                 try {
                     send(PacketTableAction.RAISE, Integer.parseInt(raise.getText()), 0, 0);
@@ -163,6 +191,7 @@ public class GuiTableGames extends GuiScreen {
             }
             solitaire(mx, my);
         } else if (state.game == PacketTableState.POKER) poker();
+        else if (state.game == PacketTableState.BLACKJACK) blackjack();
         super.drawScreen(mx, my, partial);
         if (state.game == PacketTableState.POKER && state.phase >= 1 && state.phase <= 4 && raise != null)
             raise.drawTextBox();
@@ -176,6 +205,9 @@ public class GuiTableGames extends GuiScreen {
                 case SELECT -> tr("tip.uno");
                 case SELECT + 1 -> tr("tip.solitaire");
                 case SELECT + 2 -> tr("tip.poker");
+                case SELECT + 3 -> tr("tip.blackjack");
+                case HIT, STAND -> tr("blackjack.rules");
+                case DEAL -> state.game == PacketTableState.BLACKJACK ? tr("blackjack.rules") : "";
                 case RAISE -> tr("tip.raise");
                 default -> "";
             };
@@ -229,15 +261,18 @@ public class GuiTableGames extends GuiScreen {
 
     private void solitaire(int mx, int my) {
         if (board == null) return;
+        if (victory != null) victory.advance(System.nanoTime() / 1000000L);
         if (drag != null && drag.moved && drag.first == 0)
             empty(drag.originX, drag.originY, board.w, board.h, emptyLabel(drag.pile));
         else if (drag != null && drag.moved && drag.pile < 6)
             card(state.piles.get(drag.pile)[drag.first - 1], drag.originX, drag.originY, board.w, board.h, false);
         for (SolitaireBoard.Card place : board.cards) {
             if (drag != null && drag.hides(place.pile, place.index)) continue;
-            if (place.value == -2) empty(place.x, place.y, place.w, place.h, emptyLabel(place.pile));
+            int value = victory != null && place.pile >= 2 && place.pile < 6 ? victory.remainingTop(place.pile - 2)
+                : place.value;
+            if (value == -2) empty(place.x, place.y, place.w, place.h, emptyLabel(place.pile));
             else card(
-                place.value,
+                value,
                 place.x,
                 place.y,
                 place.w,
@@ -249,6 +284,10 @@ public class GuiTableGames extends GuiScreen {
                 place.x + place.w / 2,
                 place.y + place.h + 3,
                 0xD7EEE2);
+        }
+        if (victory != null) {
+            for (SolitaireWinAnimation.Stamp stamp : victory.trail) victoryCard(stamp);
+            for (SolitaireWinAnimation.Stamp stamp : victory.flying) victoryCard(stamp);
         }
         if (drag != null && drag.moved && !drag.pending && drag.returningAt < 0) {
             int to = board.targetAt(mx, my);
@@ -264,6 +303,10 @@ public class GuiTableGames extends GuiScreen {
                 : drag != null && drag.pending ? tr("solitaire.waiting") : tr("solitaire.help");
         drawCenteredString(fontRendererObj, status, width / 2, 30, state.won ? 0xFFD35A : 0xD6E8DB);
         drawString(fontRendererObj, tr("moves") + ": " + state.moves, 8, height - 39, 0xFFFFFF);
+    }
+
+    private void victoryCard(SolitaireWinAnimation.Stamp stamp) {
+        card(stamp.card, (int) Math.round(stamp.x), (int) Math.round(stamp.y), victory.w, victory.h, false);
     }
 
     private void frame(int x, int y, int w, int h, int color) {
@@ -335,6 +378,53 @@ public class GuiTableGames extends GuiScreen {
             if (state.folded.get(i)) drawCenteredString(fontRendererObj, tr("folded"), x, y + 30, 0xFF7E7E);
         }
         if (state.you < 0) drawString(fontRendererObj, tr("spectator"), width - 100, 31, 0xFFFFFF);
+    }
+
+    private void blackjack() {
+        if (state.hands.size() != 2 || state.chips.isEmpty() || state.wagers.isEmpty()) return;
+        boolean playing = state.phase == 1;
+        String status = !state.result.isEmpty() ? StatCollector.translateToLocal(state.result)
+            : !state.owner ? tr("spectator") : playing ? tr("blackjack.turn") : tr("blackjack.ready");
+        if (!playing && state.chips.get(0) < state.wagers.get(0)) status = tr("blackjack.noChips");
+        drawCenteredString(
+            fontRendererObj,
+            fontRendererObj.trimStringToWidth(status, width - 20),
+            width / 2,
+            30,
+            0xFFE19A);
+        drawCenteredString(
+            fontRendererObj,
+            tr("blackjack.chips") + ": "
+                + state.chips.get(0)
+                + "    "
+                + tr("blackjack.bet")
+                + ": "
+                + state.wagers.get(0),
+            width / 2,
+            44,
+            0xCADDD1);
+        int w = Math.min(54, Math.max(24, (height - 137) / 3)), h = w * 3 / 2;
+        blackjackHand(state.hands.get(1), tr("blackjack.dealer"), 74, w, h, playing);
+        blackjackHand(state.hands.get(0), state.names.get(0), Math.max(142, height / 2 + 16), w, h, false);
+        drawCenteredString(fontRendererObj, tr("blackjack.playChips"), width / 2, height - 39, 0xA2BBAA);
+    }
+
+    private void blackjackHand(int[] cards, String name, int y, int w, int h, boolean hidden) {
+        String label = name
+            + (cards.length == 0 ? "" : ": " + PlayingCards.blackjackTotal(cards) + (hidden ? " + ?" : ""));
+        drawCenteredString(
+            fontRendererObj,
+            fontRendererObj.trimStringToWidth(label, width - 24),
+            width / 2,
+            y - 12,
+            0xFFFFFF);
+        if (cards.length == 0) {
+            empty(width / 2 - w / 2, y, w, h, "");
+            return;
+        }
+        int step = cards.length == 1 ? w : Math.min(w + 6, (width - 32 - w) / (cards.length - 1));
+        int left = (width - w - (cards.length - 1) * step) / 2;
+        for (int i = 0; i < cards.length; i++) card(cards[i], left + i * step, y, w, h, false);
     }
 
     @Override
@@ -414,6 +504,7 @@ public class GuiTableGames extends GuiScreen {
     @Override
     public void onGuiClosed() {
         drag = null;
+        victory = null;
         selected = -1;
         super.onGuiClosed();
     }
