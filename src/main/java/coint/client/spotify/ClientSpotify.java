@@ -4,6 +4,7 @@ import java.io.File;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.command.CommandBase;
@@ -14,6 +15,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 
 import cpw.mods.fml.client.registry.ClientRegistry;
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -27,6 +29,8 @@ public final class ClientSpotify extends CommandBase {
     private static Configuration config;
     static boolean enabled;
     static boolean hud;
+    static SpotifyHudLayout layout = new SpotifyHudLayout(1, 0, 1);
+    static final SpotifyHudInput INPUT = new SpotifyHudInput(BRIDGE::command, ClientSpotify::saveLayout);
     private boolean open;
     private final KeyBinding key = new KeyBinding("cointcore.spotify.key", Keyboard.KEY_NONE, "CointCoreGTNH");
 
@@ -49,6 +53,24 @@ public final class ClientSpotify extends CommandBase {
         config.load();
         enabled = config.getBoolean("enabled", "client", false, "Opt-in local Spotify controls (Windows 10/11 only).");
         hud = config.getBoolean("showHud", "client", true, "Show the current song while the integration is enabled.");
+        layout = new SpotifyHudLayout(
+            config.get("client", "hudX", 1.0, "Horizontal position from 0 (left) to 1 (right).")
+                .getDouble(1),
+            config.get("client", "hudY", 0.0, "Vertical position from 0 (top) to 1 (bottom).")
+                .getDouble(0),
+            config.get("client", "hudScale", 1.0, "Widget scale; adjustable in /spotify.")
+                .getDouble(1));
+        config.save();
+    }
+
+    static void saveLayout(SpotifyHudLayout value) {
+        layout = value.copy();
+        config.get("client", "hudX", 1.0)
+            .set(layout.x);
+        config.get("client", "hudY", 0.0)
+            .set(layout.y);
+        config.get("client", "hudScale", 1.0)
+            .set(layout.scale);
         config.save();
     }
 
@@ -97,6 +119,7 @@ public final class ClientSpotify extends CommandBase {
     public void tick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getMinecraft();
+        if (!enabled || !"ready".equals(BRIDGE.snapshot().status)) SpotifyCoverTexture.clear();
         boolean pressed = key.isPressed();
         if (open || (pressed && mc.currentScreen == null)) {
             open = false;
@@ -111,15 +134,70 @@ public final class ClientSpotify extends CommandBase {
         if (mc.currentScreen != null || mc.thePlayer == null) return;
         SpotifyBridge.Snapshot song = BRIDGE.snapshot();
         if (!"ready".equals(song.status)) return;
-        int w = Math.min(210, event.resolution.getScaledWidth() / 3);
-        int x = event.resolution.getScaledWidth() - w - 6;
-        Gui.drawRect(x, 6, x + w, 42, 0xB0101614);
-        mc.fontRenderer
-            .drawStringWithShadow(mc.fontRenderer.trimStringToWidth(song.title, w - 12), x + 6, 11, 0xFFFFFF);
-        String second = song.playing ? song.artist : I18n.format("cointcore.spotify.paused");
-        mc.fontRenderer.drawStringWithShadow(mc.fontRenderer.trimStringToWidth(second, w - 12), x + 6, 23, 0xB9C7BD);
-        Gui.drawRect(x + 6, 36, x + w - 6, 38, 0xFF34453B);
-        if (song.duration > 0)
-            Gui.drawRect(x + 6, 36, x + 6 + (int) ((w - 12) * song.position / song.duration), 38, 0xFF1ED760);
+        SpotifyHud.draw(
+            mc.fontRenderer,
+            layout.bounds(event.resolution.getScaledWidth(), event.resolution.getScaledHeight()),
+            song,
+            false,
+            System.currentTimeMillis());
+    }
+
+    private static boolean chatActive() {
+        return enabled && hud && "ready".equals(BRIDGE.snapshot().status);
+    }
+
+    public static void drawChat(GuiChat chat, int mouseX, int mouseY) {
+        if (!chatActive()) return;
+        Minecraft mc = Minecraft.getMinecraft();
+        SpotifyHudLayout.Bounds box = layout.bounds(chat.width, chat.height);
+        int hover = SpotifyHudControls.hit(box, mouseX, mouseY);
+        SpotifyHud.draw(mc.fontRenderer, box, BRIDGE.snapshot(), true, System.currentTimeMillis(), hover);
+        String key = switch (hover) {
+            case SpotifyHudControls.PREVIOUS -> "previous";
+            case SpotifyHudControls.PLAY -> BRIDGE.snapshot().playing ? "pause" : "play";
+            case SpotifyHudControls.NEXT -> "next";
+            case SpotifyHudControls.SHUFFLE -> "shuffle";
+            case SpotifyHudControls.REPEAT -> "repeat";
+            case SpotifyHudControls.MUTE -> "mute";
+            case SpotifyHudControls.SEEK -> "seek";
+            case SpotifyHudControls.VOLUME -> "volumeHint";
+            case SpotifyHudControls.RESIZE -> "resizeHint";
+            case SpotifyHudControls.MOVE -> "dragHint";
+            default -> "";
+        };
+        if (!key.isEmpty()) {
+            String text = mc.fontRenderer.trimStringToWidth(I18n.format("cointcore.spotify." + key), chat.width - 12);
+            int w = mc.fontRenderer.getStringWidth(text);
+            int x = Math.max(4, Math.min(mouseX, chat.width - w - 8));
+            int y = box.y + box.height + 5;
+            if (y + 14 > chat.height) y = Math.max(4, box.y - 15);
+            Gui.drawRect(x - 3, y - 3, x + w + 3, y + 11, 0xE0101813);
+            mc.fontRenderer.drawStringWithShadow(text, x, y, 0xD9F5E3);
+        }
+    }
+
+    public static boolean chatMouse(GuiChat chat) {
+        if (!chatActive()) {
+            chatClosed();
+            return false;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        int x = Mouse.getEventX() * chat.width / Math.max(1, mc.displayWidth);
+        int y = chat.height - Mouse.getEventY() * chat.height / Math.max(1, mc.displayHeight) - 1;
+        return INPUT.mouse(
+            layout,
+            BRIDGE.snapshot(),
+            x,
+            y,
+            Mouse.getEventButton(),
+            Mouse.getEventButtonState(),
+            Mouse.getEventDWheel(),
+            chat.width,
+            chat.height,
+            System.currentTimeMillis());
+    }
+
+    public static void chatClosed() {
+        INPUT.finish(layout, BRIDGE.snapshot(), System.currentTimeMillis());
     }
 }

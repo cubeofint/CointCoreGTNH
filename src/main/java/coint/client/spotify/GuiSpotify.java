@@ -25,7 +25,8 @@ public final class GuiSpotify extends GuiScreen {
         buttonList.add(new GuiButton(3, x + 52, y + 8, 88, 20, I18n.format("cointcore.spotify.next")));
         buttonList.add(new GuiButton(4, x - 140, y + 36, 40, 20, "-"));
         buttonList.add(new GuiButton(5, x + 100, y + 36, 40, 20, "+"));
-        buttonList.add(new GuiButton(6, x - 140, y + 64, 280, 20, ""));
+        buttonList.add(new GuiButton(6, x - 140, y + 64, 136, 20, ""));
+        buttonList.add(new GuiButton(8, x + 4, y + 64, 136, 20, I18n.format("cointcore.spotify.editHud")));
         buttonList.add(new GuiButton(7, x - 140, y + 92, 280, 20, I18n.format("gui.done")));
         updateScreen();
     }
@@ -65,6 +66,7 @@ public final class GuiSpotify extends GuiScreen {
             }
             case 6 -> ClientSpotify.toggleHud();
             case 7 -> mc.displayGuiScreen(parent);
+            case 8 -> mc.displayGuiScreen(new GuiSpotifyHudEditor(this));
             default -> {}
         }
         updateScreen();

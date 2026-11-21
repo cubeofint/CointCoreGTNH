@@ -22,13 +22,15 @@ public final class SpotifyBridge {
 
     public static final class Snapshot {
 
-        public final String status, title, artist;
-        public final boolean playing;
+        public final String status, title, artist, coverId, repeat;
+        public final boolean playing, shuffle, canShuffle, canRepeat, canSeek;
         public final int volume;
         public final long position, duration;
+        private final long received = System.nanoTime();
 
         private Snapshot(String status, String title, String artist, boolean playing, int volume, long position,
-            long duration) {
+            long duration, String coverId, String repeat, boolean shuffle, boolean canShuffle, boolean canRepeat,
+            boolean canSeek) {
             this.status = status;
             this.title = title;
             this.artist = artist;
@@ -36,10 +38,16 @@ public final class SpotifyBridge {
             this.volume = volume;
             this.duration = Math.max(0, duration);
             this.position = Math.max(0, Math.min(position, this.duration));
+            this.coverId = coverId;
+            this.repeat = repeat;
+            this.shuffle = shuffle;
+            this.canShuffle = canShuffle;
+            this.canRepeat = canRepeat;
+            this.canSeek = canSeek;
         }
 
         static Snapshot state(String state) {
-            return new Snapshot(state, "", "", false, -1, 0, 0);
+            return new Snapshot(state, "", "", false, -1, 0, 0, "", "none", false, false, false, false);
         }
 
         static Snapshot parse(String line) {
@@ -67,7 +75,25 @@ public final class SpotifyBridge {
                 data.get("position")
                     .getAsLong(),
                 data.get("duration")
-                    .getAsLong());
+                    .getAsLong(),
+                data.has("coverId") ? data.get("coverId")
+                    .getAsString() : "",
+                data.has("repeat") ? data.get("repeat")
+                    .getAsString() : "none",
+                flag(data, "shuffle"),
+                flag(data, "canShuffle"),
+                flag(data, "canRepeat"),
+                !data.has("canSeek") || flag(data, "canSeek"));
+        }
+
+        private static boolean flag(JsonObject data, String key) {
+            return data.has(key) && data.get(key)
+                .getAsBoolean();
+        }
+
+        public long positionNow() {
+            long elapsed = playing ? Math.max(0, (System.nanoTime() - received) / 1_000_000L) : 0;
+            return Math.min(duration, position + Math.min(elapsed, 10000));
         }
 
         private static String clean(String value) {
@@ -82,6 +108,11 @@ public final class SpotifyBridge {
     private volatile int generation;
     private volatile Process process;
     private volatile boolean enabled;
+    private volatile SpotifyCover cover = SpotifyCover.EMPTY;
+
+    SpotifyCover cover() {
+        return cover;
+    }
 
     public static boolean supported() {
         return System.getProperty("os.name", "")
@@ -105,6 +136,7 @@ public final class SpotifyBridge {
         enabled = false;
         generation++;
         commands.clear();
+        cover = SpotifyCover.EMPTY;
         Process current = process;
         process = null;
         if (current != null) current.destroy();
@@ -118,7 +150,11 @@ public final class SpotifyBridge {
 
     public void command(String command) {
         if (!enabled || !"ready".equals(snapshot().status)) return;
-        if (command.matches("toggle|next|previous|volume (100|[0-9]{1,2})|seek [0-9]{1,10}")) commands.offer(command);
+        if (command.matches("toggle|next|previous|shuffle|repeat|volume (100|[0-9]{1,2})|seek [0-9]{1,10}")) {
+            if (command.startsWith("volume ")) commands.removeIf(pending -> pending.startsWith("volume "));
+            if (command.startsWith("seek ")) commands.removeIf(pending -> pending.startsWith("seek "));
+            commands.offer(command);
+        }
     }
 
     private void run(int run) {
@@ -166,7 +202,20 @@ public final class SpotifyBridge {
                     while (reader.ready()) {
                         String line = reader.readLine();
                         if (line == null) break;
-                        if (!line.startsWith("{") || line.length() > 8192) continue;
+                        if (!line.startsWith("{") || line.length() > 720000) continue;
+                        JsonObject message = new JsonParser().parse(line)
+                            .getAsJsonObject();
+                        if (message.has("status") && "artwork".equals(
+                            message.get("status")
+                                .getAsString())) {
+                            SpotifyCover decoded = SpotifyCover.decode(
+                                message.get("id")
+                                    .getAsString(),
+                                message.get("data")
+                                    .getAsString());
+                            if (generation == run) cover = decoded;
+                            continue;
+                        }
                         Snapshot next = Snapshot.parse(line);
                         if (generation == run) {
                             snapshot = next;

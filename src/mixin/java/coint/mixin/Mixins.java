@@ -5,6 +5,8 @@ import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
 public enum Mixins implements IMixins {
 
+    SPOTIFY(new MixinBuilder("Optional Spotify chat widget").addClientMixins("minecraft.MixinGuiChatSpotify")),
+
     CHAT(new MixinBuilder("Chat channel tabs").addClientMixins(
         "minecraft.MixinGuiNewChatChannels",
         "minecraft.MixinGuiChatChannels",

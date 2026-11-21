@@ -136,9 +136,43 @@ public static class CointSpotifyAudio {
     $managerType = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime]
     $propertiesType = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties, Windows.Media.Control, ContentType=WindowsRuntime]
     $manager = Await ($managerType::RequestAsync()) $managerType
+    $script:asStream = [System.IO.WindowsRuntimeStreamExtensions].GetMethods() | Where-Object {
+        $_.Name -eq 'AsStream' -and $_.GetParameters().Count -eq 1
+    } | Select-Object -First 1
+    function Cover($Media) {
+        $stream = $null; $reader = $null
+        try {
+            if ($null -eq $Media.Thumbnail) { return @{ id = ''; data = '' } }
+            $streamType = [Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType=WindowsRuntime]
+            $stream = Await ($Media.Thumbnail.OpenReadAsync()) $streamType
+            # The raw WinRT result is an untyped COM object in Windows PowerShell.
+            # The .NET adapter disposes the native stream; do not assume it is seekable.
+            $reader = $script:asStream.Invoke($null, @($stream))
+            $memory = New-Object System.IO.MemoryStream
+            try {
+                $buffer = New-Object byte[] 8192
+                while (($read = $reader.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                    if ($memory.Length + $read -gt 524288) { return @{ id = ''; data = '' } }
+                    $memory.Write($buffer, 0, $read)
+                }
+                $bytes = $memory.ToArray()
+            } finally { $memory.Dispose() }
+            if ($bytes.Length -eq 0) { return @{ id = ''; data = '' } }
+            $hash = [System.Security.Cryptography.SHA256]::Create()
+            try { $id = ([BitConverter]::ToString($hash.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant() }
+            finally { $hash.Dispose() }
+            return @{ id = $id; data = [Convert]::ToBase64String($bytes) }
+        } catch { return @{ id = ''; data = '' } }
+        finally {
+            if ($null -ne $reader) { try { ([System.IDisposable]$reader).Dispose() } catch { } }
+            if ($null -ne $stream) { try { ([System.IDisposable]$stream).Dispose() } catch { } }
+        }
+    }
     if (-not $Probe) { [CointSpotifyInput]::Start() }
     $nextPoll = [DateTime]::MinValue
     $session = $null
+    $coverKey = ''; $coverId = ''
+    $coverRetry = [DateTime]::MinValue
     while ($Probe -or -not [CointSpotifyInput]::Closed) {
         if ([DateTime]::UtcNow -ge $nextPoll -or -not [CointSpotifyInput]::Commands.IsEmpty) {
             $session = $manager.GetSessions() | Where-Object { $_.SourceAppUserModelId -match '(?i)spotify' } | Select-Object -First 1
@@ -151,6 +185,17 @@ public static class CointSpotifyAudio {
                 '^toggle$' { $null = Await ($session.TryTogglePlayPauseAsync()) ([bool]); break }
                 '^next$' { $null = Await ($session.TrySkipNextAsync()) ([bool]); break }
                 '^previous$' { $null = Await ($session.TrySkipPreviousAsync()) ([bool]); break }
+                '^shuffle$' {
+                    $null = Await ($session.TryChangeShuffleActiveAsync(-not [bool]$session.GetPlaybackInfo().IsShuffleActive)) ([bool])
+                    break
+                }
+                '^repeat$' {
+                    $mode = [Windows.Media.MediaPlaybackAutoRepeatMode, Windows.Media, ContentType=WindowsRuntime]
+                    $current = [string]$session.GetPlaybackInfo().AutoRepeatMode
+                    $next = if ($current -eq 'None') { $mode::Track } elseif ($current -eq 'Track') { $mode::List } else { $mode::None }
+                    $null = Await ($session.TryChangeAutoRepeatModeAsync($next)) ([bool])
+                    break
+                }
                 '^volume (100|[0-9]{1,2})$' { $null = [CointSpotifyAudio]::Volume([int]$Matches[1]); break }
                 '^seek ([0-9]{1,10})$' {
                     $timeline = $session.GetTimelineProperties()
@@ -173,12 +218,24 @@ public static class CointSpotifyAudio {
                 if ($playing) { $position += [Math]::Max(0, ([DateTime]::UtcNow - $timeline.LastUpdatedTime.UtcDateTime).TotalMilliseconds) }
                 $title = [string]$media.Title
                 $artist = [string]$media.Artist
+                $key = $title + '|' + $artist + '|' + [string]$media.AlbumTitle
+                if ($key -ne $coverKey -or ($coverId -eq '' -and [DateTime]::UtcNow -ge $coverRetry)) {
+                    $art = Cover $media
+                    $coverId = $art.id; $coverKey = $key
+                    $coverRetry = [DateTime]::UtcNow.AddSeconds(5)
+                    Publish @{ status = 'artwork'; id = $art.id; data = $art.data }
+                }
                 Publish @{
                     status = 'ready'; title = $title.Substring(0, [Math]::Min(256, $title.Length))
                     artist = $artist.Substring(0, [Math]::Min(256, $artist.Length))
                     playing = $playing; position = [long]$position
                     duration = [long]($timeline.EndTime - $timeline.StartTime).TotalMilliseconds
                     volume = [CointSpotifyAudio]::Volume(-1)
+                    coverId = $coverId; shuffle = [bool]$info.IsShuffleActive
+                    repeat = ([string]$info.AutoRepeatMode).ToLowerInvariant()
+                    canShuffle = [bool]$info.Controls.IsShuffleEnabled
+                    canRepeat = [bool]$info.Controls.IsRepeatEnabled
+                    canSeek = [bool]$info.Controls.IsPlaybackPositionEnabled
                 }
             }
             if ($Probe) { break }
