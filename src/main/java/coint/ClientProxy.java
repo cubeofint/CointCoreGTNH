@@ -19,6 +19,7 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void init(FMLInitializationEvent event) {
         super.init(event);
+        coint.client.spotify.ClientSpotify.init();
         coint.client.CommandKitManifest kitManifest = new coint.client.CommandKitManifest();
         net.minecraftforge.client.ClientCommandHandler.instance.registerCommand(kitManifest);
         FMLCommonHandler.instance()
