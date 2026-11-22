@@ -38,10 +38,20 @@ public final class GuiServers extends GuiScreen {
     public void initGui() {
         buttonList.clear();
         int navY = height - 28;
-        travel = new GuiButton(1, width / 2 - 112, navY, 100, 20, "Путешествия");
+        int navWidth = Math.min(110, (width - 48) / 3);
+        int navLeft = (width - navWidth * 3 - 16) / 2;
+        travel = new GuiButton(1, navLeft, navY, navWidth, 20, "Путешествия");
         travel.visible = state == null || state.travel;
         buttonList.add(travel);
-        buttonList.add(new GuiButton(2, width / 2 + 12, navY, 100, 20, "Закрыть"));
+        buttonList.add(new GuiButton(2, navLeft + (navWidth + 8) * 2, navY, navWidth, 20, "Закрыть"));
+        buttonList.add(
+            new GuiButton(
+                3,
+                navLeft + navWidth + 8,
+                navY,
+                navWidth,
+                20,
+                net.minecraft.client.resources.I18n.format("cointcore.history.title")));
     }
 
     @Override
@@ -51,6 +61,8 @@ public final class GuiServers extends GuiScreen {
             WorldTravelNetwork.requestOpen();
         } else if (button.id == 2) {
             mc.displayGuiScreen(null);
+        } else if (button.id == 3) {
+            mc.thePlayer.sendChatMessage("/teamhistory");
         }
     }
 

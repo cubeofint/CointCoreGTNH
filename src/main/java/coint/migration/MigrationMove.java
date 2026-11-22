@@ -169,6 +169,9 @@ public final class MigrationMove {
         move.target = target;
         move.actor = sender.getCommandSenderName();
         move.team = player.hasTeam() ? player.team.getId() : "unassigned";
+        if (joinTeam == null) {
+            move.historyId = coint.cluster.TeamHistory.prepare(player.team);
+        }
         move.joinTeam = joinTeam;
         move.joinOwner = joinOwner;
         for (ForgePlayer member : move.joining() ? java.util.Collections.singletonList(player)
@@ -326,6 +329,7 @@ public final class MigrationMove {
                 MigrationGuard.releaseExternalSource(move);
             }
             ClusterMoveHomes.refresh(move);
+            coint.cluster.TeamHistory.moved(move);
             MigrationExporter.saveEverything(MinecraftServer.getServer());
             Files.createDirectories(completed.getParent());
             Files.write(completed, move.target.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);

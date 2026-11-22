@@ -75,6 +75,7 @@ public class BQEventListener {
      */
     private static void assignRankToPlayer(UUID playerId, EpochEntry epoch) {
         try {
+            boolean historyAdvance = coint.cluster.TeamHistory.advancesTeam(playerId, epoch);
             RanksManager.get()
                 .setRank(playerId, epoch.rankName);
 
@@ -92,6 +93,13 @@ public class BQEventListener {
             }
 
             LOG.info("Successfully set rank {} for player {}", epoch.rankName, playerId);
+            if (historyAdvance) {
+                try {
+                    coint.cluster.TeamHistory.epoch(playerId, epoch);
+                } catch (RuntimeException e) {
+                    LOG.warn("Could not record team epoch history for {}", playerId, e);
+                }
+            }
         } catch (Exception e) {
             LOG.error("Error setting rank {} for player {}: {}", epoch.rankName, playerId, e.getMessage(), e);
         }

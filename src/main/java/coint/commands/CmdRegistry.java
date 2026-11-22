@@ -48,6 +48,7 @@ public class CmdRegistry {
         event.registerServerCommand(new CommandMigrate());
         event.registerServerCommand(new CommandMigrationConfirm());
         event.registerServerCommand(new coint.cluster.CommandServer());
+        event.registerServerCommand(new CommandTeamHistory());
         event.registerServerCommand(new coint.cluster.CommandCluster());
         event.registerServerCommand(new coint.blocklog.CommandBlockLog());
         event.registerServerCommand(new coint.chunkbonus.CommandChunkBonus());

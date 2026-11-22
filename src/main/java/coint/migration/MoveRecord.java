@@ -10,6 +10,8 @@ import java.util.UUID;
 public final class MoveRecord {
 
     public String id, source, target, team, actor;
+    /** Stable team history identity, absent in moves created before history support. */
+    public String historyId;
     /** Read-only VendingMachine snapshot for destination preflight; absent in older moves. */
     public String vendingSnapshot;
     /** Non-null only for a single player joining an existing destination team. No base travels with him. */
@@ -28,6 +30,9 @@ public final class MoveRecord {
     public List<int[]> claims = new ArrayList<>();
 
     public void validate() {
+        if (historyId != null && !UUID.fromString(historyId)
+            .toString()
+            .equals(historyId)) throw new IllegalArgumentException("Invalid team history identity");
         if (!UUID.fromString(id)
             .toString()
             .equals(id) || !node(source)

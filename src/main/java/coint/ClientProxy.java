@@ -66,6 +66,11 @@ public class ClientProxy extends CommonProxy {
     }
 
     @Override
+    public void receiveTeamHistory(coint.cluster.PacketTeamHistory packet) {
+        coint.client.GuiTeamHistory.receive(packet);
+    }
+
+    @Override
     public void setPDimRewardBlockedClient(boolean blocked) {
         pdimRewardBlocked = blocked;
     }

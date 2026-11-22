@@ -56,6 +56,7 @@ public class CommonProxy {
             CointConfig.cluster.accessSyncOperators);
 
         WorldTravelNetwork.init();
+        coint.cluster.TeamHistoryNetwork.init();
         coint.migration.MigrationNetwork.init();
         coint.supply.SupplyBlocks.register();
         coint.cards.CardBlocks.register();
@@ -99,6 +100,8 @@ public class CommonProxy {
 
     public void receiveChatChannel(coint.chat.PacketChatChannel packet) {}
 
+    public void receiveTeamHistory(coint.cluster.PacketTeamHistory packet) {}
+
     public void setPDimRewardBlockedClient(boolean blocked) {}
 
     public boolean isPDimRewardBlockedClient() {
@@ -120,6 +123,7 @@ public class CommonProxy {
      */
     public void serverStarting(FMLServerStartingEvent event) {
         coint.migration.MigrationMove.reset();
+        coint.cluster.TeamHistory.reset();
         coint.cluster.ClusterAccess.configure(
             CointConfig.cluster.accessAuthorityNodeId,
             CointConfig.cluster.accessPollSeconds,
@@ -167,6 +171,7 @@ public class CommonProxy {
         coint.migration.MigrationStorage.stop();
         coint.cluster.ClusterAccess.reset();
         coint.cluster.ClusterService.stop();
+        coint.cluster.TeamHistory.reset();
         coint.blocklog.BlockLog.stop();
         coint.integration.discord.DiscordDropLog.stop();
         coint.blocklog.CommandBlockLog.reset();
