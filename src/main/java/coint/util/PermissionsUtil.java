@@ -9,6 +9,10 @@ public class PermissionsUtil {
 
     public static void register() {
         PermissionAPI.registerNode(
+            coint.chat.AdminChat.PERMISSION,
+            DefaultPermissionLevel.OP,
+            "Send and receive the cross-server admin chat (/adminchat)");
+        PermissionAPI.registerNode(
             KeepInventoryHandler.PERMISSION,
             DefaultPermissionLevel.NONE,
             "Сохранять инвентарь при смерти");

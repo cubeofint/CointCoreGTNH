@@ -429,9 +429,14 @@ public class CointConfig {
     // TODO: move to client mod
     public static class Chat {
 
-        @Config.Comment("Show channel tabs in the chat screen (all, local, global, trade, private)")
+        @Config.Comment("Show channel tabs in the chat screen (all, local, global, trade, private, authorized admin)")
         @Config.DefaultBoolean(true)
         public boolean tabsEnabled;
+
+        @Config.Comment("Enable permission-restricted admin chat (/adminchat), shared across cluster nodes")
+        @Config.DefaultBoolean(true)
+        @Config.Reloadable(RELOAD)
+        public boolean adminChatEnabled;
 
         @Config.Comment("Cooldown between $ trade chat messages in seconds (0 disables)")
         @Config.DefaultInt(10)

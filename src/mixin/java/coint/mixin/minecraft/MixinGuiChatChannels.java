@@ -10,7 +10,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import coint.chat.ChatChannel;
 import coint.client.chat.ClientChatChannels;
 
 @Mixin(GuiChat.class)
@@ -39,13 +38,8 @@ public class MixinGuiChatChannels {
 
     @org.spongepowered.asm.mixin.Unique
     private void cointcore$inputLimit() {
-        // Reserve space for !/$ while retaining the pack's longer-message tweak.
-        ChatChannel.View view = ClientChatChannels.view();
-        int limit = coint.client.chat.ChatCompatibility.inputLimit();
-        inputField.setMaxStringLength(
-            ClientChatChannels.active() && (view == ChatChannel.View.GLOBAL || view == ChatChannel.View.TRADE)
-                ? limit - 1
-                : limit);
+        // Reserve the outgoing channel prefix while retaining the pack's longer-message tweak.
+        inputField.setMaxStringLength(ClientChatChannels.inputLimit());
     }
 
     @Inject(method = "func_146403_a", at = @At("HEAD"), cancellable = true)

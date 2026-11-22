@@ -6,7 +6,8 @@ public enum ChatChannel {
     LOCAL,
     GLOBAL,
     TRADE,
-    PRIVATE;
+    PRIVATE,
+    ADMIN;
 
     public enum View {
 
@@ -14,7 +15,8 @@ public enum ChatChannel {
         LOCAL,
         GLOBAL,
         TRADE,
-        PRIVATE;
+        PRIVATE,
+        ADMIN;
 
         public boolean shows(ChatChannel channel) {
             return channel == null || this == ALL || name().equals(channel.name());

@@ -56,6 +56,7 @@ public class CommonProxy {
             CointConfig.cluster.accessSyncOperators);
 
         WorldTravelNetwork.init();
+        coint.chat.AdminChat.initNetwork();
         coint.cluster.TeamHistoryNetwork.init();
         coint.migration.MigrationNetwork.init();
         coint.supply.SupplyBlocks.register();
@@ -99,6 +100,8 @@ public class CommonProxy {
     public void queueWorldTravelGui(PacketOpenWorlds packet) {}
 
     public void receiveChatChannel(coint.chat.PacketChatChannel packet) {}
+
+    public void receiveAdminChatAccess(boolean allowed) {}
 
     public void receiveTeamHistory(coint.cluster.PacketTeamHistory packet) {}
 

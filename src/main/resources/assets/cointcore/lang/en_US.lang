@@ -225,3 +225,7 @@ cointcore.history.newer=Newer
 cointcore.history.older=Older
 cointcore.history.refresh=Refresh
 cointcore.history.back=Servers
+cointcore.chat.tab.admin=[A]
+cointcore.chat.adminDisabled=Admin chat is disabled.
+cointcore.chat.adminInvalid=Enter a message up to %s characters without line breaks.
+cointcore.chat.adminRevoked=Admin chat access was revoked. Text still goes only through /adminchat; select another channel to send a regular message.

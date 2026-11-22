@@ -66,6 +66,11 @@ public class ClientProxy extends CommonProxy {
     }
 
     @Override
+    public void receiveAdminChatAccess(boolean allowed) {
+        coint.client.chat.ClientChatChannels.receiveAdminAccess(allowed);
+    }
+
+    @Override
     public void receiveTeamHistory(coint.cluster.PacketTeamHistory packet) {
         coint.client.GuiTeamHistory.receive(packet);
     }

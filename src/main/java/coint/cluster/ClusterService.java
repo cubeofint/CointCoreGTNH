@@ -592,6 +592,10 @@ public final class ClusterService {
                 ClusterSpy.receive(row);
                 continue;
             }
+            if (ClusterAdminChat.isMessage(row)) {
+                ClusterAdminChat.receive(row);
+                continue;
+            }
             if (!CointConfig.cluster.chatEnabled) continue;
             if ("item_notice".equals(row.kind)) {
                 DiscordModerationWebhook.logRemoteGlobal(row.nodeName, row.sender, row.text, row.senderEpoch);

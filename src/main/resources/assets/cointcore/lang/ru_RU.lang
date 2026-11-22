@@ -225,3 +225,7 @@ cointcore.history.newer=Новее
 cointcore.history.older=Раньше
 cointcore.history.refresh=Обновить
 cointcore.history.back=Серверы
+cointcore.chat.tab.admin=[A]
+cointcore.chat.adminDisabled=Админ-чат отключён.
+cointcore.chat.adminInvalid=Введите сообщение до %s символов без перевода строки.
+cointcore.chat.adminRevoked=Доступ к админ-чату снят. Текст по-прежнему отправляется только через /adminchat; выберите другой канал для обычного сообщения.

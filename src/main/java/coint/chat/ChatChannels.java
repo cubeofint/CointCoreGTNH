@@ -25,6 +25,14 @@ public final class ChatChannels {
     private ChatChannels() {}
 
     public static void send(ICommandSender recipient, ChatChannel channel, IChatComponent component) {
+        if (channel == ChatChannel.ADMIN && recipient instanceof EntityPlayerMP player) {
+            if (!AdminChat.canReceive(player)) return;
+            if (!AdminChat.supportsTabs(player)) {
+                // Old hub clients do not understand the appended ADMIN channel ordinal.
+                player.addChatMessage(component);
+                return;
+            }
+        }
         if (CointConfig.chat.tabsEnabled && recipient instanceof EntityPlayerMP player) {
             if (player.func_147096_v() == net.minecraft.entity.player.EntityPlayer.EnumChatVisibility.HIDDEN) return;
             WorldTravelNetwork.CHANNEL.sendTo(new PacketChatChannel(channel, component), player);
@@ -62,5 +70,6 @@ public final class ChatChannels {
 
     public static void reset() {
         LAST_TRADE.clear();
+        AdminChat.reset();
     }
 }

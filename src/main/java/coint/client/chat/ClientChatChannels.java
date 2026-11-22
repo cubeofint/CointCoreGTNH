@@ -22,11 +22,12 @@ import cpw.mods.fml.relauncher.SideOnly;
 @SideOnly(Side.CLIENT)
 public final class ClientChatChannels {
 
-    private static final String[] LABELS = { "all", "local", "global", "trade", "private" };
-    private static final int[] COLORS = { 0xFFFFFFFF, 0xFF55FF55, 0xFFFFAA00, 0xFF55FFFF, 0xFFFF55FF };
+    private static final String[] LABELS = { "all", "local", "global", "trade", "private", "admin" };
+    private static final int[] COLORS = { 0xFFFFFFFF, 0xFF55FF55, 0xFFFFAA00, 0xFF55FFFF, 0xFFFF55FF, 0xFFFF5555 };
     private static ChatChannel.View view = ChatChannel.View.ALL;
     private static ChatChannel pending;
     private static boolean active;
+    private static boolean adminAllowed;
 
     public static boolean active() {
         return active;
@@ -38,6 +39,31 @@ public final class ClientChatChannels {
 
     public static ChatChannel pending() {
         return pending;
+    }
+
+    public static boolean adminTabVisible() {
+        // If permission is revoked while typing, keep the selection locked to /adminchat instead of leaking
+        // the unfinished private message into local chat. An explicit click selects another destination.
+        return adminAllowed || view == ChatChannel.View.ADMIN;
+    }
+
+    public static void receiveAdminAccess(boolean allowed) {
+        Minecraft mc = Minecraft.getMinecraft();
+        Object connection = mc.getNetHandler();
+        mc.func_152344_a(() -> {
+            if (connection == null || connection != mc.getNetHandler()) return;
+            boolean revoked = adminAllowed && !allowed;
+            adminAllowed = allowed;
+            if (revoked && view == ChatChannel.View.ADMIN) mc.ingameGUI.getChatGUI()
+                .printChatMessage(new ChatComponentTranslation("cointcore.chat.adminRevoked"));
+        });
+    }
+
+    public static int inputLimit() {
+        int reserve = !active ? 0
+            : view == ChatChannel.View.ADMIN ? coint.chat.AdminChat.COMMAND_PREFIX.length()
+                : view == ChatChannel.View.GLOBAL || view == ChatChannel.View.TRADE ? 1 : 0;
+        return Math.max(1, ChatCompatibility.inputLimit() - reserve);
     }
 
     public static void receive(PacketChatChannel packet) {
@@ -70,7 +96,7 @@ public final class ClientChatChannels {
     }
 
     public static void setView(ChatChannel.View next) {
-        if (!active || next == view) return;
+        if (!active || next == view || next == ChatChannel.View.ADMIN && !adminAllowed) return;
         view = next;
         Minecraft.getMinecraft().ingameGUI.getChatGUI()
             .refreshChat();
@@ -90,6 +116,7 @@ public final class ClientChatChannels {
         if (!active || explicit(message)) return message;
         if (view == ChatChannel.View.GLOBAL) return "!" + message;
         if (view == ChatChannel.View.TRADE) return "$" + message;
+        if (view == ChatChannel.View.ADMIN) return coint.chat.AdminChat.COMMAND_PREFIX + message;
         return message;
     }
 
@@ -112,14 +139,16 @@ public final class ClientChatChannels {
         if (!active) return;
         var font = Minecraft.getMinecraft().fontRenderer;
         int width = 2;
-        for (String key : LABELS) width += font.getStringWidth(I18n.format("cointcore.chat.tab." + key)) + 6;
+        int count = adminTabVisible() ? LABELS.length : LABELS.length - 1;
+        for (int i = 0; i < count; i++)
+            width += font.getStringWidth(I18n.format("cointcore.chat.tab." + LABELS[i])) + 6;
         int top = y(screen);
         GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_CURRENT_BIT);
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_BLEND);
         Gui.drawRect(2, top, 2 + width, top + font.FONT_HEIGHT + 5, 0xDD000000);
         int x = 6;
-        for (int i = 0; i < LABELS.length; i++) {
+        for (int i = 0; i < count; i++) {
             String label = I18n.format("cointcore.chat.tab." + LABELS[i]);
             int w = font.getStringWidth(label);
             boolean selected = view.ordinal() == i;
@@ -136,7 +165,8 @@ public final class ClientChatChannels {
         int top = y(screen);
         if (mouseY < top || mouseY >= top + font.FONT_HEIGHT + 5) return false;
         int x = 6;
-        for (int i = 0; i < LABELS.length; i++) {
+        int count = adminTabVisible() ? LABELS.length : LABELS.length - 1;
+        for (int i = 0; i < count; i++) {
             int w = font.getStringWidth(I18n.format("cointcore.chat.tab." + LABELS[i]));
             if (mouseX >= x - 2 && mouseX < x + w + 2) {
                 setView(ChatChannel.View.values()[i]);
@@ -154,6 +184,7 @@ public final class ClientChatChannels {
                 active = false;
                 view = ChatChannel.View.ALL;
                 pending = null;
+                adminAllowed = false;
                 Minecraft.getMinecraft().ingameGUI.getChatGUI()
                     .refreshChat();
             });
