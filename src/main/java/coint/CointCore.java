@@ -86,6 +86,7 @@ public class CointCore {
         // At this point ServerUtilities is fully started and Universe is valid.
         serverUtilitiesUniverse = Universe.get();
         proxy.serverStarted(event);
+        coint.diagnostics.AEImportWatch.start();
         DiscordServerStatus.start();
     }
 
@@ -109,6 +110,7 @@ public class CointCore {
 
     @Mod.EventHandler
     public void serverStopped(FMLServerStoppedEvent event) {
+        coint.diagnostics.AEImportWatch.stop();
         coint.commands.privilege.CommandDset.reset();
         coint.commands.kit.KitManager.reset();
         coint.cosmetic.Cosmetics.reset();

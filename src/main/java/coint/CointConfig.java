@@ -94,6 +94,10 @@ public class CointConfig {
         @Config.DefaultBoolean(true)
         public boolean unloadEmptyDimensions;
 
+        @Config.Comment("Log imports taking over 3 seconds, including bus coordinates and network call counters. Diagnostic only; does not limit machine work.")
+        @Config.DefaultBoolean(true)
+        public boolean aeImportDiagnostics;
+
         @Config.Comment("Prevent IC2 water kinetic generators from synchronously loading chunks while checking rotor space")
         @Config.DefaultBoolean(true)
         @Config.Reloadable(RELOAD)
