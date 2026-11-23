@@ -58,8 +58,14 @@ It verifies the archived SHA-256, manifest identity and item ID map, hashes the
 already placed personal world and auxiliary player files in the background,
 compares dimension configuration values and the adjusted player NBT, and checks
 both live and saved wallets against the original snapshot. A changed/missing
-file or wallet stops recovery. Only comments/formatting in dimension configs may
-differ. Files must not change between verification and finalization.
+file or wallet stops recovery. Dimension configs may differ in comments/formatting
+and PersonalSpace's five persisted runtime time/weather values: `time.worldTime`,
+`time.rainTime`, `time.thunderTime`, `time.raining`, `time.thundering`. Their types,
+valid values and presence are still checked; every other key, including generation,
+dimension ID and visual settings, must match. Current time/weather values are kept,
+never reset to the archive. Forge parses temporary copies so its malformed-config
+repair cannot rename or replace the real metadata. Files must not change between
+verification and finalization.
 
 For each external chunk, recovery compares the already installed NBT with its
 archived snapshot. Region files are opened read-only; missing files/chunks are

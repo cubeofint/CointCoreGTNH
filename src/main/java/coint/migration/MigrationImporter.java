@@ -262,8 +262,13 @@ public final class MigrationImporter {
                 }
                 operation.session.check();
             } catch (IOException | RuntimeException e) {
-                CointCore.LOG.error("[Migrate] Could not unpack {}", zip, e);
-                error = "Не удалось распаковать архив: " + e.getMessage();
+                CointCore.LOG.error(
+                    operation.walletRecovery ? "[Migrate] Recovery verification failed for {}"
+                        : "[Migrate] Could not unpack {}",
+                    zip,
+                    e);
+                error = (operation.walletRecovery ? "Проверка восстановления не пройдена: "
+                    : "Не удалось распаковать архив: ") + e.getMessage();
             }
             synchronized (operation) {
                 operation.preparing = false;

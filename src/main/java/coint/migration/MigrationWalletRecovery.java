@@ -112,9 +112,17 @@ final class MigrationWalletRecovery {
 
     static VerifiedFile verifyFile(Path incoming, Path target, boolean metadata) throws IOException {
         VerifiedFile proof = new VerifiedFile(target);
-        boolean same = metadata ? config(incoming).equals(config(target))
-            : Files.size(incoming) == proof.attributes.size() && MigrationStorage.sha256(incoming)
-                .equals(MigrationStorage.sha256(target));
+        boolean same;
+        if (metadata) {
+            Map<String, String> expected = config(incoming), actual = config(target);
+            Set<String> different = new java.util.TreeSet<>(expected.keySet());
+            different.addAll(actual.keySet());
+            different.removeIf(key -> java.util.Objects.equals(expected.get(key), actual.get(key)));
+            if (!different.isEmpty())
+                throw new IOException("Настройки персоналки отличаются от архива: " + target + "; поля: " + different);
+            same = true;
+        } else same = Files.size(incoming) == proof.attributes.size() && MigrationStorage.sha256(incoming)
+            .equals(MigrationStorage.sha256(target));
         if (!same) throw new IOException(
             "Уже размещённый файл отличается от архива: " + target
                 + ". Восстановление остановлено, повторного импорта не было.");
@@ -122,21 +130,73 @@ final class MigrationWalletRecovery {
         return proof;
     }
 
-    private static Map<String, String> config(Path file) {
-        Configuration config = new Configuration(file.toFile());
-        config.load();
+    private static Map<String, String> config(Path file) throws IOException {
+        // Forge's constructor may rename a malformed config and create a replacement. Parse only a temporary copy.
+        Path directory = Files.createTempDirectory("coint-metadata-check-");
+        try {
+            Path snapshot = directory.resolve("metadata.cfg");
+            Files.copy(file, snapshot);
+            String hash = MigrationStorage.sha256(snapshot);
+            Configuration config = new Configuration(snapshot.toFile());
+            if (!hash.equals(MigrationStorage.sha256(snapshot)) || !config.hasKey("worldgen", "dimId"))
+                throw new IOException("Не удалось прочитать настройки персоналки: " + file);
+            return configValues(config, file);
+        } finally {
+            try (Stream<Path> files = Files.list(directory)) {
+                for (Path entry : files.collect(Collectors.toList())) Files.delete(entry);
+            }
+            Files.delete(directory);
+        }
+    }
+
+    private static Map<String, String> configValues(Configuration config, Path file) throws IOException {
         Map<String, String> values = new TreeMap<>();
         for (String category : config.getCategoryNames()) {
             for (Map.Entry<String, Property> entry : config.getCategory(category)
                 .entrySet()) {
                 Property value = entry.getValue();
+                String key = category + "/" + entry.getKey();
                 values.put(
-                    category + "/" + entry.getKey(),
-                    value.getType() + ":"
-                        + (value.isList() ? Arrays.toString(value.getStringList()) : value.getString()));
+                    key,
+                    runtimeTime(key, value, file) ? value.getType() + ":<runtime>"
+                        : value.getType() + ":"
+                            + (value.isList() ? Arrays.toString(value.getStringList()) : value.getString()));
             }
         }
         return values;
+    }
+
+    /**
+     * PersonalSpace 1.0.41 persists these five fields from WorldInfo on save; generation/visual settings stay strict.
+     */
+    private static boolean runtimeTime(String key, Property value, Path file) throws IOException {
+        Property.Type type;
+        switch (key) {
+            case "time/worldTime":
+                type = Property.Type.STRING;
+                break;
+            case "time/rainTime":
+            case "time/thunderTime":
+                type = Property.Type.INTEGER;
+                break;
+            case "time/raining":
+            case "time/thundering":
+                type = Property.Type.BOOLEAN;
+                break;
+            default:
+                return false;
+        }
+        try {
+            if (value.isList() || value.getType() != type) throw new IllegalArgumentException("type");
+            String raw = value.getString();
+            if (type == Property.Type.STRING) Long.parseLong(raw);
+            else if (type == Property.Type.INTEGER) Integer.parseInt(raw);
+            else if (!"true".equalsIgnoreCase(raw) && !"false".equalsIgnoreCase(raw))
+                throw new IllegalArgumentException("boolean");
+        } catch (IllegalArgumentException e) {
+            throw new IOException("Некорректное поле времени/погоды " + key + ": " + file, e);
+        }
+        return true;
     }
 
     static String finish(MigrationImporter.Operation operation, Map<String, Object> manifest) {
