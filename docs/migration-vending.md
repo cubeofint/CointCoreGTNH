@@ -51,13 +51,22 @@ migrate move-recover-wallet <move-id> confirm-reviewed
 
 This narrowly scoped recovery requires the original unfinished journal, matching
 local freeze/player locks, offline members and unloaded personal dimensions. It
-currently rejects moves containing external claims or a single-player team join.
+still rejects a single-player team join. External chunks must remain frozen,
+unloaded, without nearby players or foreign claims. Their provider save folders
+are resolved on the main thread without loading worlds.
 It verifies the archived SHA-256, manifest identity and item ID map, hashes the
 already placed personal world and auxiliary player files in the background,
 compares dimension configuration values and the adjusted player NBT, and checks
 both live and saved wallets against the original snapshot. A changed/missing
 file or wallet stops recovery. Only comments/formatting in dimension configs may
 differ. Files must not change between verification and finalization.
+
+For each external chunk, recovery compares the already installed NBT with its
+archived snapshot. Region files are opened read-only; missing files/chunks are
+never created. Gzip, zlib and Hodgepodge's extended sector counts are supported.
+The selected chunk's header and compressed payload are checked again before SU
+finalization. Neighbouring chunks may change normally without invalidating the
+proof. Recovery never copies an external chunk or replaces a region file.
 
 It backs up the current SU state and pending entries under
 `migrations/wallet-recovery/<move-id>-<uuid>/`, then runs the ordinary SU

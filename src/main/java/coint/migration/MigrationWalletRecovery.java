@@ -141,10 +141,11 @@ final class MigrationWalletRecovery {
 
     static String finish(MigrationImporter.Operation operation, Map<String, Object> manifest) {
         try {
-            MigrationMove.checkReviewedImport(operation.move);
-            MigrationChunks.checkClaims(operation.move, true);
+            MigrationMove.checkWalletRecovery(operation.move);
             if (operation.verifiedFiles == null) throw new IOException("Нет проверки уже размещённых файлов");
+            if (operation.verifiedChunks == null) throw new IOException("Нет проверки внешних чанков");
             for (VerifiedFile proof : operation.verifiedFiles) proof.unchanged();
+            for (MigrationChunkRecovery proof : operation.verifiedChunks) proof.unchanged();
             File source = MigrationStorage.child(operation.staging, MigrationImporter.str(manifest.get("worldFolder")));
             Set<Integer> dims = new HashSet<>(operation.move.dimensions);
             Map<String, Object> team = MigrationImporter.map(manifest.get("team"));

@@ -721,7 +721,7 @@ public final class MigrationMove {
             move.validate();
             if (!id.equals(move.id) || move.joining() || move.vendingSnapshot == null)
                 throw new IOException("Нужен перенос всей команды с кошельком VendingMachine");
-            checkReviewedImport(move);
+            checkWalletRecovery(move);
             Archive archive = JSON.fromJson(read(move, "archive.json"), Archive.class);
             String hash = archiveHash(move);
             long session = generation;
@@ -831,6 +831,16 @@ public final class MigrationMove {
     }
 
     static void checkReviewedImport(MoveRecord move) throws IOException {
+        checkReviewedImport(move, false);
+    }
+
+    static void checkWalletRecovery(MoveRecord move) throws IOException {
+        checkReviewedImport(move, true);
+        MigrationChunks.checkClaims(move, true);
+        MigrationChunkRecovery.checkFrozen(move);
+    }
+
+    private static void checkReviewedImport(MoveRecord move, boolean verifyExternal) throws IOException {
         if (!ClusterService.nodeId()
             .equals(move.target)) throw new IOException("Нужна целевая нода");
         for (String step : new String[] { "source-start", "target-start", "approved", "importing", "error" })
@@ -850,7 +860,7 @@ public final class MigrationMove {
                 throw new IOException("Блокировка участника не совпадает");
         for (int dim : move.dimensions) if (!MigrationGuard.dimension(dim) || DimensionManager.getWorld(dim) != null)
             throw new IOException("Персоналка должна оставаться замороженной и выгруженной: " + dim);
-        for (int[] c : move.claims) if (!move.dimensions.contains(c[0]))
+        for (int[] c : move.claims) if (!verifyExternal && !move.dimensions.contains(c[0]))
             throw new IOException("Этот режим восстановления не поддерживает внешние чанки");
     }
 

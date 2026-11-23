@@ -237,6 +237,11 @@ public final class MigrationGuard {
             && snapshot.contains(snapshot.dimensions, snapshot.chunks, world.provider.dimensionId, x, z);
     }
 
+    static boolean chunk(int dimension, int x, int z) {
+        Index snapshot = index;
+        return !snapshot.empty && snapshot.contains(snapshot.dimensions, snapshot.chunks, dimension, x, z);
+    }
+
     public static boolean block(World world, int x, int z) {
         return chunk(world, x >> 4, z >> 4);
     }

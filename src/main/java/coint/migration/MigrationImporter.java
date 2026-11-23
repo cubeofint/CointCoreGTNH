@@ -81,6 +81,8 @@ public final class MigrationImporter {
         final MoveRecord move;
         final boolean walletRecovery;
         List<MigrationWalletRecovery.VerifiedFile> verifiedFiles;
+        Map<String, Path> recoveryChunks;
+        List<MigrationChunkRecovery> verifiedChunks;
         Thread worker;
         boolean preparing = true, cancelled, cleaned;
 
@@ -214,6 +216,8 @@ public final class MigrationImporter {
         try {
             MigrationStorage.Session session = MigrationStorage.session();
             session.check();
+            Map<String, Path> recoveryChunks = walletRecovery ? MigrationChunkRecovery.targets(move, session.world)
+                : null;
             operation = new Operation(
                 sender,
                 session,
@@ -223,6 +227,7 @@ public final class MigrationImporter {
                 done,
                 move,
                 walletRecovery);
+            operation.recoveryChunks = recoveryChunks;
         } catch (IOException e) {
             return "Общая папка недоступна или занята импортом (.import.lock): " + e.getMessage();
         }
@@ -251,8 +256,10 @@ public final class MigrationImporter {
                     throw new IOException("sourceNode архива отличается от подтверждённого запроса");
                 }
                 validatePaths(operation, manifest);
-                if (operation.walletRecovery)
+                if (operation.walletRecovery) {
                     operation.verifiedFiles = MigrationWalletRecovery.verifyFiles(operation, manifest);
+                    operation.verifiedChunks = MigrationChunkRecovery.verify(operation, manifest);
+                }
                 operation.session.check();
             } catch (IOException | RuntimeException e) {
                 CointCore.LOG.error("[Migrate] Could not unpack {}", zip, e);
