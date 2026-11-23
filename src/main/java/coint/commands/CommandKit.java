@@ -134,6 +134,9 @@ public class CommandKit extends CommandBase {
             throw new WrongUsageException(getCommandUsage(sender));
         }
 
+        if (args.length == 1 && sender instanceof EntityPlayerMP
+            && KitManager.getKit(MinecraftServer.getServer(), args[0].toLowerCase(java.util.Locale.ROOT)) != null)
+            args = new String[] { "claim", args[0] };
         String sub = args[0].toLowerCase();
         if ("create".equals(sub) || "delete".equals(sub) || "bind".equals(sub)) {
             if (sender instanceof EntityPlayer player && !PermissionAPI.hasPermission(player, PERM_KIT_EDIT))

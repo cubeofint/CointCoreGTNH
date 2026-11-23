@@ -64,8 +64,7 @@ public final class DonationDelivery {
     private static void validate(Grant g) {
         if (g == null || g.id == null
             || !g.id.matches("[A-Za-z0-9_.:-]{1,160}")
-            || g.name == null
-            || !g.name.matches("[A-Za-z0-9_.]{1,16}")
+            || (g.name == null ? g.uuid == null : !g.name.matches("[A-Za-z0-9_.]{1,16}"))
             || g.kit == null
             || !g.kit.matches("[a-z0-9_-]{1,64}")
             || g.amount <= 0) throw new IllegalArgumentException("Invalid kit delivery record");
@@ -134,6 +133,45 @@ public final class DonationDelivery {
         return g.id;
     }
 
+    /** AzLink uses the authenticated UUID, including accounts which have not joined this node yet. */
+    public static int credit(UUID player, String kit, int amount, String receipt) {
+        if (!TempRankManager.get()
+            .ready()
+            || !TempRankManager.get()
+                .onServerThread()
+            || TempRankManager.replica()
+            || (CointConfig.cluster.enabled && !enabled()))
+            throw new UnsupportedOperationException("Kit credit executor is not the ready access authority");
+        UUID.fromString(receipt);
+        if (amount < 1 || amount > 1000) throw new IllegalArgumentException("Kit quantity must be 1..1000");
+        if (KitManager.getKit(MinecraftServer.getServer(), kit) == null)
+            throw new UnsupportedOperationException("Kit not found: " + kit);
+        load();
+        Grant value = new Grant();
+        value.id = "azlink:" + receipt;
+        value.uuid = player.toString();
+        ForgePlayer known = PlayerLookup.exact(value.uuid);
+        value.name = known == null ? null : known.getName();
+        value.kit = kit;
+        value.amount = amount;
+        validate(value);
+        for (Grant old : grants) if (old.id.equals(value.id)) {
+            if (!value.uuid.equals(old.uuid) || !kit.equals(old.kit) || amount != old.amount)
+                throw new IllegalArgumentException("Kit receipt reused with different contents");
+            return amount;
+        }
+        List<Grant> updated = new ArrayList<>(grants);
+        updated.add(value);
+        save(updated);
+        grants = updated;
+        return amount;
+    }
+
+    public static void localTick() {
+        if (!CointConfig.cluster.enabled && TempRankManager.get()
+            .ready()) tick();
+    }
+
     static List<Grant> snapshot() {
         load();
         return new ArrayList<>(grants);
@@ -149,9 +187,9 @@ public final class DonationDelivery {
     }
 
     static void tick() {
-        if (!enabled() || System.currentTimeMillis() < next) return;
+        if (System.currentTimeMillis() < next) return;
         next = System.currentTimeMillis() + 5000;
-        if (!TempRankManager.replica()) resolvePending();
+        if (enabled() && !TempRankManager.replica()) resolvePending();
         List<Grant> available = TempRankManager.replica() ? replica : snapshot();
         for (Object value : MinecraftServer.getServer()
             .getConfigurationManager().playerEntityList) {
@@ -162,7 +200,7 @@ public final class DonationDelivery {
                 player.getUniqueID()
                     .toString(),
                 player.getCommandSenderName())) continue;
-            if (!ClusterService.nodeId()
+            if (enabled() && !ClusterService.nodeId()
                 .equals(ClusterHomes.homeOf(player.getUniqueID()))) continue;
             NBTTagCompound persisted = NBTUtils.getPersistedData(player, true);
             NBTTagCompound receipts = persisted.getCompoundTag("cointcore_donation_receipts");

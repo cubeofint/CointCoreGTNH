@@ -114,6 +114,7 @@ public final class KitManager {
             else KITS.put(kit.getName(), old);
             throw e;
         }
+        AzLinkKitBridge.changed(kit.getName(), false);
     }
 
     public static synchronized KitDefinition getKit(MinecraftServer server, String name) {
@@ -136,6 +137,7 @@ public final class KitManager {
                 KITS.put(name, old);
                 throw e;
             }
+            AzLinkKitBridge.changed(name, true);
         }
     }
 
@@ -145,6 +147,8 @@ public final class KitManager {
         for (int i = 0; i < list.tagCount(); i++) {
             NBTTagCompound itemTag = list.getCompoundTagAt(i);
             ItemStack stack = ItemStack.loadItemStackFromNBT(itemTag);
+            if (stack != null && itemTag.hasKey("cointcoreCount"))
+                stack.stackSize = itemTag.getInteger("cointcoreCount");
             if (stack == null || stack.getItem() == null || stack.stackSize <= 0)
                 throw new IllegalArgumentException("Invalid kit item: " + name + " slot " + i);
             items.add(stack);
@@ -167,6 +171,7 @@ public final class KitManager {
             }
             NBTTagCompound itemTag = new NBTTagCompound();
             stack.writeToNBT(itemTag);
+            itemTag.setInteger("cointcoreCount", stack.stackSize);
             list.appendTag(itemTag);
         }
         kitTag.setTag(TAG_ITEMS, list);
