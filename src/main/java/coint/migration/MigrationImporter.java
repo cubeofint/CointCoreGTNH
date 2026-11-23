@@ -70,20 +70,23 @@ public final class MigrationImporter {
     private static volatile boolean running;
     private static volatile Operation activeOperation;
 
-    private static final class Operation {
+    static final class Operation {
 
         final ICommandSender sender;
         final MigrationStorage.Session session;
         final File original, workspace, staging, snapshot, archiveDirectory;
         final Path lock;
-        final java.util.function.Consumer<Boolean> done;
+        final java.util.function.BiConsumer<Boolean, String> done;
         final String expectedSource;
         final MoveRecord move;
+        final boolean walletRecovery;
+        List<MigrationWalletRecovery.VerifiedFile> verifiedFiles;
         Thread worker;
         boolean preparing = true, cancelled, cleaned;
 
         Operation(ICommandSender sender, MigrationStorage.Session session, File original, Path lock,
-            String expectedSource, java.util.function.Consumer<Boolean> done, MoveRecord move) {
+            String expectedSource, java.util.function.BiConsumer<Boolean, String> done, MoveRecord move,
+            boolean walletRecovery) {
             this.sender = sender;
             this.session = session;
             this.original = original;
@@ -91,6 +94,7 @@ public final class MigrationImporter {
             this.expectedSource = expectedSource;
             this.done = done;
             this.move = move;
+            this.walletRecovery = walletRecovery;
             archiveDirectory = original.getParentFile();
             workspace = new File(session.world.getParentFile(), "migrations/.import-" + UUID.randomUUID());
             staging = new File(workspace, "unpacked");
@@ -172,11 +176,28 @@ public final class MigrationImporter {
 
     public static String start(ICommandSender sender, String fileName, String expectedSha256, String expectedSourceNode,
         java.util.function.Consumer<Boolean> done) {
-        return start(sender, fileName, expectedSha256, expectedSourceNode, done, null);
+        return start(
+            sender,
+            fileName,
+            expectedSha256,
+            expectedSourceNode,
+            done == null ? null : (success, failure) -> done.accept(success),
+            null);
     }
 
     static String start(ICommandSender sender, String fileName, String expectedSha256, String expectedSourceNode,
-        java.util.function.Consumer<Boolean> done, MoveRecord move) {
+        java.util.function.BiConsumer<Boolean, String> done, MoveRecord move) {
+        return start(sender, fileName, expectedSha256, expectedSourceNode, done, move, false);
+    }
+
+    static String startWalletRecovery(ICommandSender sender, String fileName, String expectedSha256,
+        java.util.function.BiConsumer<Boolean, String> done, MoveRecord move) {
+        return start(sender, fileName, expectedSha256, move.source, done, move, true);
+    }
+
+    private static String start(ICommandSender sender, String fileName, String expectedSha256,
+        String expectedSourceNode, java.util.function.BiConsumer<Boolean, String> done, MoveRecord move,
+        boolean walletRecovery) {
         if (!CommandMigrate.allowed(sender)) return "Нет права на миграцию";
         if (running || MigrationExporter.isRunning()) {
             return "Уже идёт перенос, дождитесь его окончания";
@@ -193,13 +214,25 @@ public final class MigrationImporter {
         try {
             MigrationStorage.Session session = MigrationStorage.session();
             session.check();
-            operation = new Operation(sender, session, zip, MigrationStorage.lock(), expectedSourceNode, done, move);
+            operation = new Operation(
+                sender,
+                session,
+                zip,
+                MigrationStorage.lock(),
+                expectedSourceNode,
+                done,
+                move,
+                walletRecovery);
         } catch (IOException e) {
             return "Общая папка недоступна или занята импортом (.import.lock): " + e.getMessage();
         }
         running = true;
         activeOperation = operation;
-        sender.addChatMessage(new ChatComponentText("§eРаспаковываю §f" + zip.getName() + "§e..."));
+        sender.addChatMessage(
+            new ChatComponentText(
+                walletRecovery
+                    ? "§eПроверяю архив и уже размещённые файлы. Повторного переноса миров и инвентарей не будет."
+                    : "§eРаспаковываю §f" + zip.getName() + "§e..."));
         Thread thread = new Thread(() -> {
             String error = null;
             try {
@@ -218,6 +251,8 @@ public final class MigrationImporter {
                     throw new IOException("sourceNode архива отличается от подтверждённого запроса");
                 }
                 validatePaths(operation, manifest);
+                if (operation.walletRecovery)
+                    operation.verifiedFiles = MigrationWalletRecovery.verifyFiles(operation, manifest);
                 operation.session.check();
             } catch (IOException | RuntimeException e) {
                 CointCore.LOG.error("[Migrate] Could not unpack {}", zip, e);
@@ -252,6 +287,7 @@ public final class MigrationImporter {
         File staging = operation.staging;
         boolean again = false;
         boolean success = false;
+        String failure = null;
         try {
             String result = !CommandMigrate.allowed(sender) ? "право на миграцию отозвано"
                 : failed != null ? failed : apply(operation);
@@ -263,14 +299,17 @@ public final class MigrationImporter {
                 later.add(new long[] { tick + 40 });
                 laterTasks.add(() -> attempt(operation, null, tries + 1));
             } else if (result == RETRY) {
+                failure = "персональный мир не выгружается (чанклоадеры?)";
                 sender.addChatMessage(
                     new ChatComponentText("§cИмпорт не выполнен: персональный мир не выгружается (чанклоадеры?)"));
             } else if (result != null) {
+                failure = result;
                 sender.addChatMessage(new ChatComponentText("§cИмпорт не выполнен: " + result));
             } else {
                 success = true;
             }
         } catch (RuntimeException e) {
+            failure = e.toString();
             CointCore.LOG.error("[Migrate] Import of {} failed", zip, e);
             sender.addChatMessage(new ChatComponentText("§cИмпорт прерван ошибкой: " + e + ". Подробности в логе."));
         } finally {
@@ -281,7 +320,7 @@ public final class MigrationImporter {
                     activeOperation = null;
                     running = false;
                 }
-                if (notify && operation.done != null) operation.done.accept(success);
+                if (notify && operation.done != null) operation.done.accept(success, failure);
             }
         }
     }
@@ -437,6 +476,7 @@ public final class MigrationImporter {
                 + String.join("; ", mismatches.subList(0, Math.min(3, mismatches.size())))
                 + ". Мир должен быть копией исходного.";
         }
+        if (operation.walletRecovery) return MigrationWalletRecovery.finish(operation, manifest);
         File worldDir = operation.session.world;
         String sourceWorld = str(manifest.get("worldFolder"));
         File sourceRoot = new File(staging, sourceWorld);
@@ -616,68 +656,11 @@ public final class MigrationImporter {
         } catch (IOException e) {
             return e.getMessage();
         }
-        MigrationPending.Entry pending = MigrationPending.Entry.from(manifest);
-        if (operation.move != null) {
-            for (int i = 0; i < operation.move.players.size(); i++) {
-                UUID id = UUID.fromString(operation.move.players.get(i));
-                Universe universe = Universe.get();
-                if (universe.getPlayer(id) == null) {
-                    serverutils.lib.data.ForgePlayer player = new serverutils.lib.data.ForgePlayer(
-                        universe,
-                        id,
-                        operation.move.names.get(i));
-                    universe.players.put(id, player);
-                    player.markDirty();
-                }
-                serverutils.lib.data.ForgePlayer player = universe.getPlayer(id);
-                File su = new File(
-                    sourceRoot,
-                    "serverutilities/players/" + operation.move.names.get(i)
-                        .toLowerCase(java.util.Locale.ROOT) + ".dat");
-                if (su.isFile()) {
-                    try (InputStream input = Files.newInputStream(su.toPath())) {
-                        player.deserializeNBT(CompressedStreamTools.readCompressed(input));
-                    } catch (IOException e) {
-                        return "Не удалось восстановить данные SU игрока: " + e.getMessage();
-                    }
-                }
-                player.clearCache();
-                player.markDirty();
-            }
-        }
-        String state = MigrationPending.add(pending);
-        if (operation.move != null && operation.move.joining()) {
-            try {
-                MigrationJoining.install(operation.move);
-            } catch (IOException e) {
-                return e.getMessage();
-            }
-        }
-        if (operation.move != null && !operation.move.joining() && pending.teamDone) {
-            File teamFile = new File(sourceRoot, "serverutilities/teams/" + operation.move.team + ".dat");
-            ForgeTeam restored = Universe.get()
-                .getTeam(operation.move.team);
-            if (teamFile.isFile() && restored != null && restored.isValid()) {
-                try (InputStream input = Files.newInputStream(teamFile.toPath())) {
-                    restored.getData()
-                        .deserializeNBT(
-                            CompressedStreamTools.readCompressed(input)
-                                .getCompoundTag("Data"));
-                    restored.clearCache();
-                    restored.markDirty();
-                } catch (IOException e) {
-                    return "Не удалось восстановить настройки команды SU: " + e.getMessage();
-                }
-            }
-        }
-        if (operation.move != null && (!pending.finished() || !notes.isEmpty()))
-            return "Импорт требует проверки: " + state + "; " + notes;
-        if (operation.move != null) {
-            try {
-                MigrationExporter.saveEverything(MinecraftServer.getServer());
-            } catch (Exception e) {
-                return "Не удалось сохранить импорт: " + e.getMessage();
-            }
+        String state;
+        try {
+            state = finishTeam(operation, manifest, sourceRoot, notes);
+        } catch (IOException e) {
+            return e.getMessage();
         }
 
         File done = new File(operation.archiveDirectory, "imported/" + zip.getName());
@@ -701,7 +684,73 @@ public final class MigrationImporter {
         return null;
     }
 
-    private static void backupServerUtilities(MoveRecord move, File backup) throws IOException {
+    /** Final stage shared by an ordinary import and verified wallet-failure recovery. */
+    static String finishTeam(Operation operation, Map<String, Object> manifest, File sourceRoot, List<String> notes)
+        throws IOException {
+        MigrationPending.Entry pending = MigrationPending.Entry.from(manifest);
+        if (operation.move != null) {
+            for (int i = 0; i < operation.move.players.size(); i++) {
+                UUID id = UUID.fromString(operation.move.players.get(i));
+                Universe universe = Universe.get();
+                if (universe.getPlayer(id) == null) {
+                    serverutils.lib.data.ForgePlayer player = new serverutils.lib.data.ForgePlayer(
+                        universe,
+                        id,
+                        operation.move.names.get(i));
+                    universe.players.put(id, player);
+                    player.markDirty();
+                }
+                serverutils.lib.data.ForgePlayer player = universe.getPlayer(id);
+                File su = new File(
+                    sourceRoot,
+                    "serverutilities/players/" + operation.move.names.get(i)
+                        .toLowerCase(java.util.Locale.ROOT) + ".dat");
+                if (su.isFile()) {
+                    try (InputStream input = Files.newInputStream(su.toPath())) {
+                        player.deserializeNBT(CompressedStreamTools.readCompressed(input));
+                    } catch (IOException e) {
+                        throw new IOException("Не удалось восстановить данные SU игрока", e);
+                    }
+                }
+                player.clearCache();
+                player.markDirty();
+            }
+        }
+        String state = MigrationPending.add(pending);
+        if (operation.move != null && operation.move.joining()) {
+            MigrationJoining.install(operation.move);
+        }
+        if (operation.move != null && !operation.move.joining() && pending.teamDone) {
+            File teamFile = new File(sourceRoot, "serverutilities/teams/" + operation.move.team + ".dat");
+            ForgeTeam restored = Universe.get()
+                .getTeam(operation.move.team);
+            if (teamFile.isFile() && restored != null && restored.isValid()) {
+                try (InputStream input = Files.newInputStream(teamFile.toPath())) {
+                    restored.getData()
+                        .deserializeNBT(
+                            CompressedStreamTools.readCompressed(input)
+                                .getCompoundTag("Data"));
+                    restored.clearCache();
+                    restored.markDirty();
+                } catch (IOException e) {
+                    throw new IOException("Не удалось восстановить настройки команды SU", e);
+                }
+            }
+        }
+        if (operation.move != null && (!pending.finished() || !notes.isEmpty()))
+            throw new IOException("Импорт требует проверки: " + state + "; " + notes);
+        if (operation.move != null) {
+            try {
+                MigrationExporter.saveEverything(MinecraftServer.getServer());
+            } catch (Exception e) {
+                throw new IOException("Не удалось сохранить импорт", e);
+            }
+        }
+
+        return state;
+    }
+
+    static void backupServerUtilities(MoveRecord move, File backup) throws IOException {
         for (int i = 0; i < move.players.size(); i++) {
             serverutils.lib.data.ForgePlayer player = Universe.get()
                 .getPlayer(UUID.fromString(move.players.get(i)));
@@ -738,7 +787,7 @@ public final class MigrationImporter {
         MigrationVending.install(staging, manifest, backup);
     }
 
-    private static List<File> playerFiles(File root, String uuid, String name) {
+    static List<File> playerFiles(File root, String uuid, String name) {
         List<File> files = new ArrayList<>();
         files.add(new File(root, "playerdata/" + uuid + ".dat"));
         File[] mod = new File(root, "playerdata").listFiles(
@@ -755,7 +804,7 @@ public final class MigrationImporter {
     }
 
     /** A player who was not in his personal world is put at its entrance (or this server's spawn). */
-    private static void placePlayer(File data, Set<Integer> dims, int[] entry) throws IOException {
+    static void placePlayer(File data, Set<Integer> dims, int[] entry) throws IOException {
         NBTTagCompound nbt;
         try (InputStream in = new BufferedInputStream(new FileInputStream(data))) {
             nbt = CompressedStreamTools.readCompressed(in);

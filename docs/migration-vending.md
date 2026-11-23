@@ -30,6 +30,50 @@ source vending balances. They cannot restore balances that they never captured.
 Legacy pre-GTNHLib wallet files require the player to log into that node once for
 VendingMachine's own conversion before migration.
 
+Wallet comparisons normalize JSON compound key order before ordering set-like NBT
+lists. `NBTTagCompound.toString()` is not a stable ordering key: Hodgepodge's
+fastutil map can iterate identical values differently after a JSON round trip.
+Older retained/preflight snapshots are normalized when compared as well. Real
+balance, history, membership or notification changes still fail validation.
+
+## Recovering a failed wallet persistence comparison
+
+An import that stopped at `Кошелёк VendingMachine не сохранился` has already
+placed worlds and player files; the SU finalization stage may not have run.
+Do not replay `/migrate import`, remove freezes, or attest that the whole import
+is complete with `move-finish-import`.
+
+After updating both game nodes, the destination **console** can run:
+
+```text
+migrate move-recover-wallet <move-id> confirm-reviewed
+```
+
+This narrowly scoped recovery requires the original unfinished journal, matching
+local freeze/player locks, offline members and unloaded personal dimensions. It
+currently rejects moves containing external claims or a single-player team join.
+It verifies the archived SHA-256, manifest identity and item ID map, hashes the
+already placed personal world and auxiliary player files in the background,
+compares dimension configuration values and the adjusted player NBT, and checks
+both live and saved wallets against the original snapshot. A changed/missing
+file or wallet stops recovery. Only comments/formatting in dimension configs may
+differ. Files must not change between verification and finalization.
+
+It backs up the current SU state and pending entries under
+`migrations/wallet-recovery/<move-id>-<uuid>/`, then runs the ordinary SU
+finalization and save. It never reinstalls worlds, inventories, global balances,
+quests or vending coins. Successful verification writes archive-bound
+`wallet-recovered`, `vending-imported` and `imported` receipts. The original error
+and freezes remain until the administrator runs on the **source**:
+
+```text
+migrate move-resume <move-id>
+```
+
+Inspect `move-status` for `done` before admitting the team. New ordinary import
+failures now retain their original reason in the journal instead of only a
+generic failure message.
+
 For production verification, deposit known amounts in the personal wallets of
 two team members and in the shared wallet. Migrate normally, check all balances
 and team sharing, restart the destination, and check again. After completion the

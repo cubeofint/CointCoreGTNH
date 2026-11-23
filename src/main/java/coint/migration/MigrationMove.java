@@ -426,13 +426,18 @@ public final class MigrationMove {
                         put(move, "importing", "Import started once; never retry blindly after a crash");
                         active = move.id;
                         long session = generation;
-                        String error = MigrationImporter
-                            .start(MinecraftServer.getServer(), archive.name, archive.sha256, move.source, success -> {
+                        String error = MigrationImporter.start(
+                            MinecraftServer.getServer(),
+                            archive.name,
+                            archive.sha256,
+                            move.source,
+                            (success, failure) -> {
                                 if (session != generation) return;
                                 active = null;
                                 try {
                                     if (!success) throw new IOException(
-                                        "Импорт не завершён; исходные данные сохранены, вход заблокирован");
+                                        "Импорт не завершён: " + failure
+                                            + "; исходные данные сохранены, вход заблокирован");
                                     if (move.vendingSnapshot != null) {
                                         MigrationVending.verifyImported(move);
                                         put(move, "vending-imported", archive.sha256);
@@ -441,7 +446,8 @@ public final class MigrationMove {
                                 } catch (IOException e) {
                                     fail(move, e);
                                 }
-                            }, move);
+                            },
+                            move);
                         if (error != null) {
                             active = null;
                             throw new IOException(error);
@@ -698,6 +704,62 @@ public final class MigrationMove {
         }
     }
 
+    /** Verify the already placed data and finish SU after the wallet persistence comparison failed. */
+    public static void recoverWalletImport(ICommandSender sender, String id) {
+        if (sender != MinecraftServer.getServer()) {
+            tell(sender, "§cТолько из консоли целевого сервера после проверки ошибки кошелька.");
+            return;
+        }
+        try {
+            if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning())
+                throw new IOException("Кластер и миграция должны быть включены");
+            if (!UUID.fromString(id)
+                .toString()
+                .equals(id)) throw new IOException("Invalid ID");
+            if (busy()) throw new IOException("Другая операция ещё выполняется");
+            MoveRecord move = JSON.fromJson(readFile(root().resolve(id + "/request.json")), MoveRecord.class);
+            move.validate();
+            if (!id.equals(move.id) || move.joining() || move.vendingSnapshot == null)
+                throw new IOException("Нужен перенос всей команды с кошельком VendingMachine");
+            checkReviewedImport(move);
+            Archive archive = JSON.fromJson(read(move, "archive.json"), Archive.class);
+            String hash = archiveHash(move);
+            long session = generation;
+            String error = MigrationImporter.startWalletRecovery(sender, archive.name, hash, (success, failure) -> {
+                if (session != generation) return;
+                active = null;
+                try {
+                    if (!success) {
+                        put(move, "wallet-recovery-error", String.valueOf(failure));
+                        tell(sender, "§cВосстановление остановлено: " + failure);
+                        return;
+                    }
+                    put(move, "wallet-recovered", hash);
+                    put(move, "vending-imported", hash);
+                    put(move, "imported", hash);
+                    tell(
+                        sender,
+                        "§aПроверка кошельков и восстановление SU завершены. Миры и инвентари повторно не импортировались."
+                            + " На исходной ноде: migrate move-resume "
+                            + id);
+                } catch (IOException e) {
+                    CointCore.LOG.error("[TeamMove] Cannot record wallet recovery {}", id, e);
+                    tell(sender, "§cНе удалось записать подтверждение восстановления: " + e.getMessage());
+                }
+            }, move);
+            if (error != null) {
+                throw new IOException(error);
+            }
+            active = id;
+        } catch (IOException | RuntimeException e) {
+            tell(sender, "§cВосстановление невозможно: " + e.getMessage());
+        }
+    }
+
+    private static String readFile(Path file) throws IOException {
+        return new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+    }
+
     /** Explicit console attestation after independent inspection; never repeats the file import. */
     public static void finishReviewedImport(ICommandSender sender, String id) {
         if (sender != MinecraftServer.getServer()) {
@@ -768,7 +830,7 @@ public final class MigrationMove {
         }
     }
 
-    private static void checkReviewedImport(MoveRecord move) throws IOException {
+    static void checkReviewedImport(MoveRecord move) throws IOException {
         if (!ClusterService.nodeId()
             .equals(move.target)) throw new IOException("Нужна целевая нода");
         for (String step : new String[] { "source-start", "target-start", "approved", "importing", "error" })

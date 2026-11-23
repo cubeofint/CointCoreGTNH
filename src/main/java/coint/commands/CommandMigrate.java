@@ -43,6 +43,7 @@ public class CommandMigrate extends CommandBase {
         return "/migrate [ui] | export <player> [target] | import <file.zip> | queue <file.zip> <target>"
             + " | nodes | requests | accept <id> [confirm] | move <player> <target> | move-status <id> | move-resume <id>"
             + " | move-finish-import <id> confirm-reviewed | request <player> <target>"
+            + " | move-recover-wallet <id> confirm-reviewed"
             + " | check <player> <target> | batch plan <epoch> <target> | batch run/status/stop <id>";
     }
 
@@ -130,6 +131,10 @@ public class CommandMigrate extends CommandBase {
             coint.migration.MigrationMove.finishReviewedImport(sender, args[1]);
             return;
         }
+        if (args.length == 3 && "move-recover-wallet".equalsIgnoreCase(args[0]) && "confirm-reviewed".equals(args[2])) {
+            coint.migration.MigrationMove.recoverWalletImport(sender, args[1]);
+            return;
+        }
         if (args.length == 3 && "move".equalsIgnoreCase(args[0])) {
             ForgePlayer player = PlayerLookup.exact(args[1]);
             if (player == null) throw new CommandException("Игрок не найден: " + args[1]);
@@ -209,7 +214,8 @@ public class CommandMigrate extends CommandBase {
                 "request",
                 "batch",
                 "move-status",
-                "move-resume");
+                "move-resume",
+                "move-recover-wallet");
         }
         if (args.length == 2 && "batch".equalsIgnoreCase(args[0])) {
             return getListOfStringsMatchingLastWord(args, "plan", "run", "status", "stop");

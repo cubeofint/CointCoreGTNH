@@ -113,7 +113,12 @@ final class MigrationVending {
             List<NBTBase> values = new ArrayList<>();
             NBTTagList pending = (NBTTagList) list.copy();
             for (int i = pending.tagCount() - 1; i >= 0; i--) values.add(canonical(pending.removeTag(i)));
-            values.sort(Comparator.comparing(Object::toString));
+            // Compound.toString() follows the backing map's iteration order. Hodgepodge replaces that map with
+            // fastutil, so a JSON save/reload can change the order even when every wallet value is identical.
+            values.sort(
+                Comparator.comparing(
+                    item -> NBTJson.toJsonObject(item)
+                        .toString()));
             NBTTagList copy = new NBTTagList();
             for (NBTBase item : values) copy.appendTag(item);
             return copy;
@@ -177,10 +182,11 @@ final class MigrationVending {
 
     private static NBTTagCompound decode(String encoded) throws IOException {
         try {
-            return CompressedStreamTools.func_152457_a(
-                Base64.getDecoder()
-                    .decode(encoded),
-                new NBTSizeTracker(2097152L));
+            return (NBTTagCompound) canonical(
+                CompressedStreamTools.func_152457_a(
+                    Base64.getDecoder()
+                        .decode(encoded),
+                    new NBTSizeTracker(2097152L)));
         } catch (IllegalArgumentException e) {
             throw new IOException("Повреждён снимок VendingMachine", e);
         }
@@ -225,10 +231,10 @@ final class MigrationVending {
         write(MigrationStorage.child(staging, FILE), capture(players(players)));
         if (move != null) {
             File retained = MigrationStorage.child(retained(move), FILE);
-            NBTTagCompound snapshot = read(MigrationStorage.child(staging, FILE));
+            NBTTagCompound snapshot = (NBTTagCompound) canonical(read(MigrationStorage.child(staging, FILE)));
             if (move.vendingSnapshot != null && !snapshot.equals(decode(move.vendingSnapshot)))
                 throw new IOException("Кошелёк VendingMachine изменился после предварительной проверки");
-            if (retained.isFile() && !snapshot.equals(read(retained)))
+            if (retained.isFile() && !snapshot.equals(canonical(read(retained))))
                 throw new IOException("Снимок VendingMachine этого переноса уже существует и отличается");
             if (!retained.isFile()) write(retained, snapshot);
         }
@@ -429,8 +435,11 @@ final class MigrationVending {
     }
 
     private static void checkSource(NBTTagCompound expected, NBTTagCompound current, File backup) throws IOException {
+        // Retained snapshots may have been written by the older map-order-dependent normalizer.
+        expected = (NBTTagCompound) canonical(expected);
+        current = (NBTTagCompound) canonical(current);
         if (expected.equals(current)) return;
-        if (backup.isFile() && expected.equals(read(backup))) {
+        if (backup.isFile() && expected.equals(canonical(read(backup)))) {
             NBTTagList groups = expected.getTagList("Groups", 10), actual = current.getTagList("Groups", 10);
             if (groups.tagCount() == actual.tagCount()) {
                 boolean valid = true;
