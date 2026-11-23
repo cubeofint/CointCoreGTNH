@@ -2,12 +2,17 @@ package coint.util;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 import net.minecraft.command.WrongUsageException;
 
 public class TimeUtil {
+
+    private static final DateTimeFormatter BAN_EXPIRY = DateTimeFormatter.ofPattern("yyyy-MM-dd 'в' HH:mm:ss 'МСК'")
+        .withZone(getZone());
 
     private static final String PARSE_ERROR = "Неверный формат времени. Примеры: 30s, 10m (минуты), 2h, 7d, 1mo (календарные месяцы), perm (навсегда)";
 
@@ -34,6 +39,10 @@ public class TimeUtil {
 
     public static ZoneId getZone() {
         return ZoneId.ofOffset("GMT", ZoneOffset.of("+3"));
+    }
+
+    public static String formatBanExpiry(Date date) {
+        return BAN_EXPIRY.format(date.toInstant());
     }
 
     public static long simpleParse(String time) {

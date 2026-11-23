@@ -1,7 +1,6 @@
 package coint.mixin.minecraft;
 
 import java.net.SocketAddress;
-import java.text.SimpleDateFormat;
 
 import net.minecraft.server.management.BanList;
 import net.minecraft.server.management.IPBanEntry;
@@ -22,6 +21,7 @@ import com.mojang.authlib.GameProfile;
 
 import coint.CointConfig;
 import coint.integration.serverutilities.CointSUPermissions;
+import coint.util.TimeUtil;
 import serverutils.lib.util.permission.PermissionAPI;
 
 @Mixin(targets = "net.minecraft.server.management.ServerConfigurationManager", remap = true)
@@ -121,29 +121,29 @@ public class MixinServerConfigurationManager {
         String migration = coint.migration.MigrationGuard.loginReason(profile.getId());
         if (migration != null) return migration;
         var mgr = (ServerConfigurationManager) (Object) this;
-        var dateFormat = new SimpleDateFormat("yyyy-MM-dd 'в' HH:mm:ss МСК");
         String s;
 
         // Read through the list: that drops a ban that has run out, and then there is none.
-        UserListBansEntry userlistbansentry = this.bannedPlayers.func_152702_a(profile)
-            ? (UserListBansEntry) this.bannedPlayers.func_152683_b(profile)
-            : null;
+        UserListBansEntry userlistbansentry = (UserListBansEntry) this.bannedPlayers.func_152683_b(profile);
         if (userlistbansentry != null) {
             s = "Вы забанены на сервере!\nПричина: " + userlistbansentry.getBanReason();
 
             if (userlistbansentry.getBanEndDate() != null) {
-                s = s + "\nБан закончится " + dateFormat.format(userlistbansentry.getBanEndDate());
+                s = s + "\nБан закончится " + TimeUtil.formatBanExpiry(userlistbansentry.getBanEndDate());
             }
 
             return s;
         } else if (!mgr.func_152607_e(profile)) {
             return "Вас нет в белом списке сервера!";
-        } else if (this.bannedIPs.func_152708_a(address)) {
-            IPBanEntry ipbanentry = this.bannedIPs.func_152709_b(address);
+        }
+
+        // Checking raw membership before lookup also matches expired IP bans; lookup removes those first.
+        IPBanEntry ipbanentry = this.bannedIPs.func_152709_b(address);
+        if (ipbanentry != null) {
             s = "Ваш IP-адрес забанен на сервере!\nПричина: " + ipbanentry.getBanReason();
 
             if (ipbanentry.getBanEndDate() != null) {
-                s = s + "\nБан закончится " + dateFormat.format(ipbanentry.getBanEndDate());
+                s = s + "\nБан закончится " + TimeUtil.formatBanExpiry(ipbanentry.getBanEndDate());
             }
 
             return s;

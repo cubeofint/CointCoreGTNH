@@ -1,7 +1,6 @@
 package coint.cluster;
 
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -30,6 +29,7 @@ import coint.CointCore;
 import coint.player.CointPlayer;
 import coint.player.Mute;
 import coint.player.PlayerLookup;
+import coint.util.TimeUtil;
 import serverutils.lib.data.ForgePlayer;
 
 /**
@@ -235,8 +235,7 @@ public final class ClusterSanctions {
     private static String kickMessage(String head, Row row) {
         String s = head + "\nПричина: " + row.reason;
         if (row.expiresMs != null) {
-            s += "\nБан закончится "
-                + new SimpleDateFormat("yyyy-MM-dd 'в' HH:mm:ss МСК").format(new Date(row.expiresMs));
+            s += "\nБан закончится " + TimeUtil.formatBanExpiry(new Date(row.expiresMs));
         }
         return s;
     }
