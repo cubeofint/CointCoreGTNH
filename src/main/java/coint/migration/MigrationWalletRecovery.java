@@ -74,12 +74,13 @@ final class MigrationWalletRecovery {
                         .replace(File.separatorChar, '/');
                     File target = MigrationStorage.child(operation.session.world, relative);
                     proof.add(
-                        verifyFile(
+                        verifyWorldFile(
                             file,
                             target.toPath(),
-                            file.getFileName()
+                            incoming.toPath()
+                                .relativize(file)
                                 .toString()
-                                .equals("personalspace_metadata.cfg")));
+                                .replace(File.separatorChar, '/')));
                 }
             }
         }
@@ -111,6 +112,19 @@ final class MigrationWalletRecovery {
     }
 
     static VerifiedFile verifyFile(Path incoming, Path target, boolean metadata) throws IOException {
+        return verifyFile(incoming, target, metadata, null);
+    }
+
+    static VerifiedFile verifyWorldFile(Path incoming, Path target, String dimensionRelativePath) throws IOException {
+        return verifyFile(
+            incoming,
+            target,
+            dimensionRelativePath.equals("personalspace_metadata.cfg"),
+            dimensionRelativePath);
+    }
+
+    private static VerifiedFile verifyFile(Path incoming, Path target, boolean metadata, String dimensionRelativePath)
+        throws IOException {
         VerifiedFile proof = new VerifiedFile(target);
         boolean same;
         if (metadata) {
@@ -123,6 +137,8 @@ final class MigrationWalletRecovery {
             same = true;
         } else same = Files.size(incoming) == proof.attributes.size() && MigrationStorage.sha256(incoming)
             .equals(MigrationStorage.sha256(target));
+        if (!same && dimensionRelativePath != null)
+            same = MigrationRuntimeData.same(incoming, target, dimensionRelativePath);
         if (!same) throw new IOException(
             "Уже размещённый файл отличается от архива: " + target
                 + ". Восстановление остановлено, повторного импорта не было.");

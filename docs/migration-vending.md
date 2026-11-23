@@ -67,6 +67,16 @@ never reset to the archive. Forge parses temporary copies so its malformed-confi
 repair cannot rename or replace the real metadata. Files must not change between
 verification and finalization.
 
+Two additional world-local clock differences are accepted after typed NBT checks:
+`multipart.dat` may differ only in its sole long `schedTime` tag (ForgeMultipart
+1.7.15's scheduler), and `data/villages.dat` may differ in integer `data.Tick`
+only when both `data.Villages` lists are empty. Every other tag must match. For
+counter differences, a nonempty/changed village list, unknown multipart tags,
+wrong types or malformed NBT stop recovery. These rules apply only at those exact paths inside a migrated
+dimension, never to similarly named auxiliary player files or chunk data. Current
+counter values remain on disk. Binary-different but fully equal typed NBT for
+these files is also accepted without modifying it.
+
 For each external chunk, recovery compares the already installed NBT with its
 archived snapshot. Region files are opened read-only; missing files/chunks are
 never created. Gzip, zlib and Hodgepodge's extended sector counts are supported.
