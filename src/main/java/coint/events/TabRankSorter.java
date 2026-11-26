@@ -44,6 +44,7 @@ public final class TabRankSorter {
         STAFF_RANKS.add("helper");
         STAFF_RANKS.add("lmd");
         STAFF_RANKS.add("media");
+        STAFF_RANKS.add("events");
         STAFF_RANKS.add("owner");
         STAFF_RANKS.add("mod");
 

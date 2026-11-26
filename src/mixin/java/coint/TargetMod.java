@@ -23,7 +23,8 @@ public enum TargetMod implements ITargetMod {
     PERSONALSPACE("personalspace"),
     SERVERUTILITIES("serverutilities"),
     THAUMCRAFT("Thaumcraft"),
-    THAUMICEXPLORATION("ThaumicExploration");
+    THAUMICEXPLORATION("ThaumicExploration"),
+    WORLDEDIT("worldedit");
 
     private final TargetModBuilder builder;
 

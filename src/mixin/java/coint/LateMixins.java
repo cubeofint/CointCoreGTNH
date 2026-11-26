@@ -111,6 +111,7 @@ public enum LateMixins implements IMixins {
             "serverutilities.MixinCmdHome",
             "serverutilities.MixinCleanupHub",
             "serverutilities.MixinRanksAccessRecovery",
+            "serverutilities.MixinRanksHubTools",
             "serverutilities.MixinCmdVanishSameDimension",
             "serverutilities.MixinCmdSetHome",
             "serverutilities.MixinServerUtilitiesTeamData",
@@ -138,7 +139,11 @@ public enum LateMixins implements IMixins {
             "thaumcraft.MixinTileArcaneBoreSleep",
             "thaumcraft.MixinTileArcaneBorePowerCache",
             "thaumcraft.MixinTileInfusionMatrixScan",
-            "thaumcraft.MixinEssentiaHandlerSearch"));
+            "thaumcraft.MixinEssentiaHandlerSearch")),
+
+    WORLDEDIT(new MixinBuilder("WorldEdit").addRequiredMod(TargetMod.WORLDEDIT)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("worldedit.MixinForgePlayerHubTools"));
 
     private final MixinBuilder builder;
 
