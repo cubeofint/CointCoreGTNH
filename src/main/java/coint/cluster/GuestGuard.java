@@ -128,6 +128,7 @@ public final class GuestGuard {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onCommand(CommandEvent event) {
+        if (coint.migration.MigrationJoining.command(event)) return;
         if (!(event.sender instanceof EntityPlayerMP player) || !ClusterHomes.isGuest(player)) {
             return;
         }
@@ -135,6 +136,10 @@ public final class GuestGuard {
         if ("migrate-confirm".equals(command) || "cards".equals(command)
             || "teamhistory".equals(command)
             || "adminchat".equals(command)) return;
+        if ("migrate".equals(command)
+            && (event.parameters.length == 0
+                || event.parameters.length == 1 && "ui".equalsIgnoreCase(event.parameters[0]))
+            && coint.migration.MigrationConsent.personalProposal(player)) return;
         if (ClusterComfort.guestCommands(player) && event.parameters.length == 0
             && ("fly".equals(command) || "god".equals(command) || "nv".equals(command))) return;
         if (allowed(event.command)) {

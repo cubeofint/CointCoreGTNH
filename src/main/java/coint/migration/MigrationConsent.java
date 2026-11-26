@@ -48,6 +48,7 @@ public final class MigrationConsent {
         String id, source, target, team, player, sourceBoot;
         String moveId;
         String joinTeam, joinOwner;
+        String statusText;
         String leader;
         boolean leaderAuthorized;
         List<String> members = new ArrayList<>();
@@ -103,12 +104,18 @@ public final class MigrationConsent {
             || r.team == null
             || r.player == null) throw new IOException("Повреждён запрос согласия");
         for (String id : r.members) UUID.fromString(id);
+        // Expired or unauthorized proposals from the former team-leader format are history only.
+        if (r.joinTeam != null && active(r)) {
+            if (r.members.size() != 1 || !r.members.get(0)
+                .equals(r.leader) || r.joinTeam.isEmpty() || r.joinOwner == null)
+                throw new IOException("Повреждён запрос личного вступления");
+            UUID.fromString(r.joinOwner);
+        }
         return r;
     }
 
     private static boolean active(Request r) {
-        return r.joinTeam == null && r.leaderAuthorized
-            && System.currentTimeMillis() < r.expires
+        return r.leaderAuthorized && System.currentTimeMillis() < r.expires
             && ("pending".equals(r.phase) || "checking".equals(r.phase)
                 || "countdown".equals(r.phase)
                 || "drain".equals(r.phase));
@@ -145,7 +152,25 @@ public final class MigrationConsent {
     }
 
     public static void request(ICommandSender sender, ForgePlayer player, String target) {
-        requestJoin(sender, player, target, null, null);
+        try {
+            requestJoin(sender, player, target, null, null);
+        } catch (IOException | RuntimeException e) {
+            sender.addChatMessage(new ChatComponentText("§cЗапрос не создан: " + e.getMessage()));
+        }
+    }
+
+    public static boolean personalProposal(EntityPlayerMP player) {
+        if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning()) return false;
+        try {
+            for (Request r : requests()) if (active(r) && r.joinTeam != null
+                && player.getUniqueID()
+                    .toString()
+                    .equals(r.leader))
+                return true;
+        } catch (IOException | RuntimeException e) {
+            CointCore.LOG.warn("[TeamJoin] Cannot read personal proposal", e);
+        }
+        return false;
     }
 
     public static boolean reopen(EntityPlayerMP player) {
@@ -155,7 +180,7 @@ public final class MigrationConsent {
                     .toString()
                     .equals(r.leader)
                 && !Files.exists(dir(r).resolve(r.leader + ".no"))) {
-                    MigrationNetwork.confirm(player, r.id, r.target);
+                    MigrationNetwork.confirm(player, r.id, r.target, r.joinTeam != null);
                     return true;
                 }
         } catch (IOException e) {
@@ -164,71 +189,85 @@ public final class MigrationConsent {
         return false;
     }
 
-    static void requestJoin(ICommandSender sender, ForgePlayer player, String target, String joinTeam,
-        String joinOwner) {
-        try {
-            if (joinTeam != null) throw new IOException("Перенос отдельного игрока отключён; переносите всю команду");
-            if (sender instanceof EntityPlayerMP actor && !coint.commands.CommandMigrate.allowed(sender)
-                && (!player.hasTeam() || !player.team.isOwner(
-                    Universe.get()
-                        .getPlayer(actor))))
-                throw new IOException("Перенос запускает только лидер своей команды или администратор");
-            if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning()
-                || (!player.hasTeam() && joinTeam == null))
-                throw new IOException("Нужны работающий кластер, миграция и команда SU");
-            if (!target.matches("[A-Za-z0-9_-]{1,64}") || target.equals(ClusterService.nodeId()))
-                throw new IOException("Неверная целевая нода");
-            Request r = new Request();
-            r.id = UUID.randomUUID()
-                .toString();
-            r.source = ClusterService.nodeId();
-            r.sourceBoot = boot;
-            r.target = target;
-            r.team = player.hasTeam() ? player.team.getId() : "unassigned";
-            r.joinTeam = joinTeam;
-            r.joinOwner = joinOwner;
-            r.player = player.getName();
-            r.leader = player.hasTeam() && player.team.getOwner() != null ? player.team.getOwner()
+    static String requestJoin(ICommandSender sender, ForgePlayer player, String target, String joinTeam,
+        String joinOwner) throws IOException {
+        if (player == null) throw new IOException("На исходной ноде нет профиля игрока");
+        if (joinTeam != null) {
+            if (!coint.commands.CommandMigrate.allowed(sender) || !ClusterService.nodeId()
+                .equals(CointConfig.cluster.migrationQuestSourceNode.trim())
+                || !target.equals(CointConfig.cluster.migrationQuestTargetNode.trim())
+                || joinTeam.isEmpty()
+                || joinOwner == null) throw new IOException("Неверное направление вступления по приглашению");
+            UUID.fromString(joinOwner);
+        }
+        if (sender instanceof EntityPlayerMP actor && !coint.commands.CommandMigrate.allowed(sender)
+            && (!player.hasTeam() || !player.team.isOwner(
+                Universe.get()
+                    .getPlayer(actor))))
+            throw new IOException("Перенос запускает только лидер своей команды или администратор");
+        if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning()
+            || (!player.hasTeam() && joinTeam == null))
+            throw new IOException("Нужны работающий кластер, миграция и команда SU");
+        if (!target.matches("[A-Za-z0-9_-]{1,64}") || target.equals(ClusterService.nodeId()))
+            throw new IOException("Неверная целевая нода");
+        Request r = new Request();
+        r.id = UUID.randomUUID()
+            .toString();
+        r.source = ClusterService.nodeId();
+        r.sourceBoot = boot;
+        r.target = target;
+        r.team = player.hasTeam() ? player.team.getId() : "unassigned";
+        r.joinTeam = joinTeam;
+        r.joinOwner = joinOwner;
+        r.player = player.getName();
+        r.leader = joinTeam != null ? player.getId()
+            .toString()
+            : player.hasTeam() && player.team.getOwner() != null ? player.team.getOwner()
                 .getId()
                 .toString() : null;
-            r.leaderAuthorized = true;
-            if (joinTeam == null) r.members.addAll(members(player.team));
-            else r.members.add(
-                player.getId()
-                    .toString());
-            r.expires = System.currentTimeMillis() + 10 * 60_000L;
-            if (joinTeam == null && MigrationExporter.findTeamDimensions(player.team)
-                .isEmpty()) throw new IOException("Нет персоналки команды");
-            for (Request old : requests()) if (active(old)) for (String id : r.members) if (old.members.contains(id)) {
-                EntityPlayerMP leader = MigrationImporter.online(UUID.fromString(old.leader));
-                if (leader != null && "pending".equals(old.phase)) MigrationNetwork.confirm(leader, old.id, old.target);
-                throw new IOException("У команды уже есть запрос " + old.id + "; окно повторно отправлено лидеру");
-            }
-            for (String id : r.members) {
-                String locked = MigrationGuard.loginReason(UUID.fromString(id));
-                if (locked != null) throw new IOException(locked);
-            }
-            Files.createDirectories(dir(r));
-            // Local players are required immediately, even before the next DB heartbeat.
-            for (Object o : MinecraftServer.getServer()
-                .getConfigurationManager().playerEntityList) {
-                EntityPlayerMP p = (EntityPlayerMP) o;
-                if (r.members.contains(
-                    p.getUniqueID()
-                        .toString()))
-                    mark(
-                        r,
-                        p.getUniqueID()
-                            .toString(),
-                        "required");
-            }
-            save(r);
-            sender.addChatMessage(
-                new ChatComponentText(
-                    "§eЗапрос " + r.id + " создан. Ожидается подтверждение лидера; затем проверка и предупреждение."));
-        } catch (IOException | RuntimeException e) {
-            sender.addChatMessage(new ChatComponentText("§cЗапрос не создан: " + e.getMessage()));
+        r.leaderAuthorized = true;
+        if (joinTeam == null) r.members.addAll(members(player.team));
+        else r.members.add(
+            player.getId()
+                .toString());
+        r.expires = System.currentTimeMillis() + 10 * 60_000L;
+        if (joinTeam == null && MigrationExporter.findTeamDimensions(player.team)
+            .isEmpty()) throw new IOException("Нет персоналки команды");
+        for (Request old : requests()) if (active(old)) for (String id : r.members) if (old.members.contains(id)) {
+            if (joinTeam != null && joinTeam.equals(old.joinTeam)
+                && joinOwner.equals(old.joinOwner)
+                && r.members.equals(old.members)) return old.id;
+            EntityPlayerMP leader = MigrationImporter.online(UUID.fromString(old.leader));
+            if (leader != null && "pending".equals(old.phase))
+                MigrationNetwork.confirm(leader, old.id, old.target, old.joinTeam != null);
+            throw new IOException("У команды уже есть запрос " + old.id + "; окно повторно отправлено лидеру");
         }
+        for (String id : r.members) {
+            String locked = MigrationGuard.loginReason(UUID.fromString(id));
+            if (locked != null) throw new IOException(locked);
+        }
+        Files.createDirectories(dir(r));
+        // Local players are required immediately, even before the next DB heartbeat.
+        for (Object o : MinecraftServer.getServer()
+            .getConfigurationManager().playerEntityList) {
+            EntityPlayerMP p = (EntityPlayerMP) o;
+            if (r.members.contains(
+                p.getUniqueID()
+                    .toString()))
+                mark(
+                    r,
+                    p.getUniqueID()
+                        .toString(),
+                    "required");
+        }
+        save(r);
+        sender.addChatMessage(
+            new ChatComponentText(
+                "§eЗапрос " + r.id
+                    + " создан. Ожидается подтверждение "
+                    + (joinTeam == null ? "лидера" : "вступающего игрока")
+                    + "; затем проверка и предупреждение."));
+        return r.id;
     }
 
     public static void answer(EntityPlayerMP player, String id, boolean yes) throws IOException {
@@ -242,7 +281,7 @@ public final class MigrationConsent {
             .toString();
         if (!active(r) || !r.members.contains(uuid) || "drain".equals(r.phase))
             throw new IOException("Запрос недоступен");
-        if (!uuid.equals(r.leader)) throw new IOException("Отменить перенос может только лидер команды");
+        if (!uuid.equals(r.leader)) throw new IOException("Ответить может только подтверждающий этот перенос игрок");
         mark(r, uuid, "required");
         mark(r, uuid, yes ? "yes" : "no");
         player.addChatMessage(
@@ -256,7 +295,7 @@ public final class MigrationConsent {
         try {
             for (Request r : requests()) if (active(r) && r.members.contains(player.toString())) {
                 if ("countdown".equals(r.phase) || "drain".equals(r.phase))
-                    return "Команда готовится к переносу. Дождитесь завершения.";
+                    return "Идёт подготовка к переносу данных. Дождитесь завершения.";
                 mark(r, player.toString(), "required");
             }
         } catch (IOException | RuntimeException e) {
@@ -281,6 +320,12 @@ public final class MigrationConsent {
     }
 
     private static void announce(Request r, String text) {
+        r.statusText = text;
+        try {
+            save(r);
+        } catch (IOException e) {
+            CointCore.LOG.error("[MigrationConsent] Cannot save status {}", r.id, e);
+        }
         CointCore.LOG.info("[MigrationConsent] {}: {}", r.id, text);
         for (String uuid : r.members) {
             EntityPlayerMP p = MigrationImporter.online(UUID.fromString(uuid));
@@ -301,6 +346,8 @@ public final class MigrationConsent {
             for (Request r : all) for (String uuid : r.members) {
                 EntityPlayerMP p = MigrationImporter.online(UUID.fromString(uuid));
                 if (p == null) continue;
+                if (r.joinTeam != null && r.statusText != null && notices.add(r.id + uuid + r.statusText))
+                    p.addChatMessage(new ChatComponentText(r.statusText));
                 if (!active(r)) {
                     if (!"dispatched".equals(r.phase) && notices.add(r.id + uuid + ":closed")) p.addChatMessage(
                         new ChatComponentText(
@@ -309,22 +356,26 @@ public final class MigrationConsent {
                 }
                 mark(r, uuid, "required");
                 if ("pending".equals(r.phase) && notices.add(r.id + uuid + ":" + r.phase)) {
-                    if (uuid.equals(r.leader)) MigrationNetwork.confirm(p, r.id, r.target);
+                    if (uuid.equals(r.leader)) MigrationNetwork.confirm(p, r.id, r.target, r.joinTeam != null);
                     p.addChatMessage(
                         new ChatComponentText(
-                            "§eПредложен перенос всей команды: " + r.source
+                            (r.joinTeam == null ? "§eПредложен перенос всей команды: "
+                                : "§eДля вступления в команду переносим только ваши личные данные: ") + r.source
                                 + " → "
                                 + r.target
-                                + ". Ожидаем подтверждение лидера. Повторно открыть: /migrate ui"));
+                                + (r.joinTeam == null ? ". Ожидаем подтверждение лидера. "
+                                    : ". База прежней команды остаётся на исходном сервере. ")
+                                + "Повторно открыть: /migrate ui"));
                 }
                 if ("countdown".equals(r.phase) && notices.add(r.id + uuid + ":" + r.countdown)) p.addChatMessage(
                     new ChatComponentText(
-                        "§eПеренос всей команды. Отключение для сохранения данных через 15 секунд. Лидер может отменить: /migrate-confirm "
+                        (r.joinTeam == null ? "§eПеренос всей команды. " : "§eПеренос ваших личных данных. ")
+                            + "Отключение для сохранения данных через 15 секунд. Отменить: /migrate-confirm "
                             + r.id
                             + " no"));
                 if ("drain".equals(r.phase) && agreed(r, java.util.Collections.emptySet()))
                     p.playerNetServerHandler.kickPlayerFromServer(
-                        "Перенос команды на " + r.target + ". Дождитесь завершения и подключитесь снова.");
+                        "Перенос данных на " + r.target + ". Дождитесь завершения и подключитесь снова.");
             }
             List<Request> owned = new ArrayList<>();
             for (Request r : all) if (active(r) && r.source.equals(ClusterService.nodeId())) owned.add(r);
@@ -366,12 +417,11 @@ public final class MigrationConsent {
                     boolean changed = r.joinTeam == null
                         ? team == null || !team.isValid() || !members(team).equals(new HashSet<>(r.members))
                         : joining == null || !(joining.hasTeam() ? joining.team.getId() : "unassigned").equals(r.team);
-                    if (changed || team == null
-                        || team.getOwner() == null
+                    if (changed || r.joinTeam == null && (team == null || team.getOwner() == null
                         || !team.getOwner()
                             .getId()
                             .toString()
-                            .equals(r.leader)) {
+                            .equals(r.leader))) {
                         r.phase = "cancelled";
                         save(r);
                         announce(r, "§cПеренос отменён: изменился состав команды.");
@@ -395,6 +445,8 @@ public final class MigrationConsent {
                             Universe.get()
                                 .getPlayer(r.player),
                             r.target,
+                            r.joinTeam,
+                            r.joinOwner,
                             report -> {
                                 try {
                                     Request current = read(dir(r).resolve("request.json"));

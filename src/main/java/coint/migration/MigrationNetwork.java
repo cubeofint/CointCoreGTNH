@@ -39,30 +39,42 @@ public final class MigrationNetwork {
     }
 
     public static void confirm(EntityPlayerMP player, String id, String target) {
-        if (initialized) CHANNEL.sendTo(new Confirm(id, target), player);
+        confirm(player, id, target, false);
+    }
+
+    public static void confirm(EntityPlayerMP player, String id, String target, boolean joining) {
+        if (initialized) CHANNEL.sendTo(new Confirm(id, target, joining), player);
     }
 
     public static class Confirm implements IMessage {
 
         public String id, target;
+        public boolean joining;
 
         public Confirm() {}
 
         public Confirm(String id, String target) {
+            this(id, target, false);
+        }
+
+        public Confirm(String id, String target, boolean joining) {
             this.id = id;
             this.target = target;
+            this.joining = joining;
         }
 
         @Override
         public void toBytes(ByteBuf buf) {
             ByteBufUtils.writeUTF8String(buf, id);
             ByteBufUtils.writeUTF8String(buf, target);
+            buf.writeBoolean(joining);
         }
 
         @Override
         public void fromBytes(ByteBuf buf) {
             id = ByteBufUtils.readUTF8String(buf);
             target = ByteBufUtils.readUTF8String(buf);
+            joining = buf.isReadable() && buf.readBoolean();
             java.util.UUID.fromString(id);
             if (!target.matches("[A-Za-z0-9_-]{1,64}")) throw new IllegalArgumentException("Invalid destination");
         }

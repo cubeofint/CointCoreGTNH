@@ -31,7 +31,14 @@ public final class GuiMigrationConfirm extends GuiScreen {
     public void initGui() {
         buttonList.clear();
         int w = Math.min(140, (width - 24) / 2);
-        buttonList.add(new GuiButton(0, width / 2 - w - 4, height / 2 + 42, w, 20, "Перенести команду"));
+        buttonList.add(
+            new GuiButton(
+                0,
+                width / 2 - w - 4,
+                height / 2 + 42,
+                w,
+                20,
+                request.joining ? "Вступить и перенести" : "Перенести команду"));
         buttonList.add(new GuiButton(1, width / 2 + 4, height / 2 + 42, w, 20, "Позже"));
     }
 
@@ -63,13 +70,15 @@ public final class GuiMigrationConfirm extends GuiScreen {
         drawDefaultBackground();
         drawCenteredString(
             fontRendererObj,
-            "Переход команды на " + request.target,
+            (request.joining ? "Вступление в команду на " : "Переход команды на ") + request.target,
             width / 2,
             height / 2 - 65,
             0xFFFFFF);
         int w = Math.min(400, width - 24);
         fontRendererObj.drawSplitString(
-            "Будет перенесена вся команда и её база. После проверки всех участников предупредят и отключат через 15 секунд. После завершения подключитесь снова.",
+            request.joining
+                ? "Будут перенесены только ваши личные данные. База и приваты прежней команды остаются на исходном сервере. После проверки вас предупредят и отключат через 15 секунд. После завершения подключитесь снова."
+                : "Будет перенесена вся команда и её база. После проверки всех участников предупредят и отключат через 15 секунд. После завершения подключитесь снова.",
             (width - w) / 2,
             height / 2 - 42,
             w,

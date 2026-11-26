@@ -22,6 +22,11 @@ public final class ClusterMoveHomes {
             for (ClusterDatabase.NodeRow node : db.nodes(CointConfig.cluster.nodeTimeoutSeconds))
                 if (node.id.equals(move.target) && node.online) online = true;
             if (!online) issues.add("Целевая нода недоступна: " + move.target);
+            try {
+                checkJoinOwner(db.connection(), move);
+            } catch (SQLException e) {
+                issues.add(e.getMessage());
+            }
             for (int i = 0; i < move.players.size(); i++) try (PreparedStatement p = db.connection()
                 .prepareStatement("SELECT node_id FROM cluster_homes WHERE uuid=?")) {
                     p.setString(1, move.players.get(i));
@@ -45,6 +50,7 @@ public final class ClusterMoveHomes {
                 if (node.id.equals(move.target) && node.online) online = true;
             }
             if (!online) throw new SQLException("Целевой сервер недоступен: " + move.target);
+            checkJoinOwner(db.connection(), move);
             for (int i = 0; i < move.players.size(); i++) {
                 String home = db.home(move.players.get(i), move.names.get(i), null);
                 if (home != null && !home.equals(move.source))
@@ -67,6 +73,7 @@ public final class ClusterMoveHomes {
             Connection c = db.connection();
             c.setAutoCommit(false);
             try {
+                checkJoinOwner(c, move);
                 for (int i = 0; i < move.players.size(); i++) {
                     String uuid = move.players.get(i);
                     try (PreparedStatement p = c
@@ -107,5 +114,16 @@ public final class ClusterMoveHomes {
 
     public static void refresh(MoveRecord move) {
         for (String uuid : move.players) ClusterHomes.homeChanged(uuid, move.target);
+    }
+
+    private static void checkJoinOwner(Connection c, MoveRecord move) throws SQLException {
+        if (!move.joining()) return;
+        try (PreparedStatement p = c.prepareStatement("SELECT node_id FROM cluster_homes WHERE uuid=?")) {
+            p.setString(1, move.joinOwner);
+            try (ResultSet r = p.executeQuery()) {
+                if (!r.next() || !move.target.equals(r.getString(1)))
+                    throw new SQLException("Владелец целевой команды больше не живёт на " + move.target);
+            }
+        }
     }
 }

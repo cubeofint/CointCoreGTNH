@@ -79,6 +79,15 @@ public final class ClusterHomes {
             error -> coint.CointCore.LOG.warn("[ClusterHomes] Lookup failed: {}", error));
     }
 
+    /** Read both authoritative homes in one queued lookup; final move checks validate them again. */
+    public static boolean lookupPair(UUID id, String name, UUID owner, String ownerName,
+        java.util.function.Consumer<String[]> result, java.util.function.Consumer<String> failed) {
+        return ClusterService.query(
+            db -> new String[] { db.home(id.toString(), name, null), db.home(owner.toString(), ownerName, null) },
+            result,
+            failed);
+    }
+
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.player instanceof EntityPlayerMP player) || !ClusterService.isRunning()) {

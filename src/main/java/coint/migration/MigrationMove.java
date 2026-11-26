@@ -63,6 +63,7 @@ public final class MigrationMove {
     public static void reset() {
         MigrationBatch.reset();
         MigrationConsent.reset();
+        MigrationJoining.reset();
         generation++;
         polling = false;
         active = awaitingExport = null;

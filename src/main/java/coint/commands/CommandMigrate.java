@@ -59,6 +59,7 @@ public class CommandMigrate extends CommandBase {
     public static boolean canOpen(ICommandSender sender) {
         if (allowed(sender)) return true;
         if (!(sender instanceof EntityPlayerMP player) || !Universe.loaded()) return false;
+        if (coint.migration.MigrationConsent.personalProposal(player)) return true;
         ForgePlayer fp = Universe.get()
             .getPlayer(player);
         return fp != null && fp.hasTeam() && fp.team.isOwner(fp);

@@ -713,6 +713,7 @@ public final class MigrationImporter {
                     player.markDirty();
                 }
                 serverutils.lib.data.ForgePlayer player = universe.getPlayer(id);
+                ForgeTeam destinationTeam = player.team;
                 File su = new File(
                     sourceRoot,
                     "serverutilities/players/" + operation.move.names.get(i)
@@ -720,6 +721,8 @@ public final class MigrationImporter {
                 if (su.isFile()) {
                     try (InputStream input = Files.newInputStream(su.toPath())) {
                         player.deserializeNBT(CompressedStreamTools.readCompressed(input));
+                        // A source team ID may refer to an unrelated destination team. Never detach that team.
+                        if (operation.move.joining()) player.team = destinationTeam;
                     } catch (IOException e) {
                         throw new IOException("Не удалось восстановить данные SU игрока", e);
                     }

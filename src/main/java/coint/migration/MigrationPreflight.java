@@ -111,8 +111,14 @@ public final class MigrationPreflight {
     }
 
     public static void start(ForgePlayer player, String target, Consumer<Report> callback) throws IOException {
-        if (!ClusterService.isRunning() || !CointConfig.cluster.migrationEnabled || !player.hasTeam())
-            throw new IOException("Нужны кластер, миграция и команда SU");
+        start(player, target, null, null, callback);
+    }
+
+    static void start(ForgePlayer player, String target, String joinTeam, String joinOwner, Consumer<Report> callback)
+        throws IOException {
+        if (!ClusterService.isRunning() || !CointConfig.cluster.migrationEnabled
+            || player == null
+            || !player.hasTeam() && joinTeam == null) throw new IOException("Нужны кластер, миграция и команда SU");
         if (!target.matches("[A-Za-z0-9_-]{1,64}") || target.equals(ClusterService.nodeId()))
             throw new IOException("Неверная целевая нода");
         MoveRecord move = new MoveRecord();
@@ -121,23 +127,29 @@ public final class MigrationPreflight {
         move.source = ClusterService.nodeId();
         move.target = target;
         move.actor = player.getName();
-        move.team = player.team.getId();
-        for (ForgePlayer member : player.team.getMembers()) {
+        move.team = player.hasTeam() ? player.team.getId() : "unassigned";
+        move.joinTeam = joinTeam;
+        move.joinOwner = joinOwner;
+        for (ForgePlayer member : move.joining() ? java.util.Collections.singletonList(player)
+            : player.team.getMembers()) {
             move.players.add(
                 member.getId()
                     .toString());
             move.names.add(member.getName());
         }
-        move.dimensions.addAll(MigrationExporter.findTeamDimensions(player.team));
-        move.stations.addAll(MigrationStations.discover(player.team));
-        for (MigrationStations.Station station : move.stations) {
-            if (move.dimensions.contains(station.id))
-                throw new IOException("Конфликт персоналки и станции " + station.id);
-            move.dimensions.add(station.id);
+        if (!move.joining()) {
+            move.dimensions.addAll(MigrationExporter.findTeamDimensions(player.team));
+            move.stations.addAll(MigrationStations.discover(player.team));
+            for (MigrationStations.Station station : move.stations) {
+                if (move.dimensions.contains(station.id))
+                    throw new IOException("Конфликт персоналки и станции " + station.id);
+                move.dimensions.add(station.id);
+            }
+            if (ClaimedChunks.instance == null) throw new IOException("Приваты SU недоступны");
+            for (ClaimedChunk c : ClaimedChunks.instance.getTeamChunks(player.team, OptionalInt.empty(), true))
+                move.claims.add(new int[] { c.getPos().dim, c.getPos().posX, c.getPos().posZ, c.isLoaded() ? 1 : 0 });
         }
-        if (ClaimedChunks.instance == null) throw new IOException("Приваты SU недоступны");
-        for (ClaimedChunk c : ClaimedChunks.instance.getTeamChunks(player.team, OptionalInt.empty(), true))
-            move.claims.add(new int[] { c.getPos().dim, c.getPos().posX, c.getPos().posZ, c.isLoaded() ? 1 : 0 });
+        if (move.joining()) move.validate();
         Request request = new Request();
         request.move = move;
         request.ids = MigrationData.idMap();
@@ -159,7 +171,7 @@ public final class MigrationPreflight {
         String node = ClusterService.nodeId() + ": ";
         if (!CointConfig.cluster.migrationEnabled) errors.add(node + "миграция отключена");
         if (MigrationMove.busy()) errors.add(node + "уже выполняется другая миграция");
-        if (move.dimensions.isEmpty()) errors.add(node + "у команды нет доступной персоналки");
+        if (!move.joining() && move.dimensions.isEmpty()) errors.add(node + "у команды нет доступной персоналки");
         try {
             MigrationGuard.checkConflict(move);
         } catch (Exception e) {
@@ -167,6 +179,11 @@ public final class MigrationPreflight {
         }
         try {
             MigrationGlobalData.preflight(move);
+        } catch (Exception e) {
+            errors.add(node + e.getMessage());
+        }
+        if (move.joining()) try {
+            MigrationChunks.checkClaims(move, target);
         } catch (Exception e) {
             errors.add(node + e.getMessage());
         }
@@ -261,7 +278,7 @@ public final class MigrationPreflight {
                             + " рядом с переносимыми чанками измерения "
                             + c[0]);
         }
-        if (target) {
+        if (target && !move.joining()) {
             for (String id : move.players) {
                 ForgePlayer p = Universe.get()
                     .getPlayer(UUID.fromString(id));

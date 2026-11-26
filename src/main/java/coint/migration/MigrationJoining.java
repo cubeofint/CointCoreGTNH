@@ -6,12 +6,17 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
+import net.minecraftforge.event.CommandEvent;
 
 import com.google.gson.Gson;
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 
 import coint.CointConfig;
 import coint.CointCore;
@@ -19,23 +24,42 @@ import coint.cluster.ClusterHomes;
 import coint.cluster.ClusterService;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
-import serverutils.events.team.ForgeTeamPlayerJoinedEvent;
+import serverutils.ServerUtilitiesGameRules;
+import serverutils.command.team.CmdJoin;
+import serverutils.command.team.CmdTeam;
+import serverutils.lib.EnumTeamStatus;
+import serverutils.lib.command.CommandUtils;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.data.ForgeTeam;
 import serverutils.lib.data.Universe;
 
-/** A legitimate SU join on the destination requests a personal move from the authoritative home. */
+/** Accept an invitation on Endgame without changing membership before the personal move succeeds. */
+@EventBusSubscriber
 public final class MigrationJoining {
 
     private static final Gson JSON = new Gson();
     private static long next;
-    private static boolean installing;
+    private static long generation;
+    private static final Set<UUID> lookingUp = new HashSet<>();
+    private static final Set<String> notices = new HashSet<>();
 
     private MigrationJoining() {}
 
     private static final class Intent {
 
-        String player, source, target, team, owner;
+        String id, player, source, target, team, owner, requestId, error;
+        long expires;
+    }
+
+    public static void reset() {
+        generation++;
+        next = 0;
+        lookingUp.clear();
+        notices.clear();
+    }
+
+    private static void tell(EntityPlayerMP player, String text) {
+        if (player.playerNetServerHandler != null && !player.isDead) player.addChatMessage(new ChatComponentText(text));
     }
 
     private static Path directory() {
@@ -44,52 +68,141 @@ public final class MigrationJoining {
             .resolve("team-join-requests");
     }
 
-    @SubscribeEvent
-    public static void joined(ForgeTeamPlayerJoinedEvent event) {
-        if (!installing) request(event.getPlayer());
+    /** Both SU's team selector and typed /team join go through Forge's command event. */
+    public static boolean command(CommandEvent event) {
+        if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning()
+            || !Universe.loaded()
+            || !(event.sender instanceof EntityPlayerMP actor)
+            || !ClusterService.nodeId()
+                .equals(CointConfig.cluster.migrationQuestTargetNode.trim()))
+            return false;
+        String teamId;
+        if (event.command instanceof CmdTeam && event.parameters.length == 2
+            && "join".equalsIgnoreCase(event.parameters[0])) teamId = event.parameters[1];
+        else if (event.command instanceof CmdJoin && event.parameters.length == 1) teamId = event.parameters[0];
+        else return false;
+        String known = ClusterHomes.homeOf(actor.getUniqueID());
+        if (ClusterService.nodeId()
+            .equals(known)) return false;
+        event.setCanceled(true);
+        if (!lookingUp.add(actor.getUniqueID())) {
+            tell(actor, "§eПроверяем приглашение. Дождитесь ответа.");
+            return true;
+        }
+        long session = generation;
+        try {
+            if (!ServerUtilitiesGameRules.canJoinTeam(actor.worldObj))
+                throw new IOException("Вступление в команды отключено на сервере");
+            ForgePlayer player = Universe.get()
+                .getPlayer(actor);
+            ForgeTeam team = CommandUtils.getTeam(actor, teamId);
+            if (player == null || team == null || !team.isValid() || team.getOwner() == null || !invited(team, player))
+                throw new IOException("Нет действующего приглашения в эту команду");
+            ForgePlayer owner = team.getOwner();
+            if (!ClusterHomes.lookupPair(player.getId(), player.getName(), owner.getId(), owner.getName(), homes -> {
+                if (session != generation) return;
+                lookingUp.remove(actor.getUniqueID());
+                try {
+                    if (!player.isOnline() || player.getPlayer() != actor) return;
+                    if (!team.isValid() || !invited(team, player) || team.getOwner() != owner)
+                        throw new IOException("Приглашение или владелец команды изменились");
+                    if (ClusterService.nodeId()
+                        .equals(homes[0])) {
+                        new CmdJoin().processCommand(actor, new String[] { team.getId() });
+                        return;
+                    }
+                    if (!CointConfig.cluster.migrationQuestSourceNode.trim()
+                        .equals(homes[0])
+                        || !ClusterService.nodeId()
+                            .equals(homes[1]))
+                        throw new IOException("Вступление с переносом доступно из Alpha в команду Endgame");
+                    if (MigrationConsent.personalProposal(actor) && MigrationConsent.reopen(actor)) return;
+                    enqueue(player, team, homes[0]);
+                    tell(
+                        actor,
+                        "§eПриглашение принято для проверки. Подтвердите перенос личных данных с " + homes[0]
+                            + ". База прежней команды остаётся там. Повторно открыть: /migrate ui");
+                } catch (IOException | RuntimeException e) {
+                    tell(actor, "§cВступление не начато: " + e.getMessage());
+                }
+            }, error -> {
+                if (session != generation) return;
+                lookingUp.remove(actor.getUniqueID());
+                tell(actor, "§cНе удалось проверить домашний сервер. Повторите приглашение позже.");
+            })) throw new IOException("Кластер выключен");
+        } catch (IOException | RuntimeException e) {
+            lookingUp.remove(actor.getUniqueID());
+            tell(actor, "§cВступление не начато: " + e.getMessage());
+        }
+        return true;
     }
 
-    public static void request(ForgePlayer player) {
-        if (!CointConfig.cluster.migrationEnabled || !ClusterService.isRunning()
-            || player == null
-            || !player.hasTeam()
-            || player.team.getOwner() == null
-            || !player.isOnline()) return;
-        ForgeTeam team = player.team;
-        ForgePlayer owner = team.getOwner();
+    private static void enqueue(ForgePlayer player, ForgeTeam team, String home) throws IOException {
         String node = ClusterService.nodeId();
-        ClusterHomes.lookup(player.getId(), player.getName(), home -> {
-            if (home == null || home.equals(node) || !team.isMember(player)) return;
-            ClusterHomes.lookup(owner.getId(), owner.getName(), ownerHome -> {
-                if (!node.equals(ownerHome) || !team.isMember(player) || !owner.equals(team.getOwner())) return;
-                try {
-                    Intent r = new Intent();
-                    r.player = player.getId()
-                        .toString();
-                    r.source = home;
-                    r.target = node;
-                    r.team = team.getId();
-                    r.owner = owner.getId()
-                        .toString();
-                    Files.createDirectories(directory());
-                    String id = UUID.randomUUID()
-                        .toString();
-                    Path temp = directory().resolve(id + ".tmp");
-                    Files.write(
-                        temp,
-                        JSON.toJson(r)
-                            .getBytes(StandardCharsets.UTF_8));
-                    Files.move(temp, directory().resolve(id + ".json"), StandardCopyOption.ATOMIC_MOVE);
-                    if (player.isOnline()) player.getPlayer()
-                        .addChatMessage(
-                            new ChatComponentText(
-                                "§eДля вступления сюда нужно перенести ваши личные данные с " + home
-                                    + ". Дождитесь запроса согласия. Старая база остаётся прежней команде."));
-                } catch (IOException e) {
-                    CointCore.LOG.error("[TeamJoin] Cannot request player move", e);
-                }
-            });
-        });
+        for (Intent old : intents()) if (old.player.equals(
+            player.getId()
+                .toString())
+            && old.expires > System.currentTimeMillis()
+            && old.error == null
+            && old.requestId == null) return;
+        Intent r = new Intent();
+        r.id = UUID.randomUUID()
+            .toString();
+        r.player = player.getId()
+            .toString();
+        r.source = home;
+        r.target = node;
+        r.team = team.getId();
+        r.owner = team.getOwner()
+            .getId()
+            .toString();
+        r.expires = System.currentTimeMillis() + 10 * 60_000L;
+        save(r);
+    }
+
+    private static void save(Intent r) throws IOException {
+        Files.createDirectories(directory());
+        Path temp = directory().resolve(r.id + ".tmp");
+        Files.write(
+            temp,
+            JSON.toJson(r)
+                .getBytes(StandardCharsets.UTF_8));
+        Files.move(
+            temp,
+            directory().resolve(r.id + ".json"),
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private static java.util.List<Intent> intents() throws IOException {
+        java.util.List<Intent> result = new java.util.ArrayList<>();
+        if (!Files.isDirectory(directory())) return result;
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(directory(), "*.json")) {
+            for (Path file : files) {
+                Intent r = JSON.fromJson(new String(Files.readAllBytes(file), StandardCharsets.UTF_8), Intent.class);
+                // Older disabled joining requests did not have an expiry or an authenticated invitation ID.
+                if (r == null || r.id == null || r.expires <= System.currentTimeMillis()) continue;
+                if (!UUID.fromString(r.id)
+                    .toString()
+                    .equals(r.id)
+                    || !file.getFileName()
+                        .toString()
+                        .equals(r.id + ".json")
+                    || r.player == null
+                    || r.owner == null
+                    || r.team == null
+                    || r.team.isEmpty()
+                    || !CointConfig.cluster.migrationQuestSourceNode.trim()
+                        .equals(r.source)
+                    || !CointConfig.cluster.migrationQuestTargetNode.trim()
+                        .equals(r.target))
+                    throw new IOException("Повреждён запрос вступления " + file.getFileName());
+                UUID.fromString(r.player);
+                UUID.fromString(r.owner);
+                result.add(r);
+            }
+        }
+        return result;
     }
 
     @SubscribeEvent
@@ -99,21 +212,29 @@ public final class MigrationJoining {
             || !Universe.loaded()
             || System.currentTimeMillis() < next) return;
         next = System.currentTimeMillis() + 3000;
-        if (!Files.isDirectory(directory())) return;
-        try (DirectoryStream<Path> files = Files.newDirectoryStream(directory(), "*.json")) {
-            for (Path file : files) {
-                Intent r = JSON.fromJson(new String(Files.readAllBytes(file), StandardCharsets.UTF_8), Intent.class);
-                if (!ClusterService.nodeId()
-                    .equals(r.source)) continue;
-                ForgePlayer player = Universe.get()
-                    .getPlayer(UUID.fromString(r.player));
-                // Consume before requesting: restart must never create a second move silently.
-                Files.move(file, file.resolveSibling(file.getFileName() + ".handled"), StandardCopyOption.ATOMIC_MOVE);
-                if (player == null) {
-                    CointCore.LOG.error("[TeamJoin] Source has no profile {}", r.player);
+        try {
+            for (Intent r : intents()) {
+                if (r.expires < System.currentTimeMillis()) continue;
+                if (r.error != null) {
+                    EntityPlayerMP actor = MigrationImporter.online(UUID.fromString(r.player));
+                    if (actor != null && notices.add(r.id)) tell(actor, "§cВступление не начато: " + r.error);
                     continue;
                 }
-                MigrationConsent.requestJoin(MinecraftServer.getServer(), player, r.target, r.team, r.owner);
+                if (!ClusterService.nodeId()
+                    .equals(r.source) || r.requestId != null) continue;
+                ForgePlayer player = Universe.get()
+                    .getPlayer(UUID.fromString(r.player));
+                if (player == null) {
+                    r.error = "На исходной ноде нет профиля игрока";
+                } else {
+                    try {
+                        r.requestId = MigrationConsent
+                            .requestJoin(MinecraftServer.getServer(), player, r.target, r.team, r.owner);
+                    } catch (IOException e) {
+                        r.error = e.getMessage();
+                    }
+                }
+                save(r);
             }
         } catch (IOException | RuntimeException e) {
             next = System.currentTimeMillis() + 30_000;
@@ -125,9 +246,16 @@ public final class MigrationJoining {
         ForgeTeam team = target(move);
         ForgePlayer player = Universe.get()
             .getPlayer(UUID.fromString(move.players.get(0)));
-        if (player == null || !(team.isMember(player) || team.isInvited(player)))
+        if (player == null || !(team.isMember(player) || invited(team, player)))
             throw new IOException("Приглашение/членство в целевой команде отозвано");
+        if (player.hasTeam() && !team.equalsTeam(player.team))
+            throw new IOException("На целевой ноде игрок уже состоит в другой команде: " + player.getName());
         return team;
+    }
+
+    private static boolean invited(ForgeTeam team, ForgePlayer player) {
+        // Free-to-join teams are not an invitation to migrate personal data to another node.
+        return team.isInvited(player) && team.players.get(player) == EnumTeamStatus.INVITED;
     }
 
     private static ForgeTeam target(MoveRecord move) throws IOException {
@@ -144,24 +272,21 @@ public final class MigrationJoining {
     }
 
     static void install(MoveRecord move) throws IOException {
-        ForgeTeam team = target(move);
+        ForgeTeam team = checkTarget(move);
         ForgePlayer player = Universe.get()
             .getPlayer(UUID.fromString(move.players.get(0)));
         if (player == null) throw new IOException("Нет импортированного профиля игрока");
-        installing = true;
-        try {
+        if (!team.isMember(player)) {
             detach(player);
-            team.setStatus(player, serverutils.lib.EnumTeamStatus.INVITED);
+            team.setStatus(player, EnumTeamStatus.INVITED);
             if (!team.addMember(player, false)) throw new IOException("Не удалось включить игрока в целевую команду");
-            if (cpw.mods.fml.common.Loader.isModLoaded("betterquesting")) QuestData.joinParty(
-                player.getId(),
-                team.getOwner()
-                    .getId());
-            player.markDirty();
-            team.markDirty();
-        } finally {
-            installing = false;
         }
+        if (cpw.mods.fml.common.Loader.isModLoaded("betterquesting")) QuestData.joinParty(
+            player.getId(),
+            team.getOwner()
+                .getId());
+        player.markDirty();
+        team.markDirty();
     }
 
     static void retireMember(MoveRecord move) throws IOException {
@@ -177,17 +302,21 @@ public final class MigrationJoining {
         if (!player.hasTeam()) return;
         ForgeTeam old = player.team;
         if (old.isOwner(player)) {
-            old.owner = old.getMembers()
+            ForgePlayer successor = old.getMembers()
                 .stream()
                 .filter(
                     p -> !p.getId()
                         .equals(player.getId()))
                 .findFirst()
                 .orElse(null);
+            // SU requires a real owner for a player team to remain valid, including after a restart.
+            // Keep the retired source profile as the owner if nobody remains to take over the base.
+            if (successor == null) return;
+            old.owner = successor;
         }
         player.team = Universe.get()
             .getTeam("");
-        old.setStatus(player, serverutils.lib.EnumTeamStatus.NONE);
+        old.setStatus(player, EnumTeamStatus.NONE);
         old.clearCache();
         old.markDirty();
         player.clearCache();
