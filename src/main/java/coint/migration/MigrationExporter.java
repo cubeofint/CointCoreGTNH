@@ -293,6 +293,7 @@ public final class MigrationExporter {
                 .isFile()) manifest.put("vending", 1);
             MigrationBackpacks.players(staging, worldName, playerInfo);
             manifest.put("backpacks", 1);
+            if (MigrationCosmetics.snapshot(staging, worldName, playerInfo)) manifest.put(MigrationCosmetics.KEY, 1);
             manifest.put("personalDimensions", dimInfo);
             manifest.put("files", files.size());
             manifest.put("missing", missing);
@@ -346,6 +347,7 @@ public final class MigrationExporter {
                 }
                 MigrationBackpacks.snapshot(staging, worldName);
                 MigrationBackpacks.retain(staging, worldName, move);
+                MigrationCosmetics.retain(staging, worldName, playerInfo, move);
                 zipDirectory(staging.toPath(), zip, session);
                 complete = true;
                 result = "§aАрхив готов: §f" + zip.getAbsolutePath()

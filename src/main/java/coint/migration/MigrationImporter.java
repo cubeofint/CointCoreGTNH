@@ -539,6 +539,7 @@ public final class MigrationImporter {
 
         // 2. Files. Whatever is replaced goes to migrations/replaced/<stamp>/.
         try {
+            MigrationCosmetics.check(staging, manifest);
             MigrationBackpacks.check(staging, manifest);
             MigrationVending.check(staging, manifest);
         } catch (IOException e) {
@@ -598,6 +599,7 @@ public final class MigrationImporter {
                     move(file, new File(worldDir, rel), new File(replaced, rel));
                 }
             }
+            MigrationCosmetics.installed(manifest);
         } catch (IOException e) {
             CointCore.LOG.error("[Migrate] Moving files of {} failed", zip.getName(), e);
             return "ошибка при раскладке файлов (" + e.getMessage()
@@ -805,6 +807,7 @@ public final class MigrationImporter {
     static List<File> playerFiles(File root, String uuid, String name) {
         List<File> files = new ArrayList<>();
         files.add(new File(root, "playerdata/" + uuid + ".dat"));
+        files.add(new File(root, "playerdata/" + uuid + ".cosarmor"));
         File[] mod = new File(root, "playerdata").listFiles(
             (d, n) -> n.equalsIgnoreCase(name + ".thaum") || n.equalsIgnoreCase(name + ".thaumback")
                 || n.equalsIgnoreCase(name + ".baub")

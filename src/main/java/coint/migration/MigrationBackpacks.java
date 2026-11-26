@@ -63,7 +63,7 @@ final class MigrationBackpacks {
                         region.close();
                     }
                 } else if ((relative.startsWith(world + "/playerdata/")
-                    && (relative.endsWith(".dat") || relative.endsWith(".baub")))
+                    && (relative.endsWith(".dat") || relative.endsWith(".baub") || relative.endsWith(".cosarmor")))
                     || relative.startsWith(world + "/backpacks/player/")
                     || relative.equals(MigrationGlobalData.FILE)
                     || relative.startsWith("cointcore-migration/chunks/")) {
