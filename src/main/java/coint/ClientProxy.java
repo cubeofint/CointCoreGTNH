@@ -1,7 +1,9 @@
 package coint;
 
+import net.minecraft.network.NetworkManager;
 import net.minecraftforge.common.MinecraftForge;
 
+import coint.client.ClientEventNei;
 import coint.client.ClientRestartOverlay;
 import coint.client.ClientTransfer;
 import coint.client.ClientWorldTravelEvents;
@@ -10,6 +12,7 @@ import coint.client.SrgbGuard;
 import coint.client.battlepass.CommandBattlePassPreview;
 import coint.network.PacketOpenWorlds;
 import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 
 public class ClientProxy extends CommonProxy {
@@ -38,8 +41,13 @@ public class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(new coint.client.ClientCards.Disconnect());
-        if (cpw.mods.fml.common.Loader.isModLoaded("NotEnoughItems")) {
+        if (Loader.isModLoaded("NotEnoughItems")) {
             coint.supply.SupplyNeiHandler.register();
+            ClientEventNei eventNei = new ClientEventNei();
+            MinecraftForge.EVENT_BUS.register(eventNei);
+            FMLCommonHandler.instance()
+                .bus()
+                .register(eventNei);
         }
         FMLCommonHandler.instance()
             .bus()
@@ -68,6 +76,11 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void receiveAdminChatAccess(boolean allowed) {
         coint.client.chat.ClientChatChannels.receiveAdminAccess(allowed);
+    }
+
+    @Override
+    public void receiveEventNei(NetworkManager connection, boolean hidden) {
+        if (Loader.isModLoaded("NotEnoughItems")) ClientEventNei.receive(connection, hidden);
     }
 
     @Override

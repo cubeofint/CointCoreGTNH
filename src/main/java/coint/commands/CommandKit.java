@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import net.minecraft.block.BlockChest;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -17,6 +18,7 @@ import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.tileentity.TileEntityChest;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MovingObjectPosition;
@@ -35,6 +37,7 @@ import serverutils.lib.util.permission.PermissionAPI;
 public class CommandKit extends CommandBase {
 
     private static final Pattern KIT_NAME = Pattern.compile("^[a-z0-9_-]{1,32}$");
+    private static final String UPDATE_FROM_BLOCK = "update_from_block_inv";
 
     private static final String PERM_KIT_EDIT = "cointcore.command.kit.edit";
     /** Право на /kit add и /kit set (остаток использований). */
@@ -68,6 +71,7 @@ public class CommandKit extends CommandBase {
 
         if (PermissionAPI.hasPermission(player.getPlayer(), PERM_KIT_EDIT)) {
             parts.add("/kit create <name> [maxClaims] [rank]");
+            parts.add("/kit " + UPDATE_FROM_BLOCK + " <name>");
             parts.add("/kit delete <name>");
             parts.add("/kit bind <name> <rank|none>");
         }
@@ -85,6 +89,7 @@ public class CommandKit extends CommandBase {
             if (sender instanceof EntityPlayerMP player) {
                 if (PermissionAPI.hasPermission(player, PERM_KIT_EDIT)) {
                     subs.add("create");
+                    subs.add(UPDATE_FROM_BLOCK);
                     subs.add("delete");
                     subs.add("bind");
                 }
@@ -115,7 +120,9 @@ public class CommandKit extends CommandBase {
         if (args.length == 2 && ("create".equalsIgnoreCase(args[0]) || "delete".equalsIgnoreCase(args[0])
             || "add".equalsIgnoreCase(args[0])
             || "bind".equalsIgnoreCase(args[0])
-            || "set".equalsIgnoreCase(args[0]))) {
+            || "set".equalsIgnoreCase(args[0])
+            || (UPDATE_FROM_BLOCK.equalsIgnoreCase(args[0]) && sender instanceof EntityPlayerMP player
+                && !lacksEditPermission(player)))) {
             Collection<String> names = KitManager.getKitNames(MinecraftServer.getServer());
             return getListOfStringsMatchingLastWord(args, names.toArray(new String[0]));
         }
@@ -138,7 +145,7 @@ public class CommandKit extends CommandBase {
             && KitManager.getKit(MinecraftServer.getServer(), args[0].toLowerCase(java.util.Locale.ROOT)) != null)
             args = new String[] { "claim", args[0] };
         String sub = args[0].toLowerCase();
-        if ("create".equals(sub) || "delete".equals(sub) || "bind".equals(sub)) {
+        if ("create".equals(sub) || "delete".equals(sub) || "bind".equals(sub) || UPDATE_FROM_BLOCK.equals(sub)) {
             if (sender instanceof EntityPlayer player && !PermissionAPI.hasPermission(player, PERM_KIT_EDIT))
                 throw new CommandException("commands.generic.permission");
             if (coint.cluster.ClusterAccess.enabled() && !coint.cluster.ClusterService.nodeId()
@@ -262,7 +269,10 @@ public class CommandKit extends CommandBase {
             return;
         }
 
-        String name = args.length > 1 ? args[1].toLowerCase() : null;
+        if (UPDATE_FROM_BLOCK.equals(sub) && args.length != 2) {
+            throw new WrongUsageException("/kit " + UPDATE_FROM_BLOCK + " <name>");
+        }
+        String name = args.length > 1 ? args[1].toLowerCase(java.util.Locale.ROOT) : null;
         if (("create".equals(sub) || "claim".equals(sub) || "delete".equals(sub)) && name == null) {
             throw new WrongUsageException(getCommandUsage(sender));
         }
@@ -292,6 +302,26 @@ public class CommandKit extends CommandBase {
                 KitDefinition kit = new KitDefinition(name, items, maxClaims, rank);
                 KitManager.putKit(MinecraftServer.getServer(), kit);
                 sendSuccess(sender, "Набор сохранен: " + name);
+                return;
+            }
+            case UPDATE_FROM_BLOCK: {
+                MinecraftServer server = MinecraftServer.getServer();
+                KitDefinition existing = KitManager.getKit(server, name);
+                if (existing == null) {
+                    throw new CommandException("Набор не найден: " + name);
+                }
+                IInventory inventory = getTargetInventory(player, true);
+                if (inventory == null) {
+                    throw new CommandException("Наведи прицел на доступный сундук или другой контейнер.");
+                }
+                List<ItemStack> items = captureFromInventory(inventory);
+                if (items.isEmpty()) {
+                    throw new CommandException("В контейнере нет доступных предметов.");
+                }
+                KitManager.putKit(
+                    server,
+                    new KitDefinition(existing.getName(), items, existing.getMaxClaims(), existing.getRequiredRank()));
+                sendSuccess(sender, "Набор обновлён: " + existing.getName());
                 return;
             }
             case "claim": {
@@ -398,7 +428,7 @@ public class CommandKit extends CommandBase {
     }
 
     private List<ItemStack> captureItems(EntityPlayer player) {
-        IInventory inventory = getTargetInventory(player);
+        IInventory inventory = getTargetInventory(player, false);
         if (inventory != null) {
             return captureFromInventory(inventory);
         }
@@ -413,7 +443,7 @@ public class CommandKit extends CommandBase {
         return new ArrayList<>();
     }
 
-    private IInventory getTargetInventory(EntityPlayer player) {
+    private IInventory getTargetInventory(EntityPlayer player, boolean includeBothChestHalves) {
         Vec3 start = Vec3.createVectorHelper(player.posX, player.posY + player.getEyeHeight(), player.posZ);
         Vec3 look = player.getLook(1.0F);
         Vec3 end = start.addVector(look.xCoord * 5.0D, look.yCoord * 5.0D, look.zCoord * 5.0D);
@@ -423,6 +453,10 @@ public class CommandKit extends CommandBase {
         }
 
         TileEntity tile = player.worldObj.getTileEntity(hit.blockX, hit.blockY, hit.blockZ);
+        if (includeBothChestHalves && tile instanceof TileEntityChest
+            && player.worldObj.getBlock(hit.blockX, hit.blockY, hit.blockZ) instanceof BlockChest chest) {
+            return chest.func_149951_m(player.worldObj, hit.blockX, hit.blockY, hit.blockZ);
+        }
         if (tile instanceof IInventory) {
             return (IInventory) tile;
         }
@@ -434,7 +468,7 @@ public class CommandKit extends CommandBase {
         List<ItemStack> items = new ArrayList<>();
         for (int i = 0; i < inventory.getSizeInventory(); i++) {
             ItemStack stack = inventory.getStackInSlot(i);
-            if (stack != null) {
+            if (stack != null && stack.getItem() != null && stack.stackSize > 0) {
                 items.add(stack.copy());
             }
         }

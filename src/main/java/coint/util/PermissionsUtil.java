@@ -1,5 +1,6 @@
 package coint.util;
 
+import coint.commands.CommandEventNei;
 import coint.events.KeepInventoryHandler;
 import coint.integration.serverutilities.CointSUPermissions;
 import serverutils.lib.util.permission.DefaultPermissionLevel;
@@ -8,6 +9,10 @@ import serverutils.lib.util.permission.PermissionAPI;
 public class PermissionsUtil {
 
     public static void register() {
+        PermissionAPI.registerNode(
+            CommandEventNei.PERMISSION,
+            DefaultPermissionLevel.OP,
+            "Temporarily hide NEI for a Hub event (/eventnei)");
         PermissionAPI.registerNode(
             coint.chat.AdminChat.PERMISSION,
             DefaultPermissionLevel.OP,

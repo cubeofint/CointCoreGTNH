@@ -14,7 +14,8 @@ public enum Mixins implements IMixins {
 
     // NEI is a coremod: NEIServerUtils is loaded before late mixins are prepared.
     // The pseudo target also permits running without NEI.
-    NEI(new MixinBuilder("NEI chat links").addCommonMixins("nei.MixinNEIServerUtilsLinks")),
+    NEI(new MixinBuilder("NEI integration").addCommonMixins("nei.MixinNEIServerUtilsLinks")
+        .addClientMixins("nei.MixinNEIClientConfig")),
 
     VANILLA(new MixinBuilder("Vanilla/Forge").addCommonMixins(
         "minecraft.MixinCommandMessage",

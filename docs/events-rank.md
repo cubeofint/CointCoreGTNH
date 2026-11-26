@@ -47,3 +47,21 @@ with a separate administrator role or OP has that role's independent privileges.
 Local verification uses real SU, actual command execution and a disposable Forge
 world. With WorldEdit v0.0.8 present it also exercises its real actor permission gate
 and a small block edit. These are local checks, not production acceptance tests.
+
+## Hiding NEI on Hub
+
+Add this rule to the existing `[events]` section on Alpha and reload SU ranks
+with `/reload serverutilities:ranks`.
+
+```text
+cointcore.command.eventnei: true
+```
+
+- `/eventnei hide 30` on Hub hides the NEI item list, search, bookmarks and recipe
+  screens for 30 minutes, including for players who join during that time.
+- `/eventnei show` restores each player's usual NEI visibility early. The timer,
+  a Hub restart or leaving Hub also restores it.
+
+Deploy the same CointCore build to Alpha, Endgame, Hub and the client pack.
+Alpha and Endgame require the client and server builds to match. The organizer
+gets a count of connected clients that need the update when the mode is started.

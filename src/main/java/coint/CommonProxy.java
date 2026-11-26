@@ -1,5 +1,7 @@
 package coint;
 
+import net.minecraft.network.NetworkManager;
+
 import com.gtnewhorizon.gtnhlib.config.ConfigException;
 
 import coint.commands.CmdRegistry;
@@ -7,6 +9,7 @@ import coint.commands.spy.DmLogger;
 import coint.commands.temprank.TempRankManager;
 import coint.commands.temprank.TempRankTask;
 import coint.epochsync.EpochRegistry;
+import coint.events.EventNei;
 import coint.http.HubWebSocket;
 import coint.integration.discord.DiscordGlobalBridge;
 import coint.integration.discord.DiscordModerationWebhook;
@@ -57,6 +60,7 @@ public class CommonProxy {
 
         WorldTravelNetwork.init();
         coint.chat.AdminChat.initNetwork();
+        EventNei.initNetwork();
         coint.cluster.TeamHistoryNetwork.init();
         coint.migration.MigrationNetwork.init();
         coint.supply.SupplyBlocks.register();
@@ -102,6 +106,8 @@ public class CommonProxy {
     public void receiveChatChannel(coint.chat.PacketChatChannel packet) {}
 
     public void receiveAdminChatAccess(boolean allowed) {}
+
+    public void receiveEventNei(NetworkManager connection, boolean hidden) {}
 
     public void receiveTeamHistory(coint.cluster.PacketTeamHistory packet) {}
 
@@ -171,6 +177,7 @@ public class CommonProxy {
     @SuppressWarnings("unused")
     public void serverStopped(FMLServerStoppedEvent event) {
         coint.chat.ChatChannels.reset();
+        EventNei.reset();
         coint.migration.MigrationStorage.stop();
         coint.cluster.ClusterAccess.reset();
         coint.cluster.ClusterService.stop();

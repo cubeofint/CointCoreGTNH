@@ -36,6 +36,7 @@ public class CmdRegistry {
         event.registerServerCommand(new CommandAdminChat());
         event.registerServerCommand(new CommandCleanup());
         event.registerServerCommand(new CommandHub());
+        event.registerServerCommand(new CommandEventNei());
         event.registerServerCommand(new CommandClass());
         event.registerServerCommand(new CommandIgnore());
         event.registerServerCommand(new CommandUnloadDimensions());
