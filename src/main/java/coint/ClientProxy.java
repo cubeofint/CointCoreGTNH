@@ -8,8 +8,10 @@ import coint.client.ClientRestartOverlay;
 import coint.client.ClientTransfer;
 import coint.client.ClientWorldTravelEvents;
 import coint.client.ClientWorldTravelState;
+import coint.client.GuiPoll;
 import coint.client.SrgbGuard;
 import coint.client.battlepass.CommandBattlePassPreview;
+import coint.cluster.PollNetwork;
 import coint.network.PacketOpenWorlds;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
@@ -34,6 +36,9 @@ public class ClientProxy extends CommonProxy {
         FMLCommonHandler.instance()
             .bus()
             .register(new ClientWorldTravelEvents());
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new GuiPoll.Ticker());
         MinecraftForge.EVENT_BUS.register(new ClientRestartOverlay());
         MinecraftForge.EVENT_BUS.register(new coint.client.ClientCardsOverlay());
         cpw.mods.fml.client.registry.ClientRegistry
@@ -81,6 +86,16 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void receiveEventNei(NetworkManager connection, boolean hidden) {
         if (Loader.isModLoaded("NotEnoughItems")) ClientEventNei.receive(connection, hidden);
+    }
+
+    @Override
+    public void receivePoll(NetworkManager connection, PollNetwork.Prompt prompt) {
+        GuiPoll.receive(connection, prompt);
+    }
+
+    @Override
+    public void receivePollReply(NetworkManager connection, PollNetwork.Reply reply) {
+        GuiPoll.receive(connection, reply);
     }
 
     @Override

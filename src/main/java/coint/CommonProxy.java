@@ -4,6 +4,8 @@ import net.minecraft.network.NetworkManager;
 
 import com.gtnewhorizon.gtnhlib.config.ConfigException;
 
+import coint.cluster.ClusterPolls;
+import coint.cluster.PollNetwork;
 import coint.commands.CmdRegistry;
 import coint.commands.spy.DmLogger;
 import coint.commands.temprank.TempRankManager;
@@ -61,6 +63,7 @@ public class CommonProxy {
         WorldTravelNetwork.init();
         coint.chat.AdminChat.initNetwork();
         EventNei.initNetwork();
+        PollNetwork.init();
         coint.cluster.TeamHistoryNetwork.init();
         coint.migration.MigrationNetwork.init();
         coint.supply.SupplyBlocks.register();
@@ -108,6 +111,10 @@ public class CommonProxy {
     public void receiveAdminChatAccess(boolean allowed) {}
 
     public void receiveEventNei(NetworkManager connection, boolean hidden) {}
+
+    public void receivePoll(NetworkManager connection, PollNetwork.Prompt prompt) {}
+
+    public void receivePollReply(NetworkManager connection, PollNetwork.Reply reply) {}
 
     public void receiveTeamHistory(coint.cluster.PacketTeamHistory packet) {}
 
@@ -181,6 +188,7 @@ public class CommonProxy {
         coint.migration.MigrationStorage.stop();
         coint.cluster.ClusterAccess.reset();
         coint.cluster.ClusterService.stop();
+        ClusterPolls.reset();
         coint.cluster.TeamHistory.reset();
         coint.blocklog.BlockLog.stop();
         coint.integration.discord.DiscordDropLog.stop();

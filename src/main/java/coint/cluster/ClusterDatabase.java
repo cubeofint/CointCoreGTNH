@@ -16,7 +16,7 @@ import java.util.Properties;
 final class ClusterDatabase {
 
     /** Bumped with every change of the tables; {@link #migrate} brings an older database up to it. */
-    private static final int SCHEMA_VERSION = 17;
+    private static final int SCHEMA_VERSION = 18;
     private static final int VALID_CHECK_SECONDS = 2;
 
     private final String url, username, password;
@@ -212,6 +212,7 @@ final class ClusterDatabase {
                 }
             }
             if (version < 17) TeamHistoryStore.createTables(s);
+            if (version < 18) ClusterPollStore.createTables(s);
         }
         try (PreparedStatement p = c.prepareStatement(
             "INSERT INTO cluster_meta (meta_key, meta_value) VALUES ('schema_version', ?) "

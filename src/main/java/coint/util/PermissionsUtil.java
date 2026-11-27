@@ -1,5 +1,6 @@
 package coint.util;
 
+import coint.cluster.CommandPoll;
 import coint.commands.CommandEventNei;
 import coint.events.KeepInventoryHandler;
 import coint.integration.serverutilities.CointSUPermissions;
@@ -9,6 +10,7 @@ import serverutils.lib.util.permission.PermissionAPI;
 public class PermissionsUtil {
 
     public static void register() {
+        PermissionAPI.registerNode(CommandPoll.PERMISSION, DefaultPermissionLevel.OP, "Start, stop and read polls");
         PermissionAPI.registerNode(
             CommandEventNei.PERMISSION,
             DefaultPermissionLevel.OP,
