@@ -240,7 +240,7 @@ public final class ChunkBonus {
         }
         List<ClaimedChunk> loaded = new ArrayList<>();
         for (ClaimedChunk chunk : ClaimedChunks.instance.getTeamChunks(team, java.util.OptionalInt.empty())) {
-            if (chunk.isLoaded()) {
+            if (chunk.isLoaded() || chunk.preDecay) {
                 loaded.add(chunk);
             }
         }
@@ -248,13 +248,20 @@ public final class ChunkBonus {
         if (extra <= 0) {
             return;
         }
-        for (int i = loaded.size() - 1; i >= 0 && extra > 0; i--, extra--) {
-            ClaimedChunks.instance.unloadChunk(
-                null,
-                loaded.get(i)
-                    .getPos());
+        ChunkLoadOrder.newestFirst(team, loaded);
+        int unloaded = 0;
+        for (ClaimedChunk chunk : loaded) {
+            boolean removed = ClaimedChunks.instance.unloadChunk(null, chunk.getPos());
+            if (chunk.preDecay) {
+                // Cancel the automatic reload on the team's next login as well.
+                chunk.preDecay = false;
+                ChunkLoadOrder.forget(chunk);
+                team.markDirty();
+                removed = true;
+            }
+            if (removed && ++unloaded == extra) break;
         }
-        int unloaded = loaded.size() - max;
+        if (unloaded == 0) return;
         CointCore.LOG.info("[ChunkBonus] Team {} loaded {} chunks over its limit of {}: unloaded", team, unloaded, max);
         for (ForgePlayer member : team.getMembers()) {
             EntityPlayerMP online = member.getNullablePlayer();
