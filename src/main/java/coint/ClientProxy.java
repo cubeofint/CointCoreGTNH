@@ -8,10 +8,12 @@ import coint.client.ClientRestartOverlay;
 import coint.client.ClientTransfer;
 import coint.client.ClientWorldTravelEvents;
 import coint.client.ClientWorldTravelState;
+import coint.client.GuiLiteCraftingConfirm;
 import coint.client.GuiPoll;
 import coint.client.SrgbGuard;
 import coint.client.battlepass.CommandBattlePassPreview;
 import coint.cluster.PollNetwork;
+import coint.integration.appliedenergistics2.LiteCraftingMode;
 import coint.network.PacketOpenWorlds;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
@@ -40,6 +42,7 @@ public class ClientProxy extends CommonProxy {
             .bus()
             .register(new GuiPoll.Ticker());
         MinecraftForge.EVENT_BUS.register(new ClientRestartOverlay());
+        MinecraftForge.EVENT_BUS.register(new GuiLiteCraftingConfirm.Listener());
         MinecraftForge.EVENT_BUS.register(new coint.client.ClientCardsOverlay());
         cpw.mods.fml.client.registry.ClientRegistry
             .bindTileEntitySpecialRenderer(coint.cards.TileCardTable.class, new coint.client.RenderCardTable());
@@ -86,6 +89,11 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void receiveEventNei(NetworkManager connection, boolean hidden) {
         if (Loader.isModLoaded("NotEnoughItems")) ClientEventNei.receive(connection, hidden);
+    }
+
+    @Override
+    public void receiveLiteCraftingPrompt(NetworkManager connection, LiteCraftingMode.Prompt prompt) {
+        GuiLiteCraftingConfirm.receive(connection, prompt);
     }
 
     @Override

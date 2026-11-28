@@ -239,3 +239,13 @@ cointcore.poll.saving=Saving vote…
 cointcore.poll.retry=Try voting again
 cointcore.poll.scroll=Scroll to read more
 cointcore.poll.saved=Your vote has been saved.
+
+cointcore.ae2.liteCrafting.title=Disable Lite Crafting?
+cointcore.ae2.liteCrafting.purpose=Lite Crafting plans complex AE2 orders faster and reduces server load.
+cointcore.ae2.liteCrafting.when=Turn it off only if the plan relies on ingredient substitutions (including Ore Dictionary), pattern priority, returned ingredients, or multiple outputs from one pattern.
+cointcore.ae2.liteCrafting.scope.network=Standard planning will apply to automatic orders and Level Maintainers that use this network setting.
+cointcore.ae2.liteCrafting.scope.maintainer=Standard planning will apply to orders from this Level Maintainer.
+cointcore.ae2.liteCrafting.scope.inherit=This Level Maintainer will use the network setting. The network currently uses standard planning.
+cointcore.ae2.liteCrafting.keep=Keep Lite
+cointcore.ae2.liteCrafting.disable=Disable
+cointcore.ae2.liteCrafting.inherit=Use network setting

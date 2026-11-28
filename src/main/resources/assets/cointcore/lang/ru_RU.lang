@@ -239,3 +239,13 @@ cointcore.poll.saving=Сохраняем голос…
 cointcore.poll.retry=Повторите голосование
 cointcore.poll.scroll=Колесо для прокрутки
 cointcore.poll.saved=Ваш голос учтён.
+
+cointcore.ae2.liteCrafting.title=Отключить Lite Crafting?
+cointcore.ae2.liteCrafting.purpose=Lite Crafting ускоряет расчёт сложных автозаказов AE2 и снижает нагрузку на сервер.
+cointcore.ae2.liteCrafting.when=Отключайте, только если расчёт зависит от замен ингредиентов (в том числе Ore Dictionary), выбора шаблона по приоритету, возвращаемых ингредиентов или нескольких выходов одного шаблона.
+cointcore.ae2.liteCrafting.scope.network=Обычный расчёт будет применяться к автозаказам сети и Level Maintainer, которые используют настройку сети.
+cointcore.ae2.liteCrafting.scope.maintainer=Обычный расчёт будет применяться к заказам этого Level Maintainer.
+cointcore.ae2.liteCrafting.scope.inherit=Этот Level Maintainer вернётся к настройке сети. Сейчас в сети выбран обычный расчёт.
+cointcore.ae2.liteCrafting.keep=Оставить Lite
+cointcore.ae2.liteCrafting.disable=Отключить
+cointcore.ae2.liteCrafting.inherit=Сбросить выбор

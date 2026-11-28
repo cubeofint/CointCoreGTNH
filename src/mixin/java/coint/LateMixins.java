@@ -5,6 +5,10 @@ import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
 public enum LateMixins implements IMixins {
 
+    AE2FLUIDCRAFT(new MixinBuilder("AE2 Fluid Crafting").addRequiredMod(TargetMod.AE2FLUIDCRAFT)
+        .setPhase(Phase.LATE)
+        .addCommonMixins("ae2fluidcraft.MixinLevelMaintainerLiteConfirmation")),
+
     APPLIEDENERGISTICS2(new MixinBuilder("Applied Energistics 2").addRequiredMod(TargetMod.APPLIEDENERGISTICS2)
         .setPhase(Phase.LATE)
         .addCommonMixins(
@@ -21,6 +25,8 @@ public enum LateMixins implements IMixins {
             "appliedenergistics2.MixinPartImportBusBulkTransfer",
             "appliedenergistics2.MixinNetworkInventoryImportTrace",
             "appliedenergistics2.MixinMultiCraftingTrackerRetry",
+            "appliedenergistics2.MixinCraftingGridLiteDefault",
+            "appliedenergistics2.MixinNetworkStatusLiteConfirmation",
             "appliedenergistics2.MixinSecurityCacheDisabled",
             "appliedenergistics2.MixinWirelessRegistryRemote",
             "appliedenergistics2.MixinGuiBridgeRemote",

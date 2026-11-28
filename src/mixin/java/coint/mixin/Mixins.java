@@ -7,6 +7,9 @@ public enum Mixins implements IMixins {
 
     SPOTIFY(new MixinBuilder("Optional Spotify chat widget").addClientMixins("minecraft.MixinGuiChatSpotify")),
 
+    LITE_CRAFTING(new MixinBuilder("Lite Crafting confirmation")
+        .addClientMixins("minecraft.MixinGuiScreenLiteCraftingConfirmation")),
+
     CHAT(new MixinBuilder("Chat channel tabs").addClientMixins(
         "minecraft.MixinGuiNewChatChannels",
         "minecraft.MixinGuiChatChannels",

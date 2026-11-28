@@ -13,6 +13,7 @@ import coint.commands.temprank.TempRankTask;
 import coint.epochsync.EpochRegistry;
 import coint.events.EventNei;
 import coint.http.HubWebSocket;
+import coint.integration.appliedenergistics2.LiteCraftingMode;
 import coint.integration.discord.DiscordGlobalBridge;
 import coint.integration.discord.DiscordModerationWebhook;
 import coint.integration.gregtechnightmare.GTNRecipes;
@@ -63,6 +64,7 @@ public class CommonProxy {
         WorldTravelNetwork.init();
         coint.chat.AdminChat.initNetwork();
         EventNei.initNetwork();
+        LiteCraftingMode.initNetwork();
         PollNetwork.init();
         coint.cluster.TeamHistoryNetwork.init();
         coint.migration.MigrationNetwork.init();
@@ -111,6 +113,8 @@ public class CommonProxy {
     public void receiveAdminChatAccess(boolean allowed) {}
 
     public void receiveEventNei(NetworkManager connection, boolean hidden) {}
+
+    public void receiveLiteCraftingPrompt(NetworkManager connection, LiteCraftingMode.Prompt prompt) {}
 
     public void receivePoll(NetworkManager connection, PollNetwork.Prompt prompt) {}
 
@@ -185,6 +189,7 @@ public class CommonProxy {
     public void serverStopped(FMLServerStoppedEvent event) {
         coint.chat.ChatChannels.reset();
         EventNei.reset();
+        LiteCraftingMode.reset();
         coint.migration.MigrationStorage.stop();
         coint.cluster.ClusterAccess.reset();
         coint.cluster.ClusterService.stop();
