@@ -22,8 +22,10 @@ import com.google.gson.reflect.TypeToken;
 
 import coint.CointConfig;
 import coint.CointCore;
+import coint.chunkbonus.ChunkBonus;
 import coint.commands.kit.KitManager;
 import coint.commands.temprank.TempRankManager;
+import coint.migration.MigrationGuard;
 import coint.player.PlayerLookup;
 import serverutils.lib.data.ForgePlayer;
 import serverutils.lib.util.NBTUtils;
@@ -43,6 +45,7 @@ public final class DonationDelivery {
 
         public String id, name, uuid, kit;
         public int amount;
+        public long chunkExpiry;
     }
 
     private DonationDelivery() {}
@@ -67,7 +70,9 @@ public final class DonationDelivery {
             || (g.name == null ? g.uuid == null : !g.name.matches("[A-Za-z0-9_.]{1,16}"))
             || g.kit == null
             || !g.kit.matches("[a-z0-9_-]{1,64}")
-            || g.amount <= 0) throw new IllegalArgumentException("Invalid kit delivery record");
+            || g.amount <= 0
+            || (g.chunkExpiry != 0 && (g.chunkExpiry < 0 || g.uuid == null || g.amount > 999)))
+            throw new IllegalArgumentException("Invalid donation delivery record");
         if (g.uuid != null) UUID.fromString(g.uuid);
     }
 
@@ -131,6 +136,37 @@ public final class DonationDelivery {
         save(updated);
         grants = updated;
         return g.id;
+    }
+
+    public static void creditChunks(UUID player, String name, int amount, long expiresAt, String receipt) {
+        TempRankManager.requireAuthority();
+        if (!enabled()) throw new IllegalStateException("Cluster donation delivery is disabled");
+        if (!UUID.fromString(receipt)
+            .toString()
+            .equals(receipt) || amount < 1
+            || amount > 999
+            || expiresAt <= 0
+            || expiresAt > System.currentTimeMillis() + 31L * 86_400_000L)
+            throw new IllegalArgumentException("Invalid chunk-loader purchase");
+        load();
+        Grant value = new Grant();
+        value.id = "chunk-loader:" + receipt;
+        value.uuid = player.toString();
+        value.name = name;
+        value.kit = "coint_paid_chunk_loaders";
+        value.amount = amount;
+        value.chunkExpiry = expiresAt;
+        validate(value);
+        for (Grant old : grants) if (old.id.equals(value.id)) {
+            if (!value.uuid.equals(old.uuid) || amount != old.amount || expiresAt != old.chunkExpiry)
+                throw new IllegalArgumentException("Chunk-loader receipt reused with different contents");
+            return;
+        }
+        if (expiresAt <= System.currentTimeMillis()) throw new IllegalArgumentException("Chunk-loader order expired");
+        List<Grant> updated = new ArrayList<>(grants);
+        updated.add(value);
+        save(updated);
+        grants = updated;
     }
 
     /** AzLink uses the authenticated UUID, including accounts which have not joined this node yet. */
@@ -209,6 +245,21 @@ public final class DonationDelivery {
                 if (!player.getUniqueID()
                     .toString()
                     .equals(grant.uuid) || receipts.getBoolean(grant.id)) continue;
+                if (grant.chunkExpiry != 0) {
+                    String playerName = player.getCommandSenderName();
+                    if (grant.chunkExpiry <= System.currentTimeMillis()
+                        || MigrationGuard.mutationReason(playerName) != null) continue;
+                    try {
+                        ChunkBonus.applyPurchase(playerName, grant.amount, grant.chunkExpiry, grant.id);
+                    } catch (java.io.IOException e) {
+                        if (warned.add(grant.id)) CointCore.LOG.warn("[Donation] Chunk purchase remains pending", e);
+                        continue;
+                    }
+                    receipts.setBoolean(grant.id, true);
+                    persisted.setTag("cointcore_donation_receipts", receipts);
+                    changed = true;
+                    continue;
+                }
                 if (KitManager.getKit(MinecraftServer.getServer(), grant.kit) == null) {
                     if (warned.add(grant.kit)) CointCore.LOG
                         .warn("[Donation] Kit {} is missing on this home node; credits remain pending", grant.kit);

@@ -38,7 +38,7 @@ public final class CommandShop extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "cointshop <catalog|status|cosmetic|purchase|kitpurchase> <base64-json>";
+        return "cointshop <catalog|status|cosmetic|purchase|kitpurchase|chunkpurchase> <base64-json>";
     }
 
     @Override
@@ -106,6 +106,23 @@ public final class CommandShop extends CommandBase {
             .equals(uuid)) throw new IllegalArgumentException("Player identity mismatch");
         JsonObject result;
         switch (args[0]) {
+            case "chunkpurchase":
+                String chunkReceipt = request.get("receipt")
+                    .getAsString();
+                DonationDelivery.creditChunks(
+                    uuid,
+                    name,
+                    request.get("amount")
+                        .getAsInt(),
+                    Math.multiplyExact(
+                        request.get("expires_at")
+                            .getAsLong(),
+                        1000),
+                    chunkReceipt);
+                result = new JsonObject();
+                result.addProperty("receipt", chunkReceipt);
+                result.addProperty("accepted", true);
+                break;
             case "kitpurchase":
                 if (!DonationDelivery.enabled())
                     throw new IllegalArgumentException("Cluster donation delivery is disabled");

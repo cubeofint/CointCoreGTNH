@@ -63,6 +63,7 @@ public final class ChunkBonus {
         public int chunks;
         public long addedAt, expiresAt;
         public String note;
+        public String receipt;
     }
 
     private static List<Entry> entries() {
@@ -107,17 +108,50 @@ public final class ChunkBonus {
         List<Entry> result = new ArrayList<>();
         for (Entry entry : entries()) if (!owners.contains(entry.player)) result.add(entry);
         if (!clear) result.addAll(incoming);
+        persist(result);
+        entries = result;
+    }
+
+    /** Apply a shop receipt on the home node. The stored entry protects retries before the player save. */
+    public static void applyPurchase(String player, int chunks, long expiresAt, String receipt) throws IOException {
+        for (Entry entry : entries()) if (receipt.equals(entry.receipt)) return;
+        long now = System.currentTimeMillis();
+        if (expiresAt <= now) return;
+        Entry entry = new Entry();
+        entry.player = player.toLowerCase(Locale.ROOT);
+        entry.chunks = chunks;
+        entry.addedAt = now;
+        entry.expiresAt = expiresAt;
+        entry.receipt = receipt;
+        entry.note = "Магазин";
+        List<Entry> result = new ArrayList<>(entries());
+        result.add(entry);
+        persist(result);
+        entries = result;
+        refresh(entry.player);
+    }
+
+    private static void persist(List<Entry> result) throws IOException {
         Files.createDirectories(
             FILE.toPath()
                 .getParent());
-        java.nio.file.Path temporary = FILE.toPath()
-            .resolveSibling("chunk_bonus.migration-" + java.util.UUID.randomUUID() + ".tmp");
-        Files.write(
-            temporary,
-            GSON.toJson(result)
-                .getBytes(StandardCharsets.UTF_8));
-        Files.move(temporary, FILE.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        entries = result;
+        java.nio.file.Path temporary = Files.createTempFile(
+            FILE.toPath()
+                .getParent(),
+            "chunk_bonus-",
+            ".tmp");
+        try {
+            try (java.io.FileOutputStream stream = new java.io.FileOutputStream(temporary.toFile())) {
+                stream.write(
+                    GSON.toJson(result)
+                        .getBytes(StandardCharsets.UTF_8));
+                stream.getFD()
+                    .sync();
+            }
+            Files.move(temporary, FILE.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
     }
 
     /** Adds a purchase with a duration in milliseconds. */
